@@ -4,24 +4,56 @@ import time
 from pylon import puts
 from pylon import datalines
 from pylon import all_files
+import os
+import shutil
+from datetime import datetime
 
 
 
 
-import zhihu
+from zhihu import ZhihuClient, ActType
 
 
 import re
-import os
+
 import urllib.request
-import shutil
 
 
+
+
+
+def generate_cookie():
+  # po....@gmail.com p...
+  ZhihuClient().create_cookies('cookies.json')
+# generate_cookie()
 
 
 
 def test_time():
   print(time.strftime('%Y-%m-%d'))
+
+
+
+COOKIES_FILE = 'cookies.json'
+client = ZhihuClient(COOKIES_FILE)
+
+
+
+def test_new_zhihu():
+  url = 'https://www.zhihu.com/question/30957313/answer/50266448'
+  answer = client.answer(url) | puts()
+  answer.author | puts()
+  answer.collect_num | puts()
+  answer.upvote_num | puts()
+  answer.content | puts()
+  for c in list(answer.comments):
+    (c.author.name, c.content) | puts()
+
+
+
+
+
+
 
 
 
@@ -46,6 +78,7 @@ def test_html2text():
   # print('\n'.join(p for p in html.split('\n')))
   # print('\n'.join(p.rstrip() for p in html.split('\n')))
   # print(h2t_handle_html(html))
+
 
 
 
@@ -102,7 +135,7 @@ def save_answer(answer, folder='test'):
   # url = 'http://www.zhihu.com/question/24413365/answer/27857112'
   # url = 'http://www.zhihu.com/question/23039503/answer/48635152'
   if isinstance(answer, str):
-    answer = zhihu.Answer(answer)
+    answer = client.Answer(answer)
   author = answer.author
   question = answer.question
   # print(answer.content)
@@ -121,20 +154,22 @@ def save_answer(answer, folder='test'):
     text += '\n\n'
 
   motto = ' ({})'.format(author.motto) if author.motto else ''
-  create_date, edit_date = answer.date
+  # create_date, edit_date = answer.creation_time
+  create_date = answer.creation_time
   text += '    author:      {}{}\n'.format(author.name, motto)
-  text += '    upvote:      {} 赞同\n'.format(answer.upvote)
+  text += '    upvote:      {} 赞同\n'.format(answer.upvote_num)
   text += '    count:       {} 字\n'.format(len(answer_body))
   text += '    create_date: {}\n'.format(create_date)
-  if edit_date:
-    text += '    edit_date:   {}\n'.format(edit_date)
+  # if edit_date:
+  #   text += '    edit_date:   {}\n'.format(edit_date)
   text += '    fetch_date:  {}\n'.format(time.strftime('%Y-%m-%d'))
-  text += '    link:        {}\n\n'.format(answer._url)
+  text += '    link:        {}\n\n'.format(answer.url)
 
 
   text += answer_body
 
-  conversations = answer.valuable_conversations(min_likes=20)
+  # conversations = answer.valuable_conversations(min_likes=20)
+  conversations = None
   if conversations:
     text += '\n\n　　\n\n### 评论\n\n'
     for i, conversation in enumerate(conversations):
@@ -151,11 +186,12 @@ def save_answer(answer, folder='test'):
 
 
   text += '\n\n　　\n\n--------------\n'
-  text += 'from: [{}]()\n'.format(answer._url)
-  path = folder + '/' + zhihu.remove_invalid_char(question.title + ' - ' + author.name + '的回答.md')
+  text += 'from: [{}]()\n'.format(answer.url)
+  from zhihu.common import remove_invalid_char
+  path = folder + '/' + remove_invalid_char(question.title + ' - ' + author.name + '的回答.md')
   with open(path, 'w') as f:
     f.write(text)
-    puts('write {path} done')
+    puts('write path done')
 
   markdown_prettify(path)  # 去除 html2text 转换出来的 strong 和 link 的多余空格
   return path
@@ -169,7 +205,9 @@ def save_answer(answer, folder='test'):
 
 def test_save_answer():
   # 如何看待许知远在青年领袖颁奖典礼上愤怒「砸场」？
-  save_answer('http://www.zhihu.com/question/30595784/answer/49194862')
+  save_answer('https://www.zhihu.com/question/30595784/answer/49194862')
+  # 如何从头系统地听古典音乐？
+  save_answer('https://www.zhihu.com/question/30957313/answer/50266448')
 
   # 如何看待许知远在青年领袖颁奖典礼上愤怒「砸场」？
   # save_answer('http://www.zhihu.com/question/19598964/answer/49293435')

@@ -18,6 +18,7 @@ class Topic(BaseZhihu):
         :param name: 话题名称，可选
         :return: Topic
         """
+        print('dev topic')
         self.url = url
         self._session = session
         self._name = name
@@ -217,6 +218,10 @@ class Topic(BaseZhihu):
         from .answer import Answer
         from .author import Author
         top_answers_url = Topic_Top_Answers_Url.format(self.id)
+
+        # from pylon import puts
+        # puts('top_answers_url')
+
         params = {'page': 1}
         while True:
             # 超出50页直接返回
@@ -231,8 +236,12 @@ class Topic(BaseZhihu):
             questions = soup.find_all('a', class_='question_link')
             answers = soup.find_all(
                 'a', class_=re.compile(r'answer-date-link.*'))
-            authors = soup.find_all('h3', class_='zm-item-answer-author-wrap')
+            authors = soup.find_all('div', class_='zm-item-answer-author-info')
             upvotes = soup.find_all('a', class_='zm-item-vote-count')
+            # puts('answers')
+            # puts('upvotes')
+            # puts('questions')
+            # puts('authors')
             for ans, up, q, au in zip(answers, upvotes, questions, authors):
                 answer_url = Zhihu_URL + ans['href']
                 question_url = Zhihu_URL + q['href']
@@ -247,10 +256,12 @@ class Topic(BaseZhihu):
                 else:
                     author_url = Zhihu_URL + au.a['href']
                     author_name = au.a.text
-                    author_motto = au.strong['title'] if au.strong else ''
+                    author_motto = au.span.text if au.span else ''
 
                 author = Author(author_url, author_name, author_motto,
                                 session=self._session)
+
+                # puts(answer_url, question, author, upvote)
                 yield Answer(answer_url, question, author, upvote,
                              session=self._session)
 

@@ -8,12 +8,23 @@ class BaseZhihu:
         self.soup = BeautifulSoup(content)
 
     def _get_content(self):
-        return self._session.get(self.url).content
+        resp = self._session.get(self.url)
+
+        if self.__class__.__name__ == 'Answer':
+            if resp.history and resp.history[0].status_code in (301, 302):
+                self._deleted = True
+            else:
+                self._deleted = False
+
+        return resp.content
 
     def _make_soup(self):
         if self.url and not self.soup:
-            content = self._get_content()
-            self._gen_soup(content)
+            self._gen_soup(self._get_content())
+
+    def refresh(self):
+        # refresh self.soup's content
+        self._gen_soup(self._get_content())
 
     @classmethod
     def from_html(cls, content):

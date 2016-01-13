@@ -7,7 +7,7 @@ from pylon import all_files
 import os
 import shutil
 from datetime import datetime
-
+from pylon import enumrange
 
 
 
@@ -502,10 +502,26 @@ def test_do_save_from_question():
 
 
 def save_from_topic(url, min_upvote=1000, max_upvote=100000000, folder='test'):
-  topic = zhihu.Topic(url)
-  print('name', topic.name, 'pages', topic.page_number)
+  topic = client.Topic(url)
+  print('name', topic.name)
 
-  for answer, upvote, question_title, from_sub_topic in topic.top_answers:
+
+
+  print(str(topic))
+  tops = list(topic.top_answers)
+
+  print(tops)
+
+
+  for i, answer in enumrange(tops, 3):
+    print(answer)
+    print(answer.author)
+    print(answer.url)
+    # print(answer.content)
+    print('----')
+    continue
+
+
     if upvote < min_upvote:
       break
     if upvote > max_upvote:
@@ -546,7 +562,10 @@ def test_do_save_from_topic():
   # url = 'http://www.zhihu.com/topic/19551864/top-answers' # classical music
 
   url = 'http://www.zhihu.com/topic/19563625/top-answers'  # astronomy
-  save_from_topic(url, min_upvote=2000, max_upvote=5000, folder='history')
+  url = 'https://www.zhihu.com/topic/19553550/'  # paradox
+  url = 'https://www.zhihu.com/topic/19552330'  # programmer
+  url = 'http://www.zhihu.com/topic/19615699'  # immanuel_kant
+  save_from_topic(url, min_upvote=2000, max_upvote=5000, folder='paradox')
 
 
 # test_do_save_from_topic()
@@ -627,3 +646,69 @@ def test_md_line_replace():
   # print(text3)
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# from flask import Flask
+# from flask import render_template
+# app = Flask(__name__)
+
+
+
+# # 知乎马克 ZhihuMark
+
+
+# @app.route('/')
+# @app.route('/index')
+# def index():
+#     user = {'nickname': 'Miguel'}  # fake user
+#     return render_template("index.html",
+#                           title = 'Home',
+#                           user = user)
+
+
+# @app.route('/hello')
+# def hello():
+#     return 'Hello World'
+
+
+# @app.route('/user/<username>')
+# def show_user_profile(username):
+#     # show the user profile for that user
+#     return 'User %s' % username
+
+
+# @app.route('/post/<int:post_id>')
+# def show_post(post_id):
+#     # show the post with the given id, the id is an integer
+#     return 'Post %d' % post_id
+#     # return flask.jsonify(**f)
+#     # @app.route('/_get_current_user')
+#     # def get_current_user():
+#     #     return jsonify(username=g.user.username,
+#     #                    email=g.user.email,
+#     #                    id=g.user.id)
+#     # Returns:
+
+#     # {
+#     #     "username": "admin",
+#     #     "email": "admin@localhost",
+#     #     "id": 42
+#     # }
+
+# # if __name__ == '__main__':
+# #     app.run(debug=True)

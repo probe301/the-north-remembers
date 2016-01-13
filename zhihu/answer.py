@@ -33,6 +33,7 @@ class Answer(BaseZhihu):
         self._author = author
         self._upvote_num = upvote_num
         self._content = content
+        self._deleted = None
 
     @property
     def id(self):
@@ -167,9 +168,13 @@ class Answer(BaseZhihu):
         :return:  答案收藏数量
         :rtype: int
         """
-        return int(self.soup.find("a", {
+        element = self.soup.find("a", {
             "data-za-a": "click_answer_collected_count"
-        }).get_text())
+        })
+        if element is None:
+            return 0
+        else:
+            return int(element.get_text())
 
     @property
     def collections(self):
@@ -205,7 +210,7 @@ class Answer(BaseZhihu):
                                  follower_num=follower_num,
                                  session=self._session)
 
-            time.sleep(0.5)  # prevent from posting too quickly
+            time.sleep(0.2)  # prevent from posting too quickly
 
     def save(self, filepath=None, filename=None, mode="html"):
         """保存答案为Html文档或markdown文档.
@@ -258,6 +263,17 @@ class Answer(BaseZhihu):
                       photo_url, session=self._session)
 
     @property
+    @check_soup('_comment_num')
+    def comment_num(self):
+        """
+        :return: 答案下评论的数量
+        :rtype: int
+        """
+        comment_num_string = self.soup.find('a', class_=' meta-item toggle-comment').text
+        number = comment_num_string.split()[0]
+        return int(number) if number.isdigit() else 0
+
+    @property
     def comments(self):
         """获取答案下的所有评论.
 
@@ -280,3 +296,25 @@ class Answer(BaseZhihu):
             author_obj = Author(a_url, a_name, photo_url=a_photo_url,
                                 session=self._session)
             yield Comment(comment_id, self, author_obj, upvote_num, content, time_string)
+
+    def refresh(self):
+        """刷新 Answer object 的属性. 
+        例如赞同数增加了, 先调用 ``refresh()`` 
+        再访问 upvote_num属性, 可获得更新后的赞同数.
+        
+        :return: None
+        """
+        super().refresh()
+        self._html = None
+        self._upvote_num = None
+        self._content = None
+        self._collect_num = None
+        self._comment_num = None
+
+    @property
+    @check_soup('_deleted')
+    def deleted(self):
+        """答案是否被删除, 被删除了返回 True, 为被删除返回 False
+        :return: True or False
+        """
+        return self._deleted

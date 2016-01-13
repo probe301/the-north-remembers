@@ -5,6 +5,7 @@
 Zhihumark
 
 
+
 后端 Python API 国内 Python3 云或者 Keroku
 
 前端 React 国内静态托管平台
@@ -14,19 +15,41 @@ Flask 响应需要包装为 json
 UI Bootstrap Bootstap-Flat-UI
 
 
+
 - [ ] design json API
+      
 - [ ] howto response using json?
-
-
-
+      
+      ​
+      
 - [ ] refetch Zhihu.py Package
+      
 - [ ] refactor zhihu-fetcher
-
+      
 - [ ] design UI
+      
 - [ ] howto use Flat UI
+      
 - [ ] design react flow
 
 zhihumark 知乎马克
+
+
+
+### URL Schema
+
+http://zhihumark.com/answers/131
+
+http://zhihumark.com/topics/math
+
+
+
+
+
+
+
+
+
 
 
 描述
@@ -34,13 +57,19 @@ zhihumark 知乎马克
 以更加简洁清晰的排版阅读知乎. 用户指定一个知乎网站上的问题, zhihumark 抓取相应的回答内容, 以 markdown 文档的形式提供给用户阅读和下载.
 
 
+
 功能
 
 可以自由定制想抓取的内容, 这包括: 抓取指定答主/收藏夹名/问题/话题下的回答, 抓取赞同数量超过N的回答.
+
 可以设置黑名单, 不抓取特定的问题或者答主.
+
 抓取评论, 以会话的形式组织起来, 让上下文相关的评论出现在一起, 尽量滤除没有价值的评论.
+
 将收集到的一系列文档保存为epub或者pdf, 或者批量下载 markdown 文档, 以便离线阅读.
+
 (待定)制作成 feed 以便放入 rss 阅读器, 获取实时更新.
+
 
 
 观念
@@ -54,9 +83,11 @@ zhihumark 知乎马克
 相信评论区是对回答的重要补充, 也有随回答保留的必要, 但需处理评论区良莠不齐, 引用回复混乱的问题.
 
 
+
 技术和工具
 
 prototyper(原型) HTML5 Python Flask(网站引擎) SAE(部署)
+
 
 
 页面设计

@@ -3,15 +3,15 @@
 import time
 from pylon import puts
 from pylon import datalines
-from pylon import all_files
+
 import os
 import shutil
-from datetime import datetime
+
 from pylon import enumrange
 
 
 
-from zhihu import ZhihuClient, ActType
+from zhihu import ZhihuClient
 
 
 import re
@@ -138,10 +138,9 @@ def save_answer(answer, folder='test'):
     answer = client.Answer(answer)
   author = answer.author
   question = answer.question
-  # print(answer.content)
-  # raise
+
   answer_body = h2t_handle_html(answer.content)
-  # print(answer_body)
+
   text = '# {}\n\n'.format(question.title)
 
   text += '**话题**: {}\n\n'.format(', '.join(question.topics))
@@ -154,22 +153,21 @@ def save_answer(answer, folder='test'):
     text += '\n\n'
 
   motto = ' ({})'.format(author.motto) if author.motto else ''
-  # create_date, edit_date = answer.creation_time
-  create_date = answer.creation_time
+  create_date, edit_date = answer.date_pair
+
   text += '    author:      {}{}\n'.format(author.name, motto)
   text += '    upvote:      {} 赞同\n'.format(answer.upvote_num)
   text += '    count:       {} 字\n'.format(len(answer_body))
   text += '    create_date: {}\n'.format(create_date)
-  # if edit_date:
-  #   text += '    edit_date:   {}\n'.format(edit_date)
+  if edit_date:
+    text += '    edit_date:   {}\n'.format(edit_date)
   text += '    fetch_date:  {}\n'.format(time.strftime('%Y-%m-%d'))
   text += '    link:        {}\n\n'.format(answer.url)
 
 
   text += answer_body
 
-  # conversations = answer.valuable_conversations(min_likes=20)
-  conversations = None
+  conversations = answer.valuable_conversations(min_likes=3)
   if conversations:
     text += '\n\n　　\n\n### 评论\n\n'
     for i, conversation in enumerate(conversations):
@@ -205,7 +203,7 @@ def save_answer(answer, folder='test'):
 
 def test_save_answer():
   # 如何看待许知远在青年领袖颁奖典礼上愤怒「砸场」？
-  save_answer('https://www.zhihu.com/question/30595784/answer/49194862')
+  # save_answer('https://www.zhihu.com/question/30595784/answer/49194862')
   # 如何从头系统地听古典音乐？
   save_answer('https://www.zhihu.com/question/30957313/answer/50266448')
 
@@ -298,7 +296,7 @@ def fetch_images_for_markdown_file(markdown_file):
   print('start parsing md file: ' + markdown_file.split('/')[-1])
   image_counter = []
   replacer = lambda m: fetch_image(url=m.group(0), markdown_file=markdown_file, image_counter=image_counter)
-  text2, n = re.subn(r'(http://pic[^()]+\.jpg)', replacer, text)
+  text2, n = re.subn(r'(https://pic[^()]+\.jpg)', replacer, text)
   if n > 0:
     with open(markdown_file, 'w', encoding='utf-8') as f:
       f.write(text2)
@@ -501,40 +499,27 @@ def test_do_save_from_question():
 
 
 
-def save_from_topic(url, min_upvote=1000, max_upvote=100000000, folder='test'):
+def save_from_topic(url, max_answers=200, min_upvote=1000, max_upvote=100000000, folder='test'):
   topic = client.Topic(url)
   print('name', topic.name)
 
+  for i, answer in enumrange(topic.top_answers, max_answers):
+    print(answer.question.title, ' - ', answer.upvote_num)
+    # continue
 
 
-  print(str(topic))
-  tops = list(topic.top_answers)
-
-  print(tops)
-
-
-  for i, answer in enumrange(tops, 3):
-    print(answer)
-    print(answer.author)
-    print(answer.url)
-    # print(answer.content)
-    print('----')
-    continue
-
-
-    if upvote < min_upvote:
+    if answer.upvote_num < min_upvote:
       break
-    if upvote > max_upvote:
+    if answer.upvote_num > max_upvote:
       continue
 
-    print(question_title, ' - ', upvote, from_sub_topic)
     try:
       md_file = save_answer(answer, folder=folder)
       fetch_images_for_markdown_file(md_file)
     except RuntimeError as e:
-      print(e, question_title)
+      print(e, answer.question.title)
     except TypeError as e:
-      print('question_link["href"]', e, question_title)
+      print('question_link["href"]', e, answer.question.title)
     # except AttributeError as e:
     #   print('time to long? ', e, question_title)
 
@@ -565,7 +550,12 @@ def test_do_save_from_topic():
   url = 'https://www.zhihu.com/topic/19553550/'  # paradox
   url = 'https://www.zhihu.com/topic/19552330'  # programmer
   url = 'http://www.zhihu.com/topic/19615699'  # immanuel_kant
-  save_from_topic(url, min_upvote=2000, max_upvote=5000, folder='paradox')
+  url = 'https://www.zhihu.com/topic/19551275'  # artificial intelligence
+  url = 'https://www.zhihu.com/topic/19559450'  # machine_learning
+  url = 'https://www.zhihu.com/topic/19620787'  # universe
+  url = 'https://www.zhihu.com/topic/19553534'  # data_mining
+  url = 'https://www.zhihu.com/topic/19815465'  # quantitative_trading
+  save_from_topic(url, min_upvote=200, max_upvote=5000000, folder='quantitative_trading')
 
 
 # test_do_save_from_topic()
@@ -622,6 +612,7 @@ def test_test_topic():
   # test_topic('http://www.zhihu.com/topic/19554298/top-answers')  # page 50 Programming
   # test_topic('http://www.zhihu.com/topic/19737690/top-answers')  # page 2 Raspberry PI
   test_topic('http://www.zhihu.com/topic/19569910/top-answers')  # page 11 OOP
+  test_topic('https://www.zhihu.com/topic/19551275')  # page 50 artificial intelligence
   # test_topic('http://www.zhihu.com/topic/19569910/top-answers')  # page 11 OOP
 
 

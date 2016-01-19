@@ -298,10 +298,10 @@ class Answer(BaseZhihu):
             yield Comment(comment_id, self, author_obj, upvote_num, content, time_string)
 
     def refresh(self):
-        """刷新 Answer object 的属性. 
-        例如赞同数增加了, 先调用 ``refresh()`` 
+        """刷新 Answer object 的属性.
+        例如赞同数增加了, 先调用 ``refresh()``
         再访问 upvote_num属性, 可获得更新后的赞同数.
-        
+
         :return: None
         """
         super().refresh()
@@ -318,3 +318,143 @@ class Answer(BaseZhihu):
         :return: True or False
         """
         return self._deleted
+
+
+
+
+
+
+
+
+    # 2016.01.18 Probe add
+
+
+    @property
+    @check_soup('_date_pair')
+    def date_pair(self):
+        '''同时取得创建时间和编辑修改时间'''
+        link = self.soup.find('a', class_='answer-date-link')
+        create_date = link.text
+        edit_date = ''
+        if link.get('data-tip'):
+            edit_date = create_date
+            create_date = link['data-tip']
+        # print('date', create_date, edit_date)
+        return create_date.strip().split(' ')[-1], edit_date.strip().split(' ')[-1]
+
+
+
+    @property
+    @check_soup('_comment_list_id')
+    def comment_list_id(self):
+        """返回 aid 用于拼接 url get 该回答的评论
+        <div tabindex="-1" class="zm-item-answer" itemscope="" itemtype="http://schema.org/Answer" data-aid="14852408" data-atoken="48635152" data-collapsed="0" data-created="1432285826" data-deleted="0" data-helpful="1" data-isowner="0" data-score="34.1227812032">
+        """
+        div = self.soup.find('div', class_='zm-item-answer')
+        return div['data-aid']
+
+    @property
+    def comments_quick(self):
+        url = 'http://www.zhihu.com/node/AnswerCommentBoxV2?params=%7B%22answer_id%22%3A%22{}%22%2C%22load_all%22%3Atrue%7D'.format(self.comment_list_id)
+        # print(url)
+        r = self._session.get(url)
+        soup = BeautifulSoup(r.content)
+        comments = []
+        for div in soup.find_all('div', class_='zm-item-comment'):
+            # print(div)
+            # print(div.text)
+            raw_content = div
+            comment_id = div["data-id"]
+            # author = div.find('a', class_='zm-item-link-avatar')['title']
+
+            likes = int(div.find('span', class_='like-num').find('em').text)
+            content = div.find('div', class_='zm-comment-content').prettify()
+            author_text = div.find('div', class_='zm-comment-hd').text.strip().replace('\n', ' ')
+            # print(author_text)
+            if ' 回复 ' in author_text:
+                author, reply_to = author_text.split(' 回复 ')
+            else:
+                author, reply_to = author_text, None
+
+            # author = reply_ids[0]
+            # reply_to = None if len(reply_ids) == 1 else reply_ids[1]
+            comment = CommentQuick(raw_content, comment_id, author, likes, content, reply_to)
+
+            comments.append(comment)
+        return comments
+
+    @property
+    def conversations(self):
+        '''会话, 评论区的所有评论的分组
+        规则:
+        0. comment 分为直接评论和回复别人两种
+        1. 从第一个评论开始, 将每一个评论归入合适的分组, 否则建新分组
+        2. 直接评论视为开启新的会话
+        3. B回复A, 放入B回复的A的评论的会话,
+            如果A已经出现在n个会话里, 寻找A之前是否回复过B,
+                A回复过B: 放在这一组会话里,
+                A没有回复过B: 放在A最晚说话的那一条评论的会话里 second_choice
+
+        '''
+        result = []
+        for comment in self.comments_quick:
+            if not comment.reply_to:  # 直接评论, 开启新的会话
+                result.append([comment])
+            else:                     # 回复别人
+                second_choice = None  # A最晚说话的那一条评论的会话
+                for conversation in reversed(result):  # 反着查找, 获取时间最近的匹配
+                    if comment.reply_to in [c.author for c in conversation]:
+                        second_choice = second_choice or conversation
+                        if comment.author in [c.reply_to for c in conversation]:  # B回复A之前, A也回复过B
+                            conversation.append(comment)
+                            break
+                else:  # B回复A, 但是A没有回复过B, 或者A被删了评论
+                    if second_choice:  # A没有回复过B 放在A最晚说话的那一条评论的会话里
+                        second_choice.append(comment)
+                    else:  # A被删了评论, 只好加入新的会话分组
+                        result.append([comment])
+
+        return result
+
+    def valuable_conversations(self, min_likes=5):
+        result = []
+        for conversation in self.conversations:
+            if all(comment.likes < min_likes for comment in conversation):
+                continue
+            else:
+                result.append(conversation)
+        return result
+
+    def valuable_comments(self, min_likes=5):
+        result = []
+        reply_to_authors = set()
+        comments = self.comments
+        for comment in reversed(comments):
+            if comment.likes < min_likes and comment.author not in reply_to_authors:
+                continue
+            if comment.reply_to:
+                reply_to_authors.add(comment.reply_to)
+            result.append(comment)
+        return list(reversed(result))
+
+
+
+
+class CommentQuick():
+    ''' 更快速的评论对象
+    知乎于2016年1月修改评论显示模式(加了分页and查看上下文对话)
+    此为原始的评论获取方法
+    使用 url = 'http://www.zhihu.com/node/AnswerCommentBoxV2?params=%7B%22answer_id%22%3A%22{}%22%2C%22load_all%22%3Atrue%7D'.format(self.comment_list_id)
+    拼接获取评论
+
+    '''
+    def __init__(self, raw_content, comment_id, author, likes, content, reply_to):
+        self.raw_content = raw_content
+        self.comment_id = comment_id
+        self.author = author
+        self.likes = likes
+        self.content = content
+        self.reply_to = reply_to
+
+    def __str__(self):
+        return '<Comment id={0.comment_id}> author: {0.author} reply_to: {0.reply_to} likes={0.likes} {0.content}'.format(self)

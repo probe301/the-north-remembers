@@ -16,6 +16,26 @@ UI Bootstrap Bootstap-Flat-UI
 
 
 
+
+
+- [x] 赞同评论的三个空格
+
+
+- [ ] png图片抓取替换
+- [ ] 处理 知乎link 
+
+
+
+``` markdown
+ [Central limit theorem](//link.zhihu.com/?target=https%3A//en.wikipedia.org/wiki/Central_limit_theorem) ）可知， ![S_n/\\sqrt{n}](//zhihu.com/equation?tex=S_n%2F%5Csqrt%7Bn%7D) 依分布收敛于一个正态分布。粗略来说 ![S_n](//zhihu.com/equation?tex=S_n) 大概是 ![\\sqrt{n}](//zhihu.com/equation?tex=%5Csqrt%7Bn%7D) 量级。而大偏差理论（ [Large deviations theory](//link.zhihu.com/?target=https%3A//en.wikipedia.org/wiki/Large_deviations_theory) ）研究的是 ![S_n](//zhihu.com/equation?tex=S_n) 处在n量级的概
+```
+
+
+
+
+
+
+
 - [ ] design json API
       
 - [ ] howto response using json?

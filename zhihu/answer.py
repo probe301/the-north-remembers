@@ -368,7 +368,7 @@ class Answer(BaseZhihu):
             # author = div.find('a', class_='zm-item-link-avatar')['title']
 
             likes = int(div.find('span', class_='like-num').find('em').text)
-            content = div.find('div', class_='zm-comment-content').prettify()
+            content = div.find('div', class_='zm-comment-content').prettify().strip()
             author_text = div.find('div', class_='zm-comment-hd').text.strip().replace('\n', ' ')
             # print(author_text)
             if ' 回复 ' in author_text:

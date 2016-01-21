@@ -28,8 +28,8 @@ def generate_cookie():
 # generate_cookie()
 
 
-COOKIES_FILE = 'cookies.json'
-client = ZhihuClient(COOKIES_FILE)
+
+client = ZhihuClient('cookies.json')
 
 
 
@@ -40,25 +40,6 @@ def h2t_handle_html(html):
   return '\n'.join(p.rstrip() for p in h2t.handle(html).strip().split('\n'))
 
 
-
-def markdown_prettify(path, prefix=''):
-  import re
-  with open(path, encoding='utf-8') as f:
-    lines = f.readlines()
-
-  pattern_hyperlink = re.compile(r'\[ (.+?) \](?=\(.+?\))')
-  pattern_strong = re.compile(r'\*\* (.+?) \*\*')
-  replace = lambda m: '** 回复 **' if m.group(1) == '回复' else '**'+m.group(1)+'**'
-
-  for i, line in enumerate(lines):
-    if not ('[' in line or '**' in line):
-      continue
-    line = pattern_hyperlink.sub(r'[\1]', line)
-    line = pattern_strong.sub(replace, line)
-    lines[i] = line
-
-  with open(prefix + path, 'w', encoding='utf-8') as f2:
-    f2.writelines(lines)
 
 
 
@@ -193,12 +174,63 @@ def fetch_images_for_markdown_file(markdown_file):
     print('no pictures downloaded:' + markdown_file.split('/')[-1])
 
 
+from urllib.parse import unquote
+
+def markdown_prettify(path, prefix=''):
+
+  with open(path, encoding='utf-8') as f:
+    lines = f.readlines()
+
+  # drop extraspace in link syntax
+  # eg. [ wikipage ](http://.....) => [wikipage](http://.....)
+  pattern_hyperlink = re.compile(r'\[ (.+?) \](?=\(.+?\))')
+
+  # drop extraspace around strong tag
+  pattern_strong = re.compile(r'\*\* (.+?) \*\*')
+  replace_strong = lambda m: '** 回复 **' if m.group(1) == '回复' else '**'+m.group(1)+'**'
+
+  # fix tex syntax use zhihu.com/equation
+  pattern_tex_link = re.compile(r'\]\(\/\/zhihu\.com\/equation\?tex=')
+
+  # fix zhihu redirection
+  # [Law of large numbers](//link.zhihu.com/?target=https%3A//en.wikipedia.org/wiki/Law_of_large_numbers)
+  # =>
+  # [Law of large numbers](https://en.wikipedia.org/wiki/Law_of_large_numbers)
+  pattern_redirect_link = re.compile(r'\]\(\/\/link\.zhihu\.com\/\?target=(.+?)\)')
+  replace_redirect_link = lambda m: '](' + unquote(m.group(1)) + ')'
+
+
+  for i, line in enumerate(lines):
+    if not ('[' in line or '**' in line):
+      continue
+    line = pattern_hyperlink.sub(r'[\1]', line)
+    line = pattern_strong.sub(replace_strong, line)
+    line = pattern_redirect_link.sub(replace_redirect_link, line)
+    line = pattern_tex_link.sub('](http://www.zhihu.com/equation?tex=', line)
+    lines[i] = line
+
+
+
+
+
+  with open(prefix + path, 'w', encoding='utf-8') as f2:
+    f2.writelines(lines)
+
+
+
+
+
+
+
+
+
+
 
 
 
 def save_from_author(url, folder='test', min_upvote=500):
   # url = 'http://www.zhihu.com/people/nordenbox'
-  author = zhihu.Author(url)
+  author = client.Author(url)
   # 获取用户名称
   print(author.name)
   # 获取用户介绍
@@ -221,7 +253,7 @@ def save_from_author(url, folder='test', min_upvote=500):
 
 
 def save_from_collections(url, limit=10):
-  collection = zhihu.Collection(url)
+  collection = client.Collection(url)
   print(collection.name)
   print(collection.followers_num)
   for i, answer in enumerate(collection.answers):
@@ -235,12 +267,48 @@ def save_from_collections(url, limit=10):
 
 
 def save_from_question(url):
-  question = zhihu.Question(url)
+  question = client.Question(url)
   print(question.title)
   # 获取排名前十的十个回答
   for answer in question.top_i_answers(10):
     if answer.upvote > 1000:
       save_answer(answer)
+
+
+
+
+
+def save_from_topic(url, limit=200, min_upvote=1000, max_upvote=100000000, folder='test'):
+  topic = client.Topic(url)
+  print('name', topic.name)
+
+
+  for i, answer in enumrange(topic.top_answers, limit):
+    print(answer.question.title, ' - ', answer.upvote_num)
+
+
+    if answer.upvote_num < min_upvote:
+      break
+    if answer.upvote_num > max_upvote:
+      continue
+
+    try:
+      md_file = save_answer(answer, folder=folder)
+
+    except RuntimeError as e:
+      print(e, answer.question.title)
+    except TypeError as e:
+      print('question_link["href"]', e, answer.question.title)
+    # except AttributeError as e:
+    #   print('time to long? ', e, question_title)
+
+
+
+
+
+
+
+
 
 
 
@@ -263,8 +331,7 @@ def save_from_question(url):
  #####  #   #  #####   ###
 
 
-
-def test_do_save_from_collections():
+def exec_save_from_collections():
   #  采铜 的收藏 我心中的知乎TOP100
   url = 'http://www.zhihu.com/collection/19845840'
   save_from_collections(url, limit=10)
@@ -272,7 +339,7 @@ def test_do_save_from_collections():
 
 
 
-def test_do_save_from_question():
+def exec_save_from_question():
   urls = '''
     # graphic design
     # http://www.zhihu.com/question/19577036
@@ -294,63 +361,42 @@ def test_do_save_from_question():
 
 
 
-def save_from_topic(url, limit=200, min_upvote=1000, max_upvote=100000000, folder='test'):
-  topic = client.Topic(url)
-  print('name', topic.name)
+def exec_save_from_topic():
 
-  for i, answer in enumrange(topic.top_answers, limit):
-    print(answer.question.title, ' - ', answer.upvote_num)
-    # continue
+  urls_str = '''
+    # https://www.zhihu.com/topic/19554091 math
+    # https://www.zhihu.com/topic/19556950 Physics
+    # https://www.zhihu.com/topic/19574449 a song of ice and fire
+    # https://www.zhihu.com/topic/19556231 interactive design 1000
+    # https://www.zhihu.com/topic/19556382 2d design 1000
+    # https://www.zhihu.com/topic/19561709 ux design 1000
+    # https://www.zhihu.com/topic/19551016 fonts 200
+    # https://www.zhihu.com/topic/19553684 layout 100
+    # https://www.zhihu.com/topic/19647471 style 100
+    # https://www.zhihu.com/topic/19551077 history
+    # https://www.zhihu.com/topic/19615699 immanuel_kant
+    # https://www.zhihu.com/topic/19558740 statistics
+    # https://www.zhihu.com/topic/19576422 statistics
+    # https://www.zhihu.com/topic/19552981 economics
+    # https://www.zhihu.com/topic/19551864 classical music
+    # https://www.zhihu.com/topic/19563625 astronomy
+    # https://www.zhihu.com/topic/19553550 paradox
+    # https://www.zhihu.com/topic/19552330 programmer
+    # https://www.zhihu.com/topic/19554298 programming
+    # https://www.zhihu.com/topic/19615699 immanuel_kant
+    # https://www.zhihu.com/topic/19551275 artificial_intelligence
+    # https://www.zhihu.com/topic/19559450 machine_learning
+    # https://www.zhihu.com/topic/19620787 universe
+    # https://www.zhihu.com/topic/19553534 data_mining
+    # https://www.zhihu.com/topic/19815465 quantitative_trading
+    # https://www.zhihu.com/topic/19571159 freelancer
+  '''
 
+  for line in datalines(urls_str):
+    url, topic_name = line.split(' ')
+    puts('start parsing topic_name url')
+    save_from_topic(url, limit=3, min_upvote=10, max_upvote=5000000, folder='test')
 
-    if answer.upvote_num < min_upvote:
-      break
-    if answer.upvote_num > max_upvote:
-      continue
-
-    try:
-      md_file = save_answer(answer, folder=folder)
-
-    except RuntimeError as e:
-      print(e, answer.question.title)
-    except TypeError as e:
-      print('question_link["href"]', e, answer.question.title)
-    # except AttributeError as e:
-    #   print('time to long? ', e, question_title)
-
-
-
-def test_do_save_from_topic():
-
-  # url = 'http://www.zhihu.com/topic/19554091/top-answers'  # math
-  # url = 'http://www.zhihu.com/topic/19556950/top-answers'  # Physics
-  # url = 'http://www.zhihu.com/topic/19574449/top-answers'  # a song of ice and fire
-  # url = 'http://www.zhihu.com/topic/19556231/top-answers'  # interactive design 1000
-  # url = 'http://www.zhihu.com/topic/19556382/top-answers'  # 2d design 1000
-  # url_1 = 'http://www.zhihu.com/topic/19561709/top-answers'  # ux design 1000
-  # url_2 = 'http://www.zhihu.com/topic/19551016/top-answers'  # fonts 200
-  # url_3 = 'http://www.zhihu.com/topic/19553684/top-answers'  # layout 100
-  # url_4 = 'http://www.zhihu.com/topic/19647471/top-answers'  # style 100
-
-  # url = 'http://www.zhihu.com/topic/19551077/top-answers'  # history
-  # url = 'http://www.zhihu.com/topic/19615699/top-answers'  # immanuel_kant
-  # url = 'http://www.zhihu.com/topic/19558740/top-answers'  # statistics
-  # url = 'http://www.zhihu.com/topic/19576422/top-answers'  # statistics
-  # url = 'http://www.zhihu.com/topic/19552981/top-answers'  # economics
-  # url = 'http://www.zhihu.com/topic/19551864/top-answers'  # classical music
-
-  url = 'http://www.zhihu.com/topic/19563625/top-answers'  # astronomy
-  url = 'https://www.zhihu.com/topic/19553550/'  # paradox
-  url = 'https://www.zhihu.com/topic/19552330'   # programmer
-  url = 'http://www.zhihu.com/topic/19615699'    # immanuel_kant
-  url = 'https://www.zhihu.com/topic/19551275'   # artificial_intelligence
-  url = 'https://www.zhihu.com/topic/19559450'   # machine_learning
-  url = 'https://www.zhihu.com/topic/19620787'   # universe
-  url = 'https://www.zhihu.com/topic/19553534'   # data_mining
-  url = 'https://www.zhihu.com/topic/19815465'   # quantitative_trading
-  save_from_topic(url, min_upvote=200, max_upvote=5000000, folder='quantitative_trading')
-
-  # ('http://www.zhihu.com/topic/19554298/top-answers')  # page 50 Programming
 
 
 
@@ -392,14 +438,22 @@ def test_save_answer_common():
   save_answer('http://www.zhihu.com/question/25569054/answer/31213671')
 
 
-def test_save_answer_save_jpg():
+def test_save_answer_save_jpg_png_images():
   # 人类是否能想象出多维空间的形态？
   save_answer('https://www.zhihu.com/question/29324865/answer/45647794')
 
 
-def test_save_answer_latex_and_get_png_images():
+def test_save_answer_latex():
   # 大偏差技术是什么？
   save_answer('https://www.zhihu.com/question/29400357/answer/82408466')
+
+
+def test_save_answer_drop_redirect_links():
+  # 大偏差技术是什么？
+  save_answer('https://www.zhihu.com/question/29400357/answer/82408466')
+
+
+
 
 
 def test_save_anonymous():

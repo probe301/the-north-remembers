@@ -8,7 +8,7 @@ import os
 import shutil
 
 from pylon import enumrange
-
+import time
 
 
 from zhihu import ZhihuClient
@@ -44,7 +44,7 @@ def h2t_handle_html(html):
 
 
 def save_answer(answer, folder='test'):
-
+  time.sleep(1)
   # 'http://zhuanlan.zhihu.com/xiepanda'
   # url = 'http://www.zhihu.com/question/30595784/answer/49194862'
   # url = 'http://www.zhihu.com/question/19622414/answer/19798844'
@@ -83,7 +83,7 @@ def save_answer(answer, folder='test'):
 
   text += answer_body
 
-  conversations = answer.valuable_conversations(min_likes=10)
+  conversations = answer.valuable_conversations(limit=10)
   if conversations:
     text += '\n\n　　\n\n### 评论\n\n'
     for i, conversation in enumerate(conversations):
@@ -95,7 +95,7 @@ def save_answer(answer, folder='test'):
         content = h2t_handle_html(comment.content)
         if '\n' in content:
           content = '\n\n' + content
-        puts(content)
+        # puts(content)
         text += '**{}**{}: {}{}\n\n'.format(comment.author, reply_to_author, content, likes)
 
 
@@ -158,7 +158,7 @@ def fetch_images_for_markdown_file(markdown_file):
       shutil.move(markdown_file, markdown_file + '.whitedot')
     return False
 
-  print('start parsing md file: ' + markdown_file.split('/')[-1])
+  # print('start parsing md file: ' + markdown_file.split('/')[-1])
   image_counter = []
   replacer = lambda m: fetch_image(url=m.group(0),
                                    ext=m.group(2),
@@ -279,13 +279,14 @@ def save_from_question(url):
 
 
 def save_from_topic(url, limit=200, min_upvote=1000, max_upvote=100000000, folder='test'):
-  topic = client.Topic(url)
-  print('name', topic.name)
 
+  if not os.path.exists(folder):
+    os.makedirs(folder)
+
+  topic = client.Topic(url)
 
   for i, answer in enumrange(topic.top_answers, limit):
-    print(answer.question.title, ' - ', answer.upvote_num)
-
+    print('scraping', answer.question.title, ' - ', answer.upvote_num)
 
     if answer.upvote_num < min_upvote:
       break
@@ -293,8 +294,7 @@ def save_from_topic(url, limit=200, min_upvote=1000, max_upvote=100000000, folde
       continue
 
     try:
-      md_file = save_answer(answer, folder=folder)
-
+      save_answer(answer, folder=folder)
     except RuntimeError as e:
       print(e, answer.question.title)
     except TypeError as e:
@@ -365,7 +365,7 @@ def exec_save_from_topic():
 
   urls_str = '''
     # https://www.zhihu.com/topic/19554091 math
-    # https://www.zhihu.com/topic/19556950 Physics
+    # https://www.zhihu.com/topic/19556950 physics
     # https://www.zhihu.com/topic/19574449 a song of ice and fire
     # https://www.zhihu.com/topic/19556231 interactive design 1000
     # https://www.zhihu.com/topic/19556382 2d design 1000
@@ -384,23 +384,27 @@ def exec_save_from_topic():
     # https://www.zhihu.com/topic/19552330 programmer
     # https://www.zhihu.com/topic/19554298 programming
     # https://www.zhihu.com/topic/19615699 immanuel_kant
-    # https://www.zhihu.com/topic/19551275 artificial_intelligence
-    # https://www.zhihu.com/topic/19559450 machine_learning
-    # https://www.zhihu.com/topic/19620787 universe
-    # https://www.zhihu.com/topic/19553534 data_mining
-    # https://www.zhihu.com/topic/19815465 quantitative_trading
-    # https://www.zhihu.com/topic/19571159 freelancer
+
+    # https://www.zhihu.com/topic/19559450 machine_learning 机器学习
+    # https://www.zhihu.com/topic/19620787 universe 宇宙
+
+
+
+    # https://www.zhihu.com/topic/19551275 artificial_intelligence 人工智能
+    # https://www.zhihu.com/topic/19553534 data_mining 数据挖掘
+    # https://www.zhihu.com/topic/19815465 quantitative_trading 量化交易
+    # https://www.zhihu.com/topic/19571159 freelancer 自由职业
   '''
 
   for line in datalines(urls_str):
-    url, topic_name = line.split(' ')
+    url, topic_name, topic_name_cn = line.split(' ')
     puts('start parsing topic_name url')
-    save_from_topic(url, limit=3, min_upvote=10, max_upvote=5000000, folder='test')
+    save_from_topic(url, limit=200, min_upvote=10, max_upvote=500, folder=topic_name_cn)
 
 
 
 
-
+exec_save_from_topic()
 
 
 
@@ -436,6 +440,15 @@ def test_save_answer_common():
   save_answer('https://www.zhihu.com/question/30957313/answer/50266448')
   # 你会带哪三本书穿越回到北宋熙宁二年？
   save_answer('http://www.zhihu.com/question/25569054/answer/31213671')
+
+
+
+def test_save_answer_comments():
+  # 如何看待许知远在青年领袖颁奖典礼上愤怒「砸场」？
+  save_answer('https://www.zhihu.com/question/30595784/answer/49194862')
+
+
+
 
 
 def test_save_answer_save_jpg_png_images():

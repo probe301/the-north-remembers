@@ -416,26 +416,31 @@ class Answer(BaseZhihu):
 
         return result
 
-    def valuable_conversations(self, min_likes=5):
-        result = []
-        for conversation in self.conversations:
-            if all(comment.likes < min_likes for comment in conversation):
-                continue
-            else:
-                result.append(conversation)
-        return result
+    def valuable_conversations(self, limit=10):
+        '''
+        limit: 有效的会话组里的likes总和最大的 n 个对话
+        '''
+        # result = []
 
-    def valuable_comments(self, min_likes=5):
-        result = []
-        reply_to_authors = set()
-        comments = self.comments
-        for comment in reversed(comments):
-            if comment.likes < min_likes and comment.author not in reply_to_authors:
-                continue
-            if comment.reply_to:
-                reply_to_authors.add(comment.reply_to)
-            result.append(comment)
-        return list(reversed(result))
+        # for conversation in self.conversations:
+        #     if sum(comment.likes for comment in conversation) >= limit:
+        #         result.append(conversation)
+        # return result
+
+        sum_likes = lambda conversation: sum(comment.likes for comment in conversation)
+        return sorted(self.conversations, key=sum_likes, reverse=True)[:limit]
+
+    # def valuable_comments(self, min_likes=5):
+    #     result = []
+    #     reply_to_authors = set()
+    #     comments = self.comments
+    #     for comment in reversed(comments):
+    #         if comment.likes < min_likes and comment.author not in reply_to_authors:
+    #             continue
+    #         if comment.reply_to:
+    #             reply_to_authors.add(comment.reply_to)
+    #         result.append(comment)
+    #     return list(reversed(result))
 
 
 

@@ -377,17 +377,20 @@ def exec_save_from_topic():
     # https://www.zhihu.com/topic/19615699 immanuel_kant
     # https://www.zhihu.com/topic/19558740 statistics
     # https://www.zhihu.com/topic/19576422 statistics
-    # https://www.zhihu.com/topic/19552981 economics
     # https://www.zhihu.com/topic/19551864 classical music
     # https://www.zhihu.com/topic/19563625 astronomy
-    # https://www.zhihu.com/topic/19553550 paradox
     # https://www.zhihu.com/topic/19552330 programmer
     # https://www.zhihu.com/topic/19554298 programming
     # https://www.zhihu.com/topic/19615699 immanuel_kant
-
-    # https://www.zhihu.com/topic/19559450 machine_learning 机器学习
     # https://www.zhihu.com/topic/19620787 universe 宇宙
 
+
+
+
+    https://www.zhihu.com/topic/19552981 economics 经济
+    # https://www.zhihu.com/topic/19553550 paradox 悖论
+
+    # https://www.zhihu.com/topic/19559450 machine_learning 机器学习
 
 
     # https://www.zhihu.com/topic/19551275 artificial_intelligence 人工智能
@@ -399,7 +402,7 @@ def exec_save_from_topic():
   for line in datalines(urls_str):
     url, topic_name, topic_name_cn = line.split(' ')
     puts('start parsing topic_name url')
-    save_from_topic(url, limit=200, min_upvote=10, max_upvote=500, folder=topic_name_cn)
+    save_from_topic(url, limit=300, min_upvote=10, max_upvote=4500, folder=topic_name_cn)
 
 
 

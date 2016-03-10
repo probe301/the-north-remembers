@@ -8,22 +8,24 @@ import os
 import shutil
 
 from pylon import enumrange
-import time
+# import time
 
 
 from zhihu import ZhihuClient
-
+from zhihu.common import remove_invalid_char
 
 import re
 
 import urllib.request
 
 
+class ZhihuParseError(Exception):
+  pass
 
 
 
 def generate_cookie():
-  # po....@gmail.com p...
+  # pob....@gmail.com p...
   ZhihuClient().create_cookies('cookies.json')
 # generate_cookie()
 
@@ -43,19 +45,23 @@ def h2t_handle_html(html):
 
 
 
-def save_answer(answer, folder='test'):
+def fetch_answer(answer, question=None, author=None):
   time.sleep(1)
+  if isinstance(answer, str):
+    answer = client.Answer(answer)
+  author = author or answer.author
+  question = question or answer.question
   # 'http://zhuanlan.zhihu.com/xiepanda'
   # url = 'http://www.zhihu.com/question/30595784/answer/49194862'
   # url = 'http://www.zhihu.com/question/19622414/answer/19798844'
   # url = 'http://www.zhihu.com/question/24413365/answer/27857112'
   # url = 'http://www.zhihu.com/question/23039503/answer/48635152'
-  if isinstance(answer, str):
-    answer = client.Answer(answer)
-  author = answer.author
-  question = answer.question
+  try:
+    content = answer.content
+  except AttributeError:
+    raise ZhihuParseError('cannot parse answer.content: {} {}'.format(answer.question.title, answer.url))
 
-  answer_body = h2t_handle_html(answer.content)
+  answer_body = h2t_handle_html(content)
 
   text = '# {}\n\n'.format(question.title)
 
@@ -101,15 +107,29 @@ def save_answer(answer, folder='test'):
 
   text += '\n\n　　\n\n--------------\n'
   text += 'from: [{}]()\n'.format(answer.url)
-  from zhihu.common import remove_invalid_char
-  path = folder + '/' + remove_invalid_char(question.title + ' - ' + author.name + '的回答.md')
-  with open(path, 'w') as f:
-    f.write(text)
-    puts('write path done')
+  return text
 
-  markdown_prettify(path)  # 去除 html2text 转换出来的 strong 和 link 的多余空格
-  fetch_images_for_markdown_file(path)  # get images in markdown
-  return path
+
+
+def save_answer(answer, folder='test', overwrite=True):
+  if isinstance(answer, str):
+    answer = client.Answer(answer)
+  author = answer.author
+  question = answer.question
+  save_path = folder + '/' + remove_invalid_char(question.title + ' - ' + author.name + '的回答.md')
+  if not overwrite and os.path.exists(save_path):
+    puts('answer_md_file exist! save_path')
+    return
+
+  text = fetch_answer(answer, question, author)
+
+  with open(save_path, 'w') as f:
+    f.write(text)
+    puts('write save_path done')
+
+  markdown_prettify(save_path)  # 去除 html2text 转换出来的 strong 和 link 的多余空格
+  fetch_images_for_markdown_file(save_path)  # get images in markdown
+  return save_path
 
 
 
@@ -228,25 +248,28 @@ def markdown_prettify(path, prefix=''):
 
 
 
-def save_from_author(url, folder='test', min_upvote=500):
+def save_from_author(url, folder='test', min_upvote=500, overwrite=False):
   # url = 'http://www.zhihu.com/people/nordenbox'
   author = client.Author(url)
   # 获取用户名称
-  print(author.name)
-  # 获取用户介绍
-  print(author.motto)
+  print(author.name, ' - ', author.motto)
   # 获取用户答题数
-  print(author.answers_num)      # 227
+  print(author.answer_num)      # 227
   for i, answer in enumerate(author.answers):
     # if i > 20:
     #   break
-    if answer.upvote < min_upvote:
-      break
+    if answer.upvote_num < min_upvote:
+      continue
 
     try:
-      save_answer(answer, folder=folder)
+      save_answer(answer, folder=folder, overwrite=overwrite)
+    except ZhihuParseError as e:
+      print(e)
     except RuntimeError as e:
       print(e, answer.question.title)
+    except AttributeError as e:
+      print(answer.question.title, answer.url, e)
+      raise
 
 
 
@@ -278,7 +301,10 @@ def save_from_question(url):
 
 
 
-def save_from_topic(url, limit=200, min_upvote=1000, max_upvote=100000000, folder='test'):
+def save_from_topic(url, limit=200,
+                    min_upvote=1000, max_upvote=100000000,
+                    folder='test',
+                    overwrite=True):
 
   if not os.path.exists(folder):
     os.makedirs(folder)
@@ -286,7 +312,7 @@ def save_from_topic(url, limit=200, min_upvote=1000, max_upvote=100000000, folde
   topic = client.Topic(url)
 
   for i, answer in enumrange(topic.top_answers, limit):
-    print('scraping', answer.question.title, ' - ', answer.upvote_num)
+    print('fetching', answer.question.title, ' - ', answer.upvote_num)
 
     if answer.upvote_num < min_upvote:
       break
@@ -294,7 +320,7 @@ def save_from_topic(url, limit=200, min_upvote=1000, max_upvote=100000000, folde
       continue
 
     try:
-      save_answer(answer, folder=folder)
+      save_answer(answer, folder=folder, overwrite=overwrite)
     except RuntimeError as e:
       print(e, answer.question.title)
     except TypeError as e:
@@ -322,19 +348,44 @@ def save_from_topic(url, limit=200, min_upvote=1000, max_upvote=100000000, folde
 
 
 
- #####  #   #  #####   ###
- #      #   #  #      #   #
- #       # #   #      #
- ####     #    ####   #
- #       # #   #      #
- #      #   #  #      #   #
- #####  #   #  #####   ###
+####### ##   ## ####### ######
+##       ## ##  ##     ###
+######    ###   ###### ##
+##       ## ##  ##     ###
+####### ##   ## ####### ######
 
 
 def exec_save_from_collections():
-  #  采铜 的收藏 我心中的知乎TOP100
+  # 采铜 的收藏 我心中的知乎TOP100
   url = 'http://www.zhihu.com/collection/19845840'
   save_from_collections(url, limit=10)
+
+
+
+def exec_save_from_authors():
+  url = 'https://www.zhihu.com/people/xbjf/'  # 玄不救非氪不改命
+  save_from_author(url, folder='authors', min_upvote=500)
+  url = 'https://www.zhihu.com/people/lu-pi-xiong/'  # 陆坏熊
+  save_from_author(url, folder='authors', min_upvote=300)
+  url = 'https://www.zhihu.com/people/zhao-hao-yang-1991'  # 赵皓阳
+  save_from_author(url, folder='authors', min_upvote=300)
+# exec_save_from_authors()
+
+
+def exec_save_answers():
+  urls = '''
+    # https://www.zhihu.com/question/40305228/answer/86179116
+    # https://www.zhihu.com/question/36466762/answer/85475145
+    # https://www.zhihu.com/question/33246348/answer/86919689
+    # https://www.zhihu.com/question/39906815/answer/88534869
+
+    # https://www.zhihu.com/question/40700155/answer/89002644
+    # https://www.zhihu.com/question/36380091/answer/84690117
+    # https://www.zhihu.com/question/33246348/answer/86919689
+    https://www.zhihu.com/question/33918585/answer/89678373
+  '''
+  for url in datalines(urls):
+    save_answer(url, folder='test')
 
 
 
@@ -375,24 +426,21 @@ def exec_save_from_topic():
     # https://www.zhihu.com/topic/19647471 style 100
     # https://www.zhihu.com/topic/19551077 history
     # https://www.zhihu.com/topic/19615699 immanuel_kant
-    # https://www.zhihu.com/topic/19558740 statistics
-    # https://www.zhihu.com/topic/19576422 statistics
     # https://www.zhihu.com/topic/19551864 classical music
-    # https://www.zhihu.com/topic/19563625 astronomy
     # https://www.zhihu.com/topic/19552330 programmer
     # https://www.zhihu.com/topic/19554298 programming
     # https://www.zhihu.com/topic/19615699 immanuel_kant
-    # https://www.zhihu.com/topic/19620787 universe 宇宙
 
 
 
-
-    https://www.zhihu.com/topic/19552981 economics 经济
+    # https://www.zhihu.com/topic/19563625 astronomy 天文
+    # https://www.zhihu.com/topic/19620787 universe 天文
+    # https://www.zhihu.com/topic/19569034 philosophy_of_science 科学哲学
+    # https://www.zhihu.com/topic/19558740 statistics 统计
+    # https://www.zhihu.com/topic/19576422 statistics 统计
+    # https://www.zhihu.com/topic/19552981 economics 经济
     # https://www.zhihu.com/topic/19553550 paradox 悖论
-
     # https://www.zhihu.com/topic/19559450 machine_learning 机器学习
-
-
     # https://www.zhihu.com/topic/19551275 artificial_intelligence 人工智能
     # https://www.zhihu.com/topic/19553534 data_mining 数据挖掘
     # https://www.zhihu.com/topic/19815465 quantitative_trading 量化交易
@@ -402,17 +450,12 @@ def exec_save_from_topic():
   for line in datalines(urls_str):
     url, topic_name, topic_name_cn = line.split(' ')
     puts('start parsing topic_name url')
-    save_from_topic(url, limit=300, min_upvote=10, max_upvote=4500, folder=topic_name_cn)
+    save_from_topic(url, limit=300, min_upvote=1000, max_upvote=5000000, folder=topic_name_cn, overwrite=False)
 
 
 
 
-exec_save_from_topic()
-
-
-
-
-
+# exec_save_from_topic()
 
 
 
@@ -425,15 +468,26 @@ exec_save_from_topic()
 
 
 
- #####  #####   ###   #####
-   #    #      #   #    #
-   #    #      #        #
-   #    ####    ###     #
-   #    #          #    #
-   #    #      #   #    #
-   #    #####   ###     #
 
 
+
+
+
+####### #######  ###### #######
+   ##   ##      ##         ##
+   ##   ######   #####     ##
+   ##   ##           ##    ##
+   ##   ####### ######     ##
+
+
+
+def test_answer_banned():
+  # 为什么会出现「只有专政才能救中国」的言论？
+  # 玄不救非氪不改命，东欧政治与杨幂及王晓晨研究
+  # 回答建议修改：不友善内容
+  # 作者修改内容通过后，回答会重新显示。如果一周内未得到有效修改，回答会自动折叠。
+  url = 'https://www.zhihu.com/question/33594085/answer/74817919/'
+  save_answer(url)
 
 
 def test_save_answer_common():
@@ -462,6 +516,8 @@ def test_save_answer_save_jpg_png_images():
 def test_save_answer_latex():
   # 大偏差技术是什么？
   save_answer('https://www.zhihu.com/question/29400357/answer/82408466')
+  # save_answer('https://www.zhihu.com/question/34961425/answer/80970102')
+  save_answer('https://www.zhihu.com/question/34961425/answer/74576898', overwrite=False)
 
 
 def test_save_answer_drop_redirect_links():
@@ -496,16 +552,8 @@ def test_save_whitedot_bug():
 
 def test_generate_ascii_art():
   from pyfiglet import Figlet
-  fonts = 'beer_pub bell big bigchief binary block brite briteb britebi britei slant a_zooloo acrobatic advenger alligator alligator2 alphabet aquaplan'.split(' ')
 
-
-  fonts = 'script script__ serifcap shadow short skate_ro skateord skateroc sketch_s slant slide slscript mike mini mirror mnemonic modern__ morse 3x5 4x4_offr 5lineoblique 5x7 5x8 64f1____ 6x10 6x9'.split(' ')
-  # for font in fonts:
-  #   puts('font')
-  #   print(Figlet(font=font).renderText('text to render'))
-  #   print('------------------\n\n\n')
-
-  print(Figlet(font='6x10').renderText('EXEC'))
+  print(Figlet(font='space_op').renderText('flask'))
 
 
 
@@ -699,64 +747,3 @@ def test_comment():
 
 
 
-
-
-
- #####  #        #     ###   #   #
- #      #       # #   #   #  #  #
- #      #      #   #  #      # #
- ####   #      #   #   ###   ##
- #      #      #####      #  # #
- #      #      #   #  #   #  #  #
- #      #####  #   #   ###   #   #
-
-
-# from flask import Flask
-# from flask import render_template
-# app = Flask(__name__)
-
-
-
-# # 知乎马克 ZhihuMark
-
-
-# @app.route('/')
-# @app.route('/index')
-# def index():
-#     user = {'nickname': 'Miguel'}  # fake user
-#     return render_template("index.html",
-#                           title = 'Home',
-#                           user = user)
-
-
-# @app.route('/hello')
-# def hello():
-#     return 'Hello World'
-
-
-# @app.route('/user/<username>')
-# def show_user_profile(username):
-#     # show the user profile for that user
-#     return 'User %s' % username
-
-
-# @app.route('/post/<int:post_id>')
-# def show_post(post_id):
-#     # show the post with the given id, the id is an integer
-#     return 'Post %d' % post_id
-#     # return flask.jsonify(**f)
-#     # @app.route('/_get_current_user')
-#     # def get_current_user():
-#     #     return jsonify(username=g.user.username,
-#     #                    email=g.user.email,
-#     #                    id=g.user.id)
-#     # Returns:
-
-#     # {
-#     #     "username": "admin",
-#     #     "email": "admin@localhost",
-#     #     "id": 42
-#     # }
-
-# # if __name__ == '__main__':
-# #     app.run(debug=True)

@@ -1,74 +1,12 @@
-
-
-
-
-Zhihumark
-
-
-
-后端 Python API 国内 Python3 云或者 Keroku
-
-前端 React 国内静态托管平台
-
-Flask 响应需要包装为 json
-
-UI Bootstrap Bootstap-Flat-UI
-
-
-
-
-
-- [x] 赞同评论的三个空格
-- [x] png图片抓取替换
-- [x] 处理 知乎link
-- [ ] 处理 评论组 top likes
-- [ ] 处理更标准的评论会话
-
-
-
-
-
-
-
-- [ ] design json API
-      
-- [ ] howto response using json?
-      
-      ​
-      
-- [ ] refetch Zhihu.py Package
-      
-- [ ] refactor zhihu-fetcher
-      
-- [ ] design UI
-      
-- [ ] howto use Flat UI
-      
-- [ ] design react flow
-
-zhihumark 知乎马克
-
-
-
-### URL Schema
-
-http://zhihumark.com/answers/131
-
-http://zhihumark.com/topics/math
-
-
-
-
-
-
-
-
-
-
+## Zhihumark
 
 描述
 
 以更加简洁清晰的排版阅读知乎. 用户指定一个知乎网站上的问题, zhihumark 抓取相应的回答内容, 以 markdown 文档的形式提供给用户阅读和下载.
+
+Web 版: topic rss, user rss
+
+Windows Mac 本地版: markdown fetcher
 
 
 
@@ -82,7 +20,7 @@ http://zhihumark.com/topics/math
 
 将收集到的一系列文档保存为epub或者pdf, 或者批量下载 markdown 文档, 以便离线阅读.
 
-(待定)制作成 feed 以便放入 rss 阅读器, 获取实时更新.
+制作成 feed 以便放入 rss 阅读器, 获取实时更新.
 
 
 
@@ -98,9 +36,99 @@ http://zhihumark.com/topics/math
 
 
 
+
+
+
+
+
+
+
+
+### features
+
+- [x] 赞同评论的三个空格
+      
+- [x] png图片抓取替换
+      
+- [x] 处理 知乎link
+      
+- [x] 处理 评论组 top likes
+      
+- [ ] 处理更标准的评论会话 - wait 官方评论组的更新
+      
+- [ ] 回答日期如果是当天fetch, 会显示为时间而非日期 - 不重要
+      
+- [ ] tex应该存链接, 外加抓取图片
+      
+- [ ] 存储图片应存本地备份外加zhihu permanent url
+      
+- [ ] ​
+      
+      ​
+      
+- [ ] howto response using json?
+      
+      ​
+      
+- [ ] refetch Zhihu.py Package
+      
+- [ ] refactor zhihu-fetcher
+      
+- [ ] design UI
+      
+- [ ] howto use Flat UI
+      
+- [ ] design react flow
+
+
+
+
+
+### bugs
+
+
+
+
+
+
+
+
+
+
+
+
+
+### URL Schema
+
+ design json API
+
+http://zhihumark.com/answers/131
+
+http://zhihumark.com/topics/math
+
+
+
+
+
+
+
+
+
+
+
 技术和工具
 
 prototyper(原型) HTML5 Python Flask(网站引擎) SAE(部署)
+
+后端 Python API 国内 Python3 云或者 Keroku
+
+前端 React 国内静态托管平台
+
+Flask 响应需要包装为 json
+
+UI Bootstrap Bootstap-Flat-UI
+
+
 
 
 

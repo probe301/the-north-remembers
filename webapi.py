@@ -20,6 +20,7 @@ from pylon import enumrange
 
 from flask import Flask
 from flask import render_template
+from flask import Response
 app = Flask(__name__)
 
 
@@ -47,7 +48,8 @@ def zhihu_question_answer(qid, aid):
   # https://www.zhihu.com/question/33918585/answer/89678373
   from mark import fetch_answer
   puts('fetching zhihu / question / answer')
-  return fetch_answer('https://www.zhihu.com/question/{}/answer/{}'.format(qid, aid))
+  mdfile = fetch_answer('https://www.zhihu.com/question/{}/answer/{}'.format(qid, aid))
+  return Response(mdfile, mimetype='text/text')
   # return 'zhihu qid {} aid {}'.format(qid, aid)
 
 

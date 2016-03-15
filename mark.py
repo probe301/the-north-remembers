@@ -201,11 +201,20 @@ def markdown_prettify(path, prefix=''):
   with open(path, encoding='utf-8') as f:
     lines = f.readlines()
 
-  # drop extraspace in link syntax
+  # drop extra space in link syntax
   # eg. [ wikipage ](http://.....) => [wikipage](http://.....)
+  # eg2 [http://www.  businessanalysis.cn/por  tal.php ](http://www.businessanalysis.cn/portal.php)
   pattern_hyperlink = re.compile(r'\[ (.+?) \](?=\(.+?\))')
 
-  # drop extraspace around strong tag
+  def hyperlink_replacer(mat):
+    r = mat.group(1).replace('http://www.', '').replace('http://', '').replace(' ', '')
+    if r.endswith('/'):
+      r = r[:-1]
+    if r.endswith('__'):
+      r = r[:-2] + '...'
+    return '[{}]'.format(r)
+
+  # drop extra space around strong tag
   pattern_strong = re.compile(r'\*\* (.+?) \*\*')
   replace_strong = lambda m: '** 回复 **' if m.group(1) == '回复' else '**'+m.group(1)+'**'
 
@@ -223,7 +232,8 @@ def markdown_prettify(path, prefix=''):
   for i, line in enumerate(lines):
     if not ('[' in line or '**' in line):
       continue
-    line = pattern_hyperlink.sub(r'[\1]', line)
+    # line = pattern_hyperlink.sub(r'[\1]', line)
+    line = pattern_hyperlink.sub(hyperlink_replacer, line)
     line = pattern_strong.sub(replace_strong, line)
     line = pattern_redirect_link.sub(replace_redirect_link, line)
     line = pattern_tex_link.sub('](http://www.zhihu.com/equation?tex=', line)
@@ -382,7 +392,9 @@ def exec_save_answers():
     # https://www.zhihu.com/question/40700155/answer/89002644
     # https://www.zhihu.com/question/36380091/answer/84690117
     # https://www.zhihu.com/question/33246348/answer/86919689
-    https://www.zhihu.com/question/33918585/answer/89678373
+    # https://www.zhihu.com/question/35254746/answer/90252213
+    # https://www.zhihu.com/question/23618517/answer/89823915
+    https://www.zhihu.com/question/40677000/answer/87886574
   '''
   for url in datalines(urls):
     save_answer(url, folder='test')
@@ -534,9 +546,14 @@ def test_save_anonymous():
   save_answer('http://www.zhihu.com/question/20087838/answer/25169641')
 
 
-def test_save_href_bug():
+def test_save_should_trim_link_url_whitespace():
   # 如何追回参与高利贷而造成的损失？
   save_answer('http://www.zhihu.com/question/30787121/answer/49480841')
+  # 热门的数据挖掘的论坛、社区有哪些？
+  save_answer('https://www.zhihu.com/question/20142515/answer/15215875')
+  # 金融专业学生应该学编程语言吗，学什么语言好呢？
+  save_answer('https://www.zhihu.com/question/33554217/answer/57561928')
+
 
 
 def test_save_whitedot_bug():

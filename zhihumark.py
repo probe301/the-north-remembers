@@ -6,11 +6,10 @@ import re
 from pylon import puts
 from pylon import datalines
 from pylon import enumrange
-
-
-
-
-
+from pylon import yaml_ordered_load
+from werkzeug.contrib.atom import AtomFeed
+from flask import request
+from datetime import datetime
 ####### ##       #####   ###### ##   ##
 ##      ##      ##   ## ##      ##  ##
 ######  ##      #######  #####  ######
@@ -51,6 +50,42 @@ def zhihu_question_answer(qid, aid):
   mdfile = fetch_answer('https://www.zhihu.com/question/{}/answer/{}'.format(qid, aid))
   return Response(mdfile, mimetype='text/text')
   # return 'zhihu qid {} aid {}'.format(qid, aid)
+
+
+
+@app.route('/rss')
+def recent_feed():
+    feed = AtomFeed('Recent Articles',
+                    feed_url=request.url, url=request.url_root)
+
+    info = '''
+      - title: title1
+        rendered_text: rendered_text1
+        author_name: author_name1
+        url: http://11.22.com
+        last_update: 2016-1-1
+        published: 2016-1-1
+      - title: title2
+        rendered_text: rendered_text2
+        author_name: author_name2
+        url: http://22.22.com
+        last_update: 2016-1-12
+        published: 2016-1-12
+
+    '''
+    articles = yaml_ordered_load(info)
+    for article in articles:
+        feed.add(article.get('title'),
+                 article.get('rendered_text'),
+                 content_type='html',
+                 author=article.get('author_name'),
+                 url=article.get('url'),
+                 updated=datetime.now(),
+                 published=datetime.now()
+                 )
+    return feed.get_response()
+
+
 
 
 @app.route('/user/<username>')

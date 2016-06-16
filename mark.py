@@ -31,7 +31,7 @@ def generate_cookie():
 
 
 
-client = ZhihuClient('cookies.json')
+# client = ZhihuClient('cookies.json')
 
 
 
@@ -777,5 +777,6 @@ def test_comment():
 
 
 
-
+def exec_newspaper():
+  print(11)
 

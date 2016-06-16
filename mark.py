@@ -1,4 +1,4 @@
-
+﻿
 
 import time
 from pylon import puts
@@ -25,7 +25,7 @@ class ZhihuParseError(Exception):
 
 
 def generate_cookie():
-  # pob....@gmail.com p...
+  # pob..1@gmail.com p...
   ZhihuClient().create_cookies('cookies.json')
 # generate_cookie()
 
@@ -39,7 +39,9 @@ def h2t_handle_html(html):
   import html2text
   h2t = html2text.HTML2Text()
   h2t.body_width = 0
-  return '\n'.join(p.rstrip() for p in h2t.handle(html).strip().split('\n'))
+  r = h2t.handle(html).strip()
+  r = '\n'.join(p.rstrip() for p in r.split('\n'))
+  return re.sub('\n{4,}', '\n\n\n', r)
 
 
 
@@ -207,11 +209,18 @@ def markdown_prettify(path, prefix=''):
   pattern_hyperlink = re.compile(r'\[ (.+?) \](?=\(.+?\))')
 
   def hyperlink_replacer(mat):
-    r = mat.group(1).replace('http://www.', '').replace('http://', '').replace(' ', '')
-    if r.endswith('/'):
-      r = r[:-1]
-    if r.endswith('__'):
-      r = r[:-2] + '...'
+    r = mat.group(1).strip()
+    if r.startswith('http'):
+      r = re.sub(r'^https?:\/\/(www\.)?  ', '', r)
+      r = r.replace(' ', '')
+      # r = mat.group(1).replace('http://www.  ', '').replace('http://  ', '').replace(' ', '')
+      if r.endswith('/'):
+        r = r[:-1]
+      if r.endswith('__'):
+        r = r[:-2] + '...'
+    else:
+      if r.endswith(' _ _'):
+        r = r[:-4] + '...'
     return '[{}]'.format(r)
 
   # drop extra space around strong tag
@@ -373,12 +382,15 @@ def exec_save_from_collections():
 
 
 def exec_save_from_authors():
-  url = 'https://www.zhihu.com/people/xbjf/'  # 玄不救非氪不改命
-  save_from_author(url, folder='authors', min_upvote=500)
-  url = 'https://www.zhihu.com/people/lu-pi-xiong/'  # 陆坏熊
-  save_from_author(url, folder='authors', min_upvote=300)
-  url = 'https://www.zhihu.com/people/zhao-hao-yang-1991'  # 赵皓阳
-  save_from_author(url, folder='authors', min_upvote=300)
+  # url = 'https://www.zhihu.com/people/xbjf/'  # 玄不救非氪不改命
+  # save_from_author(url, folder='authors', min_upvote=500)
+  # url = 'https://www.zhihu.com/people/lu-pi-xiong/'  # 陆坏熊
+  # save_from_author(url, folder='authors', min_upvote=300)
+  # url = 'https://www.zhihu.com/people/zhao-hao-yang-1991'  # 赵皓阳
+  # save_from_author(url, folder='authors', min_upvote=300)
+  url = 'https://www.zhihu.com/people/mandelbrot-11'  # Mandelbrot
+  save_from_author(url, folder='authors', min_upvote=300, overwrite=True)
+
 # exec_save_from_authors()
 
 
@@ -395,6 +407,7 @@ def exec_save_answers():
     # https://www.zhihu.com/question/35254746/answer/90252213
     # https://www.zhihu.com/question/23618517/answer/89823915
     https://www.zhihu.com/question/40677000/answer/87886574
+    https://www.zhihu.com/question/41373242/answer/91417985
   '''
   for url in datalines(urls):
     save_answer(url, folder='test')
@@ -553,6 +566,8 @@ def test_save_should_trim_link_url_whitespace():
   save_answer('https://www.zhihu.com/question/20142515/answer/15215875')
   # 金融专业学生应该学编程语言吗，学什么语言好呢？
   save_answer('https://www.zhihu.com/question/33554217/answer/57561928')
+  # 如果太阳系是一个双恒星的星系，那地球应该是什么样的运转轨道，地球人的生活会是什么样的？
+  save_answer('https://www.zhihu.com/question/38860589/answer/79205923')
 
 
 

@@ -39,6 +39,16 @@ def parse_json_date(n):
   return str(datetime.datetime.fromtimestamp(n))
 
 
+
+
+
+
+
+
+
+
+
+
 def fetch_answer(answer, answer_url=None, question=None, author=None):
   time.sleep(1)
   author = author or answer.author
@@ -85,9 +95,6 @@ def fetch_answer(answer, answer_url=None, question=None, author=None):
   text += answer_body
 
   # TODO reimplement conversations
-  # TODO fix date create format
-  # TODO get permenent url in api
-
 
   # conversations = answer.valuable_conversations(limit=10)
   conversations = None
@@ -135,8 +142,6 @@ def save_answer(answer_url, folder='test', overwrite=True):
 
 
 
-
-
 def fetch_image(url, ext, markdown_file, image_counter):
   '''
   需要区分 全路径 和 相对引用
@@ -169,7 +174,6 @@ def fetch_image(url, ext, markdown_file, image_counter):
 
 
 
-
 def fetch_images_for_markdown_file(markdown_file):
   with open(markdown_file, 'r', encoding='utf-8') as f:
     text = f.read()
@@ -197,6 +201,8 @@ def fetch_images_for_markdown_file(markdown_file):
 
 
 from urllib.parse import unquote
+
+
 
 def markdown_prettify(path, prefix=''):
 
@@ -250,6 +256,25 @@ def markdown_prettify(path, prefix=''):
 
 
 
+
+
+
+def conversation():
+  '''
+  replies12 = list(c12.replies) # 所有回复本评论的评论, 第一条为本评论
+  [print(r.author.name, r.content) for r in replies12]
+  print()
+  # 玄不救非氪不改命 可以用马列主义指导炒房嘛，郁闷啥呢？
+  # Razor Liu 你觉得能问出这话的会是有钱炒房的阶级么...
+  # 暗黑的傀儡师 思路很新颖，就是把劳动力市场看的太简单了，不是还有简单劳动和复杂劳动之分，住燕郊的人大部分也不是富士康那种厂工，所以工作时间和产出之间并不是线性的；另外，老板给租了房，员工很可能更不愿意加班了。
+
+  g12 = list(c12.conversation)  # 包含该评论的对话, 从最开始到结束
+  [print(r.author.name, r.content) for r in g12]
+  # Razor Liu 看不到武装革命可能性的情况下,读马列是不是会越读越郁闷?
+  # 玄不救非氪不改命 可以用马列主义指导炒房嘛，郁闷啥呢？
+  # Razor Liu 你觉得能问出这话的会是有钱炒房的阶级么...
+  '''
+  pass
 
 
 

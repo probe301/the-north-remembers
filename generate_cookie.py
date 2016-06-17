@@ -1,20 +1,21 @@
 
 
+from zhihu_oauth import ZhihuClient
+from zhihu_oauth.exception import NeedCaptchaException
 
-from zhihu import ZhihuClient
+client = ZhihuClient()
 
-
-class ZhihuParseError(Exception):
-  pass
-
-def generate_cookie():
-  # pob....@gmail.com p...
-  ZhihuClient().create_cookies('cookies.json')
-# generate_cookie()
-
-
-
-client = ZhihuClient('cookies.json')
-
+name = 'p....1@g'
+pw = 'p...'
+try:
+    client.login(name, pw)
+except NeedCaptchaException:
+    # 保存验证码并提示输入，重新登录
+    with open('a.gif', 'wb') as f:
+        f.write(client.get_captcha())
+    captcha = input('please input captcha:')
+    # captcha = ''
+    client.login(name, pw, captcha)
 
 print(client)
+client.save_token('token.pkl')

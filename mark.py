@@ -9,10 +9,10 @@ import shutil
 
 from pylon import enumrange
 # import time
+import datetime
 
-
-from zhihu import ZhihuClient
-from zhihu.common import remove_invalid_char
+from zhihu_oauth import ZhihuClient
+from zhihu_oauth.zhcls.utils import remove_invalid_char
 
 import re
 
@@ -24,15 +24,10 @@ class ZhihuParseError(Exception):
 
 
 
-def generate_cookie():
-  # pob..1@gmail.com p...
-  ZhihuClient().create_cookies('cookies.json')
-# generate_cookie()
 
-
-
-# client = ZhihuClient('cookies.json')
-
+TOKEN_FILE = 'token.pkl'
+client = ZhihuClient()
+client.load_token(TOKEN_FILE)
 
 
 def h2t_handle_html(html):
@@ -44,15 +39,25 @@ def h2t_handle_html(html):
   return re.sub('\n{4,}', '\n\n\n', r)
 
 
+def parse_json_date(n):
+  return str(datetime.datetime.fromtimestamp(n))
 
 
 
-def fetch_answer(answer, question=None, author=None):
+
+
+
+
+
+
+
+
+
+def fetch_answer(answer, answer_url=None, question=None, author=None):
   time.sleep(1)
-  if isinstance(answer, str):
-    answer = client.Answer(answer)
   author = author or answer.author
   question = question or answer.question
+  answer_url = answer_url or answer._build_url()
   # 'http://zhuanlan.zhihu.com/xiepanda'
   # url = 'http://www.zhihu.com/question/30595784/answer/49194862'
   # url = 'http://www.zhihu.com/question/19622414/answer/19798844'
@@ -61,37 +66,42 @@ def fetch_answer(answer, question=None, author=None):
   try:
     content = answer.content
   except AttributeError:
-    raise ZhihuParseError('cannot parse answer.content: {} {}'.format(answer.question.title, answer.url))
+    raise ZhihuParseError('cannot parse answer.content: {} {}'.format(answer.question.title, answer_url))
 
   answer_body = h2t_handle_html(content)
 
   text = '# {}\n\n'.format(question.title)
 
-  text += '**话题**: {}\n\n'.format(', '.join(question.topics))
+  text += '**话题**: {}\n\n'.format(', '.join(t.name for t in question.topics))
 
 
-  details = h2t_handle_html(question.details).strip()
+  details = h2t_handle_html(question.detail).strip()
   if details:
     text += '**补充描述**: \n\n'
     text += details
     text += '\n\n'
 
-  motto = ' ({})'.format(author.motto) if author.motto else ''
-  create_date, edit_date = answer.date_pair
+  motto = ' ({})'.format(author.headline) if author.headline else ''
+  create_date = parse_json_date(answer.created_time)
+  edit_date = parse_json_date(answer.updated_time)
 
   text += '    author:      {}{}\n'.format(author.name, motto)
-  text += '    upvote:      {} 赞同\n'.format(answer.upvote_num)
+  text += '    upvote:      {} 赞同\n'.format(answer.voteup_count)
+  text += '    thanks:      {} 感谢\n'.format(answer.thanks_count)
   text += '    count:       {} 字\n'.format(len(answer_body))
   text += '    create_date: {}\n'.format(create_date)
   if edit_date:
     text += '    edit_date:   {}\n'.format(edit_date)
   text += '    fetch_date:  {}\n'.format(time.strftime('%Y-%m-%d'))
-  text += '    link:        {}\n\n'.format(answer.url)
+  text += '    link:        {}\n\n'.format(answer_url)
 
 
   text += answer_body
 
-  conversations = answer.valuable_conversations(limit=10)
+  # TODO reimplement conversations
+
+  # conversations = answer.valuable_conversations(limit=10)
+  conversations = None
   if conversations:
     text += '\n\n　　\n\n### 评论\n\n'
     for i, conversation in enumerate(conversations):
@@ -108,14 +118,15 @@ def fetch_answer(answer, question=None, author=None):
 
 
   text += '\n\n　　\n\n--------------\n'
-  text += 'from: [{}]()\n'.format(answer.url)
+  text += 'from: [{}]()\n'.format(answer_url)
   return text
 
 
 
-def save_answer(answer, folder='test', overwrite=True):
-  if isinstance(answer, str):
-    answer = client.Answer(answer)
+def save_answer(answer_url, folder='test', overwrite=True):
+  if isinstance(answer_url, str):
+    answer = client.from_url(answer_url)
+    # answer = client.answer(answer)
   author = answer.author
   question = answer.question
   save_path = folder + '/' + remove_invalid_char(question.title + ' - ' + author.name + '的回答.md')
@@ -123,17 +134,15 @@ def save_answer(answer, folder='test', overwrite=True):
     puts('answer_md_file exist! save_path')
     return
 
-  text = fetch_answer(answer, question, author)
+  text = fetch_answer(answer, answer_url=answer_url, question=question, author=author)
 
-  with open(save_path, 'w') as f:
+  with open(save_path, 'w', encoding='utf8') as f:
     f.write(text)
     puts('write save_path done')
 
   markdown_prettify(save_path)  # 去除 html2text 转换出来的 strong 和 link 的多余空格
   fetch_images_for_markdown_file(save_path)  # get images in markdown
   return save_path
-
-
 
 
 
@@ -169,7 +178,6 @@ def fetch_image(url, ext, markdown_file, image_counter):
 
 
 
-
 def fetch_images_for_markdown_file(markdown_file):
   with open(markdown_file, 'r', encoding='utf-8') as f:
     text = f.read()
@@ -197,6 +205,8 @@ def fetch_images_for_markdown_file(markdown_file):
 
 
 from urllib.parse import unquote
+
+
 
 def markdown_prettify(path, prefix=''):
 
@@ -260,6 +270,25 @@ def markdown_prettify(path, prefix=''):
 
 
 
+def conversation():
+  '''
+  replies12 = list(c12.replies) # 所有回复本评论的评论, 第一条为本评论
+  [print(r.author.name, r.content) for r in replies12]
+  print()
+  # 玄不救非氪不改命 可以用马列主义指导炒房嘛，郁闷啥呢？
+  # Razor Liu 你觉得能问出这话的会是有钱炒房的阶级么...
+  # 暗黑的傀儡师 思路很新颖，就是把劳动力市场看的太简单了，不是还有简单劳动和复杂劳动之分，住燕郊的人大部分也不是富士康那种厂工，所以工作时间和产出之间并不是线性的；另外，老板给租了房，员工很可能更不愿意加班了。
+
+  g12 = list(c12.conversation)  # 包含该评论的对话, 从最开始到结束
+  [print(r.author.name, r.content) for r in g12]
+  # Razor Liu 看不到武装革命可能性的情况下,读马列是不是会越读越郁闷?
+  # 玄不救非氪不改命 可以用马列主义指导炒房嘛，郁闷啥呢？
+  # Razor Liu 你觉得能问出这话的会是有钱炒房的阶级么...
+  '''
+  pass
+
+
+
 
 
 
@@ -287,7 +316,7 @@ def save_from_author(url, folder='test', min_upvote=500, overwrite=False):
     except RuntimeError as e:
       print(e, answer.question.title)
     except AttributeError as e:
-      print(answer.question.title, answer.url, e)
+      print(answer.question.title, answer_url, e)
       raise
 
 
@@ -328,14 +357,15 @@ def save_from_topic(url, limit=200,
   if not os.path.exists(folder):
     os.makedirs(folder)
 
-  topic = client.Topic(url)
+  # topic = client.Topic(url)
+  topic = client.from_url(url)
 
-  for i, answer in enumrange(topic.top_answers, limit):
-    print('fetching', answer.question.title, ' - ', answer.upvote_num)
+  for i, answer in enumrange(topic.best_answers, limit):
+    print('fetching', answer.question.title, ' - ', answer.voteup_count)
 
-    if answer.upvote_num < min_upvote:
+    if answer.voteup_count < min_upvote:
       break
-    if answer.upvote_num > max_upvote:
+    if answer.voteup_count > max_upvote:
       continue
 
     try:
@@ -406,8 +436,12 @@ def exec_save_answers():
     # https://www.zhihu.com/question/33246348/answer/86919689
     # https://www.zhihu.com/question/35254746/answer/90252213
     # https://www.zhihu.com/question/23618517/answer/89823915
+
     https://www.zhihu.com/question/40677000/answer/87886574
+
     https://www.zhihu.com/question/41373242/answer/91417985
+    http://www.zhihu.com/question/47275087/answer/106335325
+
   '''
   for url in datalines(urls):
     save_answer(url, folder='test')
@@ -463,7 +497,7 @@ def exec_save_from_topic():
     # https://www.zhihu.com/topic/19569034 philosophy_of_science 科学哲学
     # https://www.zhihu.com/topic/19558740 statistics 统计
     # https://www.zhihu.com/topic/19576422 statistics 统计
-    # https://www.zhihu.com/topic/19552981 economics 经济
+    https://www.zhihu.com/topic/19552981 economics 经济
     # https://www.zhihu.com/topic/19553550 paradox 悖论
     # https://www.zhihu.com/topic/19559450 machine_learning 机器学习
     # https://www.zhihu.com/topic/19551275 artificial_intelligence 人工智能
@@ -475,7 +509,7 @@ def exec_save_from_topic():
   for line in datalines(urls_str):
     url, topic_name, topic_name_cn = line.split(' ')
     puts('start parsing topic_name url')
-    save_from_topic(url, limit=300, min_upvote=1000, max_upvote=5000000, folder=topic_name_cn, overwrite=False)
+    save_from_topic(url, limit=10, min_upvote=1000, max_upvote=5000000, folder=topic_name_cn, overwrite=False)
 
 
 

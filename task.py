@@ -1,4 +1,7 @@
 
+
+
+
 import time
 import os
 import shutil
@@ -11,14 +14,73 @@ from datetime import datetime
 
 
 
-'''
-puts('fetching zhihu / question / answer')
-mdfile = fetch_answer('https://www.zhihu.com/question/{}/answer/{}'.format(qid, aid))
-'''
+
 import sqlite3
 
 
 # from mark import fetch_answer
+
+
+
+
+class Task:
+  """
+  TABLE TASK
+
+  url - url处理干净可以作为 pk？
+  status - init, changed, not modified, not found
+  first_fetch_date
+  kind - [知乎问答 知乎专栏 微信公众号文章]
+  last_fetch_date
+  delay
+  怎样排出下一次采集的日期？
+
+  query all PAGE
+  对于每个 PAGE
+  如果 status 是 (not modified, not found) 则 last_fetch_date + delay*2
+  如果 changed 则恢复默认的 delay
+
+  """
+  def __init__(self):
+    pass
+
+
+
+
+
+
+class Page:
+  """
+  TABLE PAGE_VERSION
+
+  task_id key
+  version 1, 2, 3
+  fetch_date
+  comments
+  title 可以取页面标题
+  content 存html带标签
+
+
+
+  """
+  def __init__(self):
+    self.version = 1
+    self.fetch_date = '2016-06-06'
+    self.comments = None
+    self.title = '可以取页面标题'
+    self.content = '存<html> skhgs </html>带标签'
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -37,15 +99,16 @@ def get_page_type(url):
 
 def fetch(url):
   # scrawl
+  page = Page()
+  return page
 
-  return PageVersion.new
 
+def store(page):
 
-def save(page_version):
+  # update task
+  # insert page
 
-  # update page
-  # insert version
-  return PageVersion
+  return page
 
 
 def diff(page):
@@ -57,56 +120,8 @@ def diff(page):
 
 
 def test_fetch():
-  print(1)
+  print('test_fetch')
+  url = 'http:....'
+  page = fetch(url)
+  save(page)
 
-
-'''
-DB
-
-TABLE PAGE
-
-url - url处理干净可以作为 pk？
-status - changed, not modified, not found
-first_fetch_date
-kind - [知乎问答 知乎专栏 微信公众号文章]
-last_fetch_date
-delay
-
-
-
-
-
-怎样排出下一次采集的日期？
-
-query all PAGE
-对于每个 PAGE
-如果 status 是 (not modified, not found) 则 last_fetch_date + delay*2
-如果 changed 则恢复默认的 delay
-
-
-
-
-
-
-
-
-TABLE PAGE_VERSION
-
-version 1, 2, 3
-fetch_date
-comments
-title 可以取页面标题
-content 存html带标签
-
-
-
-
-
-
-
-
-
-
-
-
-'''

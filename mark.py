@@ -9,7 +9,7 @@ import shutil
 
 from pylon import enumrange
 # import time
-
+import datetime
 
 from zhihu_oauth import ZhihuClient
 from zhihu_oauth.zhcls.utils import remove_invalid_char
@@ -35,13 +35,15 @@ def h2t_handle_html(html):
   return '\n'.join(p.rstrip() for p in h2t.handle(html).strip().split('\n'))
 
 
+def parse_json_date(n):
+  return str(datetime.datetime.fromtimestamp(n))
 
 
-
-def fetch_answer(answer, question=None, author=None):
+def fetch_answer(answer, answer_url=None, question=None, author=None):
   time.sleep(1)
   author = author or answer.author
   question = question or answer.question
+  answer_url = answer_url or answer._build_url()
   # 'http://zhuanlan.zhihu.com/xiepanda'
   # url = 'http://www.zhihu.com/question/30595784/answer/49194862'
   # url = 'http://www.zhihu.com/question/19622414/answer/19798844'
@@ -50,7 +52,7 @@ def fetch_answer(answer, question=None, author=None):
   try:
     content = answer.content
   except AttributeError:
-    raise ZhihuParseError('cannot parse answer.content: {} {}'.format(answer.question.title, answer._build_url()))
+    raise ZhihuParseError('cannot parse answer.content: {} {}'.format(answer.question.title, answer_url))
 
   answer_body = h2t_handle_html(content)
 
@@ -66,16 +68,18 @@ def fetch_answer(answer, question=None, author=None):
     text += '\n\n'
 
   motto = ' ({})'.format(author.headline) if author.headline else ''
-  create_date, edit_date = answer.created_time, answer.updated_time
+  create_date = parse_json_date(answer.created_time)
+  edit_date = parse_json_date(answer.updated_time)
 
   text += '    author:      {}{}\n'.format(author.name, motto)
   text += '    upvote:      {} 赞同\n'.format(answer.voteup_count)
+  text += '    thanks:      {} 感谢\n'.format(answer.thanks_count)
   text += '    count:       {} 字\n'.format(len(answer_body))
   text += '    create_date: {}\n'.format(create_date)
   if edit_date:
     text += '    edit_date:   {}\n'.format(edit_date)
   text += '    fetch_date:  {}\n'.format(time.strftime('%Y-%m-%d'))
-  text += '    link:        {}\n\n'.format(answer._build_url())
+  text += '    link:        {}\n\n'.format(answer_url)
 
 
   text += answer_body
@@ -103,14 +107,14 @@ def fetch_answer(answer, question=None, author=None):
 
 
   text += '\n\n　　\n\n--------------\n'
-  text += 'from: [{}]()\n'.format(answer._build_url())
+  text += 'from: [{}]()\n'.format(answer_url)
   return text
 
 
 
-def save_answer(answer, folder='test', overwrite=True):
-  if isinstance(answer, str):
-    answer = client.from_url(answer)
+def save_answer(answer_url, folder='test', overwrite=True):
+  if isinstance(answer_url, str):
+    answer = client.from_url(answer_url)
     # answer = client.answer(answer)
   author = answer.author
   question = answer.question
@@ -119,7 +123,7 @@ def save_answer(answer, folder='test', overwrite=True):
     puts('answer_md_file exist! save_path')
     return
 
-  text = fetch_answer(answer, question, author)
+  text = fetch_answer(answer, answer_url=answer_url, question=question, author=author)
 
   with open(save_path, 'w', encoding='utf8') as f:
     f.write(text)
@@ -276,7 +280,7 @@ def save_from_author(url, folder='test', min_upvote=500, overwrite=False):
     except RuntimeError as e:
       print(e, answer.question.title)
     except AttributeError as e:
-      print(answer.question.title, answer._build_url(), e)
+      print(answer.question.title, answer_url, e)
       raise
 
 
@@ -393,7 +397,8 @@ def exec_save_answers():
     # https://www.zhihu.com/question/33246348/answer/86919689
     # https://www.zhihu.com/question/35254746/answer/90252213
     # https://www.zhihu.com/question/23618517/answer/89823915
-    https://www.zhihu.com/question/40677000/answer/87886574
+    # https://www.zhihu.com/question/40677000/answer/87886574
+    http://www.zhihu.com/question/47275087/answer/106335325
   '''
   for url in datalines(urls):
     save_answer(url, folder='test')

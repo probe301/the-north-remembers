@@ -5,8 +5,10 @@ from zhihu_oauth.exception import NeedCaptchaException
 
 client = ZhihuClient()
 
-name = 'p....1@g'
-pw = 'p...'
+# name = 'p....1@g'
+# pw = 'p...'
+name = input('name:')
+pw = input('pw:')
 try:
     client.login(name, pw)
 except NeedCaptchaException:

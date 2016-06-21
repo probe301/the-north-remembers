@@ -50,7 +50,6 @@ class Pet(Model):
 
 
 def test_create_db():
-  # pass
   db.connect()
   db.create_tables([Person, Pet])
   db.close()
@@ -104,12 +103,6 @@ def test_retrieve():
     print(person.name, person.birthday)
 
 
-  d1940 = date(1940, 1, 1)
-  d1960 = date(1960, 1, 1)
-  query = (Person
-           .select()
-           .where((Person.birthday < d1940) | (Person.birthday > d1960)))
-
 
 def test_join():
   subquery = Pet.select(fn.COUNT(Pet.id)).where(Pet.owner == Person.id)
@@ -129,4 +122,30 @@ def test_join():
   # Grandma L. 0 pets
   # Herb 1 pets
   #      Mittens Jr cat
+
+
+def test_query_date():
+
+  d1940 = date(1940, 1, 1)
+  d1960 = date(1960, 1, 1)
+  query = (Person
+           .select()
+           .where((Person.birthday < d1940) | (Person.birthday > d1960)))
+  for person in query:
+      print(person.name, person.birthday)
+
+  print()
+  query = (Person
+        .select()
+        .where((Person.birthday > d1940) & (Person.birthday < d1960)))
+  for person in query:
+      print(person.name, person.birthday)
+
+
+def test_query_string_match():
+  expression = (fn.Lower(fn.Substr(Person.name, 1, 1)) == 'g')
+  for person in Person.select().where(expression):
+    print(person.name)
+
+
 

@@ -47,14 +47,24 @@ def parse_json_date(n):
 
 
 
+def join_comments(comments):
 
-
-
-
+  ret = []
+  for c in comments:
+    s = '{}: {}'.format(c.author.name, c.content)
+    ret.append(s)
+  return '\n\n'.join(ret)
 
 
 def fetch_answer(answer, answer_url=None, question=None, author=None):
   time.sleep(1)
+  if isinstance(answer, str):
+    answer_url = answer
+    answer = client.from_url(answer_url)
+    # answer = client.answer(answer)
+    author = answer.author
+    question = answer.question
+
   author = author or answer.author
   question = question or answer.question
   answer_url = answer_url or answer._build_url()
@@ -116,10 +126,13 @@ def fetch_answer(answer, answer_url=None, question=None, author=None):
         # puts(content)
         text += '**{}**{}: {}{}\n\n'.format(comment.author, reply_to_author, content, likes)
 
+  comments = answer.comments
+  text += '\n\n　　\n\n### 评论\n\n'
+  text += join_comments(comments)
 
   text += '\n\n　　\n\n--------------\n'
   text += 'from: [{}]()\n'.format(answer_url)
-  return text
+  return text, question.title + ' - ' + author.name
 
 
 
@@ -134,7 +147,7 @@ def save_answer(answer_url, folder='test', overwrite=True):
     puts('answer_md_file exist! save_path')
     return
 
-  text = fetch_answer(answer, answer_url=answer_url, question=question, author=author)
+  text, title = fetch_answer(answer, answer_url=answer_url, question=question, author=author)
 
   with open(save_path, 'w', encoding='utf8') as f:
     f.write(text)
@@ -220,6 +233,7 @@ def markdown_prettify(path, prefix=''):
 
   def hyperlink_replacer(mat):
     r = mat.group(1).strip()
+    print(r)
     if r.startswith('http'):
       r = re.sub(r'^https?:\/\/(www\.)?  ', '', r)
       r = r.replace(' ', '')
@@ -231,6 +245,8 @@ def markdown_prettify(path, prefix=''):
     else:
       if r.endswith(' _ _'):
         r = r[:-4] + '...'
+      if r.endswith('__'):
+        r = r[:-2]
     return '[{}]'.format(r)
 
   # drop extra space around strong tag
@@ -555,7 +571,7 @@ def test_save_answer_common():
   # 如何从头系统地听古典音乐？
   save_answer('https://www.zhihu.com/question/30957313/answer/50266448')
   # 你会带哪三本书穿越回到北宋熙宁二年？
-  save_answer('http://www.zhihu.com/question/25569054/answer/31213671')
+  save_answer('https://www.zhihu.com/question/25569054/answer/31213671')
 
 
 

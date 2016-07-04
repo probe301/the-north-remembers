@@ -13,7 +13,6 @@ from datetime import datetime
 
 from datetime import timedelta
 
-# from peewee import *
 from peewee import SqliteDatabase
 from peewee import CharField
 # from peewee import DateField
@@ -166,15 +165,16 @@ class Task(Model):
 
 
   def watch(self):
-    from zhihu_answer import fetch_answer
-    text, title = fetch_answer(self.url)
-    page = self.remember(text, title)
+    from zhihu_answer import fetch_zhihu_answer
+    zhihu_answer = fetch_zhihu_answer(self.url)
+    page = self.remember(zhihu_answer)
     return page
 
 
-  def remember(self, text, title):
+  def remember(self, data):
     now = datetime.now()
-    page = Page(task=self, title=title, content=text, watch_date=now)
+    page = Page(task=self, title=data['title'],
+                content=data['content'], watch_date=now)
     self.last_watch = now
     if (page.same_as_last()):
       self.not_modified = 0

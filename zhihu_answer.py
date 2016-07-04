@@ -6,14 +6,14 @@ from pylon import datalines
 
 import os
 import shutil
-
+import html2text
 from pylon import enumrange
 # import time
 import datetime
 
 from zhihu_oauth import ZhihuClient
 from zhihu_oauth.zhcls.utils import remove_invalid_char
-
+from jinja2 import Template
 import re
 
 import urllib.request
@@ -30,8 +30,7 @@ client = ZhihuClient()
 client.load_token(TOKEN_FILE)
 
 
-def html_to_markdown(html):
-  import html2text
+def zhihu_content_html2md(html):
   h2t = html2text.HTML2Text()
   h2t.body_width = 0
   r = h2t.handle(html).strip()
@@ -43,96 +42,157 @@ def parse_json_date(n):
   return str(datetime.datetime.fromtimestamp(n))
 
 
+def valuable_conversations(answer, limit=10):
+  '''
+  return [[comment, comment...], ...]
+  replies12 = list(c12.replies) # 所有回复本评论的评论, 第一条为本评论
+  [print(r.author.name, r.content) for r in replies12]
+
+  # 玄不救非氪不改命 可以用马列主义指导炒房嘛，郁闷啥呢？
+  # Razor Liu 你觉得能问出这话的会是有钱炒房的阶级么...
+  # 暗黑的傀儡师 思路很新颖，就是把劳动力市场看的太简...
+
+
+  g12 = list(c12.conversation)  # 包含该评论的对话, 从最开始到结束
+  [print(r.author.name, r.content) for r in g12]
+  # Razor Liu 看不到武装革命可能性的情况下,读马列是不是会越读越郁闷?
+  # 玄不救非氪不改命 可以用马列主义指导炒房嘛，郁闷啥呢？
+  # Razor Liu 你觉得能问出这话的会是有钱炒房的阶级么...
+  '''
+  def _parse_comment(comment):
+    reply_to_author = ' 回复 **{}**'.format(comment.reply_to.name) if comment.reply_to else ''
+    vote_count = '  ({} 赞)'.format(comment.vote_count) if comment.vote_count else ''
+    content = zhihu_content_html2md(comment.content).strip()
+    if '\n' in content:
+      content = '\n\n' + content
+    text = '**{}**{}: {}{}\n\n'.format(comment.author.name, reply_to_author, content, vote_count)
+    return text
+
+
+  all_comments = list(answer.comments)
+  while limit:
+    top_voteup_comment = max(all_comments, key=lambda x: x.vote_count)
+    if top_voteup_comment.vote_count < 3:
+      break
+    conversation = list(top_voteup_comment.conversation)
+    conversation_ids = [c.id for c in conversation]
+    all_comments = [c for c in all_comments if c.id not in conversation_ids]
+    yield [_parse_comment(comment) for comment in conversation]
+    limit -= 1
 
 
 
 
-def join_comments(comments):
-
-  ret = []
-  for c in comments:
-    s = '{}: {}'.format(c.author.name, c.content)
-    ret.append(s)
-  return '\n\n'.join(ret)
 
 
-def fetch_answer(answer, answer_url=None, question=None, author=None):
+
+def fill_template(author=None, topics=None, motto=None,
+                  title=None, question_details=None, content=None,
+                  voteup_count=None, thanks_count=None,
+                  conversations=None,
+                  count=None, url=None,
+                  create_date=None, edit_date=None, fetch_date=None,
+                  ):
+
+  tmpl_string = '''
+
+# {{title}}
+
+**话题**: {{topics}}
+
+{%- if question_details %}
+**Description**:
+
+{{question_details}}
+{% endif %}
+
+    author: {{author}} {{motto}}
+    voteup: {{voteup_count}} 赞同
+    thanks: {{thanks_count}} 感谢
+    create: {{create_date}}
+    edit:   {{edit_date}}
+    fetch:  {{fetch_date}}
+    count:  {{count}} 字
+    url:    {{url}}
+
+{{content}}
+
+
+{% if conversations %}
+### Top Comments
+
+{%- for conversation in conversations %}
+{%- for comment in conversation %}
+{{comment}}
+{% endfor %}
+-
+{% endfor %}
+{% endif %}
+
+
+
+------------------
+
+from: [{{url}}]()
+
+'''
+
+  return Template(tmpl_string).render(**locals())
+
+
+
+
+
+
+def fetch_zhihu_answer(answer_url):
   time.sleep(1)
-  if isinstance(answer, str):
-    answer_url = answer
-    answer = client.from_url(answer_url)
-    # answer = client.answer(answer)
-    author = answer.author
-    question = answer.question
 
-  author = author or answer.author
-  question = question or answer.question
-  answer_url = answer_url or answer._build_url()
-  # 'http://zhuanlan.zhihu.com/xiepanda'
-  # url = 'http://www.zhihu.com/question/30595784/answer/49194862'
-  # url = 'http://www.zhihu.com/question/19622414/answer/19798844'
-  # url = 'http://www.zhihu.com/question/24413365/answer/27857112'
-  # url = 'http://www.zhihu.com/question/23039503/answer/48635152'
+  answer = client.from_url(answer_url)
+  # answer = client.answer(answer)
+  author = answer.author
+  question = answer.question
+
   try:
     content = answer.content
   except AttributeError:
-    raise ZhihuParseError('cannot parse answer.content: {} {}'.format(answer.question.title, answer_url))
-
-  answer_body = html_to_markdown(content)
-
-  text = '# {}\n\n'.format(question.title)
-
-  text += '**话题**: {}\n\n'.format(', '.join(t.name for t in question.topics))
+    msg = 'cannot parse answer.content: {} {}'
+    raise ZhihuParseError(msg.format(answer.question.title, answer_url))
 
 
-  details = html_to_markdown(question.detail).strip()
-  if details:
-    text += '**补充描述**: \n\n'
-    text += details
-    text += '\n\n'
-
-  motto = ' ({})'.format(author.headline) if author.headline else ''
-  create_date = parse_json_date(answer.created_time)
-  edit_date = parse_json_date(answer.updated_time)
-
-  text += '    author:      {}{}\n'.format(author.name, motto)
-  text += '    upvote:      {} 赞同\n'.format(answer.voteup_count)
-  text += '    thanks:      {} 感谢\n'.format(answer.thanks_count)
-  text += '    count:       {} 字\n'.format(len(answer_body))
-  text += '    create_date: {}\n'.format(create_date)
-  if edit_date:
-    text += '    edit_date:   {}\n'.format(edit_date)
-  text += '    fetch_date:  {}\n'.format(time.strftime('%Y-%m-%d'))
-  text += '    link:        {}\n\n'.format(answer_url)
 
 
-  text += answer_body
+  answer_body = zhihu_content_html2md(content)
+  motto = '({})'.format(author.headline) if author.headline else ''
+  question_details = zhihu_content_html2md(question.detail).strip()
+  title = question.title + ' - ' + author.name + '的回答'
+  topics = ', '.join(t.name for t in question.topics)
 
-  # TODO reimplement conversations
 
-  # conversations = answer.valuable_conversations(limit=10)
-  conversations = None
-  if conversations:
-    text += '\n\n　　\n\n### 评论\n\n'
-    for i, conversation in enumerate(conversations):
-      if i > 0:
-        text += '　　\n\n'
-      for comment in conversation:
-        reply_to_author = ' 回复 **{}**'.format(comment.reply_to) if comment.reply_to else ''
-        likes = '  ({} 赞)'.format(comment.likes) if comment.likes else ''
-        content = html_to_markdown(comment.content)
-        if '\n' in content:
-          content = '\n\n' + content
-        # puts(content)
-        text += '**{}**{}: {}{}\n\n'.format(comment.author, reply_to_author, content, likes)
 
-  comments = answer.comments
-  text += '\n\n　　\n\n### 评论\n\n'
-  text += join_comments(comments)
 
-  text += '\n\n　　\n\n--------------\n'
-  text += 'from: [{}]()\n'.format(answer_url)
-  return text, question.title + ' - ' + author.name
+
+
+  t = fill_template(author=author.name,
+                    motto=motto,
+                    topics=topics,
+                    title=title,
+                    question_details=question_details,
+                    content=answer_body,
+                    voteup_count=answer.voteup_count,
+                    thanks_count=answer.thanks_count,
+                    # conversations=valuable_conversations(answer),
+                    conversations=None,
+                    count=len(answer_body),
+                    url=answer_url,
+                    create_date=parse_json_date(answer.created_time),
+                    edit_date=parse_json_date(answer.updated_time),
+                    fetch_date=time.strftime('%Y-%m-%d'),
+                    )
+
+  return {'title': title, 'content': t}
+
+
+
 
 
 
@@ -147,10 +207,10 @@ def save_answer(answer_url, folder='test', overwrite=True):
     puts('answer_md_file exist! save_path')
     return
 
-  text, title = fetch_answer(answer, answer_url=answer_url, question=question, author=author)
+  data = fetch_zhihu_answer(answer_url=answer_url)
 
   with open(save_path, 'w', encoding='utf8') as f:
-    f.write(text)
+    f.write(data['content'])
     puts('write save_path done')
 
   markdown_prettify(save_path)  # 去除 html2text 转换出来的 strong 和 link 的多余空格
@@ -285,23 +345,6 @@ def markdown_prettify(path, prefix=''):
 
 
 
-
-def conversation():
-  '''
-  replies12 = list(c12.replies) # 所有回复本评论的评论, 第一条为本评论
-  [print(r.author.name, r.content) for r in replies12]
-  print()
-  # 玄不救非氪不改命 可以用马列主义指导炒房嘛，郁闷啥呢？
-  # Razor Liu 你觉得能问出这话的会是有钱炒房的阶级么...
-  # 暗黑的傀儡师 思路很新颖，就是把劳动力市场看的太简单了，不是还有简单劳动和复杂劳动之分，住燕郊的人大部分也不是富士康那种厂工，所以工作时间和产出之间并不是线性的；另外，老板给租了房，员工很可能更不愿意加班了。
-
-  g12 = list(c12.conversation)  # 包含该评论的对话, 从最开始到结束
-  [print(r.author.name, r.content) for r in g12]
-  # Razor Liu 看不到武装革命可能性的情况下,读马列是不是会越读越郁闷?
-  # 玄不救非氪不改命 可以用马列主义指导炒房嘛，郁闷啥呢？
-  # Razor Liu 你觉得能问出这话的会是有钱炒房的阶级么...
-  '''
-  pass
 
 
 
@@ -569,9 +612,9 @@ def test_save_answer_common():
   # 如何看待许知远在青年领袖颁奖典礼上愤怒「砸场」？
   save_answer('https://www.zhihu.com/question/30595784/answer/49194862')
   # 如何从头系统地听古典音乐？
-  save_answer('https://www.zhihu.com/question/30957313/answer/50266448')
+  # save_answer('https://www.zhihu.com/question/30957313/answer/50266448')
   # 你会带哪三本书穿越回到北宋熙宁二年？
-  save_answer('https://www.zhihu.com/question/25569054/answer/31213671')
+  # save_answer('https://www.zhihu.com/question/25569054/answer/31213671')
 
 
 
@@ -654,12 +697,12 @@ def test_html2text():
   html = '11111111<br>222222<br><br><br><br>3333333'
   a = h2t.handle(html)
   puts('a=')
-  b = html_to_markdown(html)
+  b = zhihu_content_html2md(html)
   puts('b=')
   # print(html.split('\n'))
   # print('\n'.join(p for p in html.split('\n')))
   # print('\n'.join(p.rstrip() for p in html.split('\n')))
-  # print(html_to_markdown(html))
+  # print(zhihu_content_html2md(html))
 
 
 
@@ -830,3 +873,130 @@ def test_comment():
 def exec_newspaper():
   print(11)
 
+
+
+
+def save_comments():
+
+  pass
+      # 2016.01.18 Probe add
+
+      @property
+      @check_soup('_comment_list_id')
+      def comment_list_id(self):
+          """返回 aid 用于拼接 url get 该回答的评论
+          <div tabindex="-1" class="zm-item-answer" itemscope="" itemtype="http://schema.org/Answer" data-aid="14852408" data-atoken="48635152" data-collapsed="0" data-created="1432285826" data-deleted="0" data-helpful="1" data-isowner="0" data-score="34.1227812032">
+          """
+          div = self.soup.find('div', class_='zm-item-answer')
+          return div['data-aid']
+
+      @property
+      def comments_quick(self):
+          url = 'http://www.zhihu.com/node/AnswerCommentBoxV2?params=%7B%22answer_id%22%3A%22{}%22%2C%22load_all%22%3Atrue%7D'.format(self.comment_list_id)
+          # print(url)
+          r = self._session.get(url)
+          soup = BeautifulSoup(r.content)
+          comments = []
+          for div in soup.find_all('div', class_='zm-item-comment'):
+              # print(div)
+              # print(div.text)
+              raw_content = div
+              comment_id = div["data-id"]
+              # author = div.find('a', class_='zm-item-link-avatar')['title']
+
+              likes = int(div.find('span', class_='like-num').find('em').text)
+              content = div.find('div', class_='zm-comment-content').prettify().strip()
+              author_text = div.find('div', class_='zm-comment-hd').text.strip().replace('\n', ' ')
+              # print(author_text)
+              if ' 回复 ' in author_text:
+                  author, reply_to = author_text.split(' 回复 ')
+              else:
+                  author, reply_to = author_text, None
+
+              # author = reply_ids[0]
+              # reply_to = None if len(reply_ids) == 1 else reply_ids[1]
+              comment = CommentQuick(raw_content, comment_id, author, likes, content, reply_to)
+
+              comments.append(comment)
+          return comments
+
+      @property
+      def conversations(self):
+          '''会话, 评论区的所有评论的分组
+          规则:
+          0. comment 分为直接评论和回复别人两种
+          1. 从第一个评论开始, 将每一个评论归入合适的分组, 否则建新分组
+          2. 直接评论视为开启新的会话
+          3. B回复A, 放入B回复的A的评论的会话,
+              如果A已经出现在n个会话里, 寻找A之前是否回复过B,
+                  A回复过B: 放在这一组会话里,
+                  A没有回复过B: 放在A最晚说话的那一条评论的会话里 second_choice
+
+          '''
+          result = []
+          for comment in self.comments_quick:
+              if not comment.reply_to:  # 直接评论, 开启新的会话
+                  result.append([comment])
+              else:                     # 回复别人
+                  second_choice = None  # A最晚说话的那一条评论的会话
+                  for conversation in reversed(result):  # 反着查找, 获取时间最近的匹配
+                      if comment.reply_to in [c.author for c in conversation]:
+                          second_choice = second_choice or conversation
+                          if comment.author in [c.reply_to for c in conversation]:  # B回复A之前, A也回复过B
+                              conversation.append(comment)
+                              break
+                  else:  # B回复A, 但是A没有回复过B, 或者A被删了评论
+                      if second_choice:  # A没有回复过B 放在A最晚说话的那一条评论的会话里
+                          second_choice.append(comment)
+                      else:  # A被删了评论, 只好加入新的会话分组
+                          result.append([comment])
+
+          return result
+
+      def valuable_conversations(self, limit=10):
+          '''
+          limit: 有效的会话组里的likes总和最大的 n 个对话
+          '''
+          # result = []
+
+          # for conversation in self.conversations:
+          #     if sum(comment.likes for comment in conversation) >= limit:
+          #         result.append(conversation)
+          # return result
+
+          sum_likes = lambda conversation: sum(comment.likes for comment in conversation)
+          return sorted(self.conversations, key=sum_likes, reverse=True)[:limit]
+
+      # def valuable_comments(self, min_likes=5):
+      #     result = []
+      #     reply_to_authors = set()
+      #     comments = self.comments
+      #     for comment in reversed(comments):
+      #         if comment.likes < min_likes and comment.author not in reply_to_authors:
+      #             continue
+      #         if comment.reply_to:
+      #             reply_to_authors.add(comment.reply_to)
+      #         result.append(comment)
+      #     return list(reversed(result))
+
+
+
+
+  class CommentQuick():
+      ''' 更快速的评论对象
+      知乎于2016年1月修改评论显示模式(加了分页and查看上下文对话)
+      此为原始的评论获取方法
+      使用 url = 'http://www.zhihu.com/node/AnswerCommentBoxV2?params=%7B%22answer_id%22%3A%22{}%22%2C%22load_all%22%3Atrue%7D'.format(self.comment_list_id)
+      拼接获取评论
+
+      '''
+      def __init__(self, raw_content, comment_id, author, likes, content, reply_to):
+          self.raw_content = raw_content
+          self.comment_id = comment_id
+          self.author = author
+          self.likes = likes
+          self.content = content
+          self.reply_to = reply_to
+
+      def __str__(self):
+          return '<Comment id={0.comment_id}> author: {0.author} reply_to: {0.reply_to} likes={0.likes} {0.content}'.format(self)

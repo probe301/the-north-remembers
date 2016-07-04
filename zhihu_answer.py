@@ -30,7 +30,7 @@ client = ZhihuClient()
 client.load_token(TOKEN_FILE)
 
 
-def h2t_handle_html(html):
+def html_to_markdown(html):
   import html2text
   h2t = html2text.HTML2Text()
   h2t.body_width = 0
@@ -78,14 +78,14 @@ def fetch_answer(answer, answer_url=None, question=None, author=None):
   except AttributeError:
     raise ZhihuParseError('cannot parse answer.content: {} {}'.format(answer.question.title, answer_url))
 
-  answer_body = h2t_handle_html(content)
+  answer_body = html_to_markdown(content)
 
   text = '# {}\n\n'.format(question.title)
 
   text += '**话题**: {}\n\n'.format(', '.join(t.name for t in question.topics))
 
 
-  details = h2t_handle_html(question.detail).strip()
+  details = html_to_markdown(question.detail).strip()
   if details:
     text += '**补充描述**: \n\n'
     text += details
@@ -120,7 +120,7 @@ def fetch_answer(answer, answer_url=None, question=None, author=None):
       for comment in conversation:
         reply_to_author = ' 回复 **{}**'.format(comment.reply_to) if comment.reply_to else ''
         likes = '  ({} 赞)'.format(comment.likes) if comment.likes else ''
-        content = h2t_handle_html(comment.content)
+        content = html_to_markdown(comment.content)
         if '\n' in content:
           content = '\n\n' + content
         # puts(content)
@@ -654,12 +654,12 @@ def test_html2text():
   html = '11111111<br>222222<br><br><br><br>3333333'
   a = h2t.handle(html)
   puts('a=')
-  b = h2t_handle_html(html)
+  b = html_to_markdown(html)
   puts('b=')
   # print(html.split('\n'))
   # print('\n'.join(p for p in html.split('\n')))
   # print('\n'.join(p.rstrip() for p in html.split('\n')))
-  # print(h2t_handle_html(html))
+  # print(html_to_markdown(html))
 
 
 

@@ -576,11 +576,20 @@ def exec_save_answers():
     # https://www.zhihu.com/question/35254746/answer/90252213
     # https://www.zhihu.com/question/23618517/answer/89823915
 
-    https://www.zhihu.com/question/40677000/answer/87886574
+    # https://www.zhihu.com/question/40677000/answer/87886574
 
-    https://www.zhihu.com/question/41373242/answer/91417985
-    http://www.zhihu.com/question/47275087/answer/106335325
-
+    # https://www.zhihu.com/question/41373242/answer/91417985
+    # https://www.zhihu.com/question/47275087/answer/106335325
+    # 人们买不起房子是因为房子价格太高，还是因为我们的工资太低？
+    # https://www.zhihu.com/question/47275087/answer/106335325
+    # 印度经济会在本世纪追上中国吗？
+    http://www.zhihu.com/question/36129534/answer/91921682
+    # 火车票涨价是否能解决春运问题？
+    http://www.zhihu.com/question/22513722/answer/21967185
+    # 蒋兆和先生的《流民图》为何受到批判？
+    http://www.zhihu.com/question/32210508/answer/57701501
+    # 裸辞后空窗期过长，要怎样向面试官解释以获得工作机会？
+    http://www.zhihu.com/question/27820755/answer/107267228
   '''
   for url in datalines(urls):
     save_answer(url, folder='test')
@@ -690,8 +699,8 @@ def test_answer_banned():
 
 def test_save_answer_common():
   # 如何看待许知远在青年领袖颁奖典礼上愤怒「砸场」？
-  # save_answer('https://www.zhihu.com/question/30595784/answer/49194862')
-  # fang
+  save_answer('https://www.zhihu.com/question/30595784/answer/49194862')
+  # 人们买不起房子是因为房子价格太高，还是因为我们的工资太低？
   save_answer('https://www.zhihu.com/question/47275087/answer/106335325')
   # 如何从头系统地听古典音乐？
   # save_answer('https://www.zhihu.com/question/30957313/answer/50266448')

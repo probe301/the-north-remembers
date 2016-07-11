@@ -193,6 +193,7 @@ from: [https://www.zhihu.com/question/{{question_id}}/answer/{{answer_id}}]()
 
 def fetch_zhihu_answer(answer):
   # time.sleep(1)
+  answer = parse_answer(answer)
   author = answer.author
   question = answer.question
 
@@ -200,7 +201,7 @@ def fetch_zhihu_answer(answer):
     content = answer.content
   except AttributeError:
     msg = 'cannot parse answer.content: {} {}'
-    raise ZhihuParseError(msg.format(answer.question.title, answer_url))
+    raise ZhihuParseError(msg.format(answer.question.title, answer._build_url()))
 
 
 
@@ -233,12 +234,8 @@ def fetch_zhihu_answer(answer):
 
 
 
-
-
-
-def save_answer(answer=None, folder='test'):
+def parse_answer(answer):
   if isinstance(answer, str):
-
     if 'api.zhihu.com' in answer: # https://api.zhihu.com/answers/71917800
       answer = client.answer(int(answer.split('/')[-1]))
     elif answer.isdigit():
@@ -247,6 +244,11 @@ def save_answer(answer=None, folder='test'):
       answer = client.from_url(answer)
   elif isinstance(answer, int):
     answer = client.answer(answer)
+  return answer
+
+
+def save_answer(answer, folder='test'):
+  answer = parse_answer(answer)
 
   data = fetch_zhihu_answer(answer=answer)
   save_path = folder + '/' + remove_invalid_char(data['title']) + '.md'

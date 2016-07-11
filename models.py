@@ -84,14 +84,8 @@ class Task(Model):
 
 
   def __str__(self):
-    query = Page.select().where(Page.task == self)
-    if query:
-      title = query.get().title
-    else:
-      title = '(page has not fetched)'
-
     s = '<Task title="{}"\n      url="{}"\n      last_watch={}\n      next_watch={}>'
-    return s.format(title, self.url, convert_time(self.last_watch), convert_time(self.next_watch))
+    return s.format(self.title, self.url, convert_time(self.last_watch), convert_time(self.next_watch))
 
   @classmethod
   def add(cls, url):
@@ -155,18 +149,19 @@ class Task(Model):
   @classmethod
   def loop_watch(cls, sleep_seconds=1, times=10):
     for i in range(1, times+1):
+      print('\n  loop {}'.format(i))
       task = Task.select().order_by(Task.next_watch).get()
       if not task:
         print('can not find any task')
         continue
       now = datetime.now()
       if task.next_watch <= now:
-        print('{} loop watch start: now: {}\n{}'.format(i, now, task))
+        print('watch start: now: {}\n{}'.format(convert_time(now), task))
         page = task.watch()
-        print('{} loop watch done:\n{}'.format(i, page))
+        print('watch done!\n{}'.format(page))
         time.sleep(sleep_seconds)
       else:
-        print('{} not today...\nnext_watch at: {} but now: {}\n{}'.format(i, task.next_watch, now, task))
+        print('not today...\nnext_watch at: {} but now: {}\n{}'.format(task.next_watch, now, task))
 
   @classmethod
   def report(cls):
@@ -222,7 +217,7 @@ class Page(Model):
 
   @property
   def version(self):
-    q = Page.select().where(Page.task == self.task and Page.watch_date < self.watch_date)
+    q = Page.select().where((Page.task == self.task) & (Page.watch_date < self.watch_date))
     if q:
       return q.count() + 1
     else:

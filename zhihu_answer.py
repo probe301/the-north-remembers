@@ -140,9 +140,7 @@ def fill_template(author, topics, motto, title, question_details, content,
                   answer_id, question_id, create_date, edit_date, fetch_date,
                   ):
 
-  tmpl_string = '''
-
-# {{title}}
+  tmpl_body = '''
 
 **话题**: {{topics}}
 {% if question_details %}
@@ -164,10 +162,12 @@ def fill_template(author, topics, motto, title, question_details, content,
 {{content}}
 
 
-{% if conversations %}
-　　
 
-### Top Comments
+'''
+
+  tmpl_comments = '''
+
+{% if conversations %}
 {% for conversation in conversations %}
 {%- for comment in conversation %}
 {{comment}}
@@ -176,15 +176,10 @@ def fill_template(author, topics, motto, title, question_details, content,
 {% endfor %}
 {% endif %}
 
-
-
-------------------
-
-from: [https://www.zhihu.com/question/{{question_id}}/answer/{{answer_id}}]()
-
 '''
-
-  return Template(tmpl_string).render(**locals())
+  body = Template(tmpl_body).render(**locals())
+  comments = Template(tmpl_comments).render(**locals())
+  return body, comments
 
 
 
@@ -229,8 +224,10 @@ def fetch_zhihu_answer(answer):
                     edit_date=parse_json_date(answer.updated_time),
                     fetch_date=time.strftime('%Y-%m-%d'),
                     )
-  t = zhihu_fix_markdown(t)  # 去除 html2text 转换出来的 strong 和 link 的多余空格
-  return {'title': title, 'content': t}
+  body, comments = t
+  return {'title': title,
+          'content': zhihu_fix_markdown(body),
+          'comments': zhihu_fix_markdown(comments)}
 
 
 
@@ -254,7 +251,10 @@ def save_answer(answer, folder='test'):
   save_path = folder + '/' + remove_invalid_char(data['title']) + '.md'
 
   with open(save_path, 'w', encoding='utf-8') as f:
+    f.write('\n# ' + data['title'])
     f.write(data['content'])
+    if data['comments'].strip():
+      f.write('\n\n　　\n### Top Comments\n\n' + data['comments'])
     puts('write save_path done')
 
   fetch_images_for_markdown(save_path)  # get images in markdown
@@ -325,7 +325,7 @@ from urllib.parse import unquote
 
 
 def zhihu_fix_markdown(text):
-
+  # 去除 html2text 转换出来的 strong 和 link 的多余空格
   # drop extra space in link syntax
   # eg. [ wikipage ](http://.....) => [wikipage](http://.....)
   # eg2 [http://www.  businessanalysis.cn/por  tal.php ](http://www.businessanalysis.cn/portal.php)

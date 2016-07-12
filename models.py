@@ -99,7 +99,7 @@ class Task(Model):
     existed = cls.select().where(cls.url == url)
     if existed:
       task = existed.get()
-      print('has already existed: {}'.format(task))
+      print('Task.add has already existed: {}'.format(task))
       task.next_watch = datetime.now()
       task.not_modified = 0
       task.save()
@@ -113,8 +113,11 @@ class Task(Model):
 
   def remember(self, data):
     now = datetime.now()
-    page = Page(task=self, title=data['title'],
-                content=data['content'].strip(), watch_date=now)
+    page = Page(task=self,
+                title=data['title'],
+                content=data['content'].strip(),
+                comment=data['comments'].strip(),
+                watch_date=now)
     self.last_watch = now
     if page.same_as_last():
       self.not_modified += 1
@@ -123,6 +126,7 @@ class Task(Model):
 
     page.save()
     seconds = 2 ** self.not_modified * self.BASETIMEOUT
+    # 如果几次都是 not_modified, 则下次计划任务会安排的较晚
     self.next_watch = now + timedelta(seconds=seconds)
     self.title = data['title']
     self.save()
@@ -147,32 +151,34 @@ class Task(Model):
 
 
   @classmethod
-  def loop_watch(cls, sleep_seconds=1, times=10):
-    for i in range(1, times+1):
-      print('\n  loop {}'.format(i))
+  def multiple_watch(cls, sleep_seconds=10, limit=10):
+    for i in range(1, limit+1):
+      now = datetime.now()
+      print('\n\n  loop {}/{} current_time={}'.format(i, limit, convert_time(now)))
       task = Task.select().order_by(Task.next_watch).get()
       if not task:
         print('can not find any task')
         continue
-      now = datetime.now()
-      if task.next_watch <= now:
-        print('watch start: now: {}\n{}'.format(convert_time(now), task))
+      elif task.next_watch <= now:
+        print('start: {}'.format(task))
         page = task.watch()
-        print('watch done!\n{}'.format(page))
+        print('done! {}'.format(page))
         time.sleep(sleep_seconds)
       else:
-        print('not today...\nnext_watch at: {} but now: {}\n{}'.format(task.next_watch, now, task))
+        print('not today... next_watch on: {} {}'.format(task.next_watch, task))
 
   @classmethod
   def report(cls):
     tasks = Task.select()
     now = datetime.now()
-    tasks_expired = Task.select().where(Task.next_watch <= now)
+    tasks_todo = Task.select().where(Task.next_watch <= now)
 
-    print('Task total={} expired={}'.format(tasks.count(), tasks_expired.count()))
-    print('expired tasks:')
-    for task in tasks_expired.order_by(Task.next_watch):
+    print('Task total={} todo={}'.format(tasks.count(), tasks_todo.count()))
+    print('todo tasks:')
+    for task in tasks_todo.order_by(Task.next_watch):
       print(task)
+
+
 
 '''
 ######   #####   ###### #######
@@ -187,10 +193,10 @@ class Page(Model):
   '''
   task = ForeignKeyField(Task, related_name='task')
   title = CharField(null=True)
-  content = TextField()
-  comments = TextField(null=True)
+  content = TextField(null=True)
+  description = TextField(null=True)
+  comment = TextField(null=True)
   watch_date = DateTimeField()
-
 
   class Meta:
     database = db
@@ -258,19 +264,19 @@ def test_seed_add_tasks():
   urls = '''
     https://www.zhihu.com/question/40305228/answer/86179116
     https://www.zhihu.com/question/36466762/answer/85475145
-    # https://www.zhihu.com/question/33246348/answer/86919689
-    # https://www.zhihu.com/question/39906815/answer/88534869
+    https://www.zhihu.com/question/33246348/answer/86919689
+    https://www.zhihu.com/question/39906815/answer/88534869
 
-    # https://www.zhihu.com/question/40700155/answer/89002644
-    # https://www.zhihu.com/question/36380091/answer/84690117
-    # https://www.zhihu.com/question/33246348/answer/86919689
-    # https://www.zhihu.com/question/35254746/answer/90252213
-    # https://www.zhihu.com/question/23618517/answer/89823915
+    https://www.zhihu.com/question/40700155/answer/89002644
+    https://www.zhihu.com/question/36380091/answer/84690117
+    https://www.zhihu.com/question/33246348/answer/86919689
+    https://www.zhihu.com/question/35254746/answer/90252213
+    https://www.zhihu.com/question/23618517/answer/89823915
 
-    # https://www.zhihu.com/question/40677000/answer/87886574
+    https://www.zhihu.com/question/40677000/answer/87886574
 
-    # https://www.zhihu.com/question/41373242/answer/91417985
-    # https://www.zhihu.com/question/47275087/answer/106335325
+    https://www.zhihu.com/question/41373242/answer/91417985
+    https://www.zhihu.com/question/47275087/answer/106335325
     https://www.zhihu.com/question/47275087/answer/106335325 买不起房是房价太高还是工资太低？
     https://www.zhihu.com/question/36129534/answer/91921682  印度经济会在本世纪追上中国吗？
     https://www.zhihu.com/question/22513722/answer/21967185  火车票涨价是否能解决春运问题？
@@ -295,8 +301,15 @@ def test_another_watch():
   task.watch()
 
 
+def test_hot_answer():
+  url = 'http://www.zhihu.com/question/48360105/answer/110508708'
+  task = Task.add(url=url)
+  task.watch()
+
+
+
 def test_watch_all():
-  Task.loop_watch(sleep_seconds=10, times=4)
+  Task.multiple_watch(sleep_seconds=10, limit=4)
 
 
 def test_report():

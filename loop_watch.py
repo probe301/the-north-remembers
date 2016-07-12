@@ -1,4 +1,4 @@
 
 from models import Task
 
-Task.loop_watch(sleep_seconds=10, times=2)
+Task.multiple_watch(sleep_seconds=3, limit=3)

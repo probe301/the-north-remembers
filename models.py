@@ -3,12 +3,13 @@
 
 
 import time
-import os
-import shutil
-import re
+# import os
+# import shutil
+# import re
 from pylon import puts
+from pylon import form
 from pylon import datalines
-from pylon import enumrange
+# from pylon import enumrange
 from datetime import datetime
 
 from datetime import timedelta
@@ -21,21 +22,23 @@ from peewee import IntegerField
 from peewee import DateTimeField
 from peewee import FloatField
 from peewee import ForeignKeyField
-from peewee import BooleanField
+# from peewee import BooleanField
 from peewee import Model
-from peewee import fn
-from peewee import JOIN
-from datetime import date
-
+# from peewee import fn
+# from peewee import JOIN
+import arrow
 
 
 db = SqliteDatabase('zhihu.sqlite')
 
 
-def convert_time(d):
-  if d is None:
+def convert_time(d, humanize=False):
+  if not d:
     return None
-  return d.strftime('%Y-%m-%d %H:%M:%S')
+  if humanize:
+    return arrow.get(d.strftime('%Y-%m-%d %H:%M:%S') + '+08:00').humanize()
+  else:
+    return d.strftime('%Y-%m-%d %H:%M:%S')
 
 
 def exec_create_db():
@@ -78,14 +81,19 @@ class Task(Model):
   weight = FloatField(default=1)
   not_modified = IntegerField(default=0)
 
-  BASETIMEOUT = 360 # 0.1 hour
+  BASETIMEOUT = 3600 # 0.1 hour
   class Meta:
     database = db
 
 
   def __str__(self):
-    s = '<Task title="{}"\n      url="{}"\n      last_watch={}\n      next_watch={}>'
-    return s.format(self.title, self.url, convert_time(self.last_watch), convert_time(self.next_watch))
+    s = '<Task "{}"\n  "{}"\n  last_watch at {} ({})\n  next_watch should on {} ({})>'
+    return s.format(self.title, self.url,
+                    convert_time(self.last_watch),
+                    convert_time(self.last_watch, humanize=True),
+                    convert_time(self.next_watch),
+                    convert_time(self.next_watch, humanize=True),
+                    )
 
   @classmethod
   def add(cls, url):
@@ -114,10 +122,15 @@ class Task(Model):
   def remember(self, data):
     now = datetime.now()
     page = Page(task=self,
-                title=data['title'],
+                title=data['title'].strip(),
+                author=data['author'].strip(),
                 content=data['content'].strip(),
                 comment=data['comments'].strip(),
+                metadata=data['metadata'],
+                topic=data['topic'].strip(),
+                question=data['question'].strip(),
                 watch_date=now)
+
     self.last_watch = now
     if page.same_as_last():
       self.not_modified += 1
@@ -128,7 +141,7 @@ class Task(Model):
     seconds = 2 ** self.not_modified * self.BASETIMEOUT
     # 如果几次都是 not_modified, 则下次计划任务会安排的较晚
     self.next_watch = now + timedelta(seconds=seconds)
-    self.title = data['title']
+    self.title = data['title'].strip()
     self.save()
     return page
 
@@ -141,6 +154,8 @@ class Task(Model):
 
   @classmethod
   def purge_url(cls, url):
+    if url.startswith('http://'):
+      url = 'https' + url[4:]
     return url
 
   def watch(self):
@@ -165,7 +180,7 @@ class Task(Model):
         print('done! {}'.format(page))
         time.sleep(sleep_seconds)
       else:
-        print('not today... next_watch on: {} {}'.format(task.next_watch, task))
+        print('not today... {}'.format(task))
 
   @classmethod
   def report(cls):
@@ -177,6 +192,16 @@ class Task(Model):
     print('todo tasks:')
     for task in tasks_todo.order_by(Task.next_watch):
       print(task)
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -192,22 +217,28 @@ class Page(Model):
   抓取的页面
   '''
   task = ForeignKeyField(Task, related_name='task')
-  title = CharField(null=True)
-  content = TextField(null=True)
-  description = TextField(null=True)
-  comment = TextField(null=True)
   watch_date = DateTimeField()
+  title = CharField(null=True)
+  author = CharField(null=True)
+  content = TextField(null=True)
+  metadata = TextField(null=True)
+  topic = TextField(null=True)
+  question = TextField(null=True)
+  comment = TextField(null=True)
 
   class Meta:
     database = db
 
   def __str__(self):
-    if len(self.content) > 300:
-      description = self.content[:250] + '...' + self.content[-50:]
-    else:
-      description = self.content
-    s = '<Page title="{}"\n      version={} watch_date={}\n      content="{!r}">'
-    return s.format(self.title, self.version, convert_time(self.watch_date), description)
+    # if len(self.content) > 300:
+    #   less_content = self.content[:250] + '  ...  ' + self.content[-50:]
+    # else:
+    #   less_content = self.content
+    s = '<Page title="{}" (version {})\n  watch_date on {} ({})\n  {!r}>'
+    return s.format(self.title, self.version,
+                    convert_time(self.watch_date),
+                    convert_time(self.watch_date, humanize=True),
+                    form(self.content, text_maxlen=300))
 
   def same_as_last(self):
     '''此时 page self 应当尚未储存
@@ -217,9 +248,22 @@ class Page(Model):
     query = Page.select().where(Page.task == self.task)
     if query:
       last_page = query.order_by(-Page.watch_date).get()
-      return last_page.content == content and last_page.title == title
+      return self.same_as(last_page)
     else:
       return True
+
+  def same_as(self, other):
+    if self.title != other.title:
+      return False
+    if self.content != other.content:
+      return False
+    if self.topic != other.topic:
+      return False
+    if self.question != other.question:
+      return False
+    if self.author != other.author:
+      return False
+    return True
 
   @property
   def version(self):
@@ -302,7 +346,7 @@ def test_another_watch():
 
 
 def test_hot_answer():
-  url = 'http://www.zhihu.com/question/48360105/answer/110508708'
+  url = 'http://www.zhihu.com/question/39288165/answer/110207560'
   task = Task.add(url=url)
   task.watch()
 
@@ -321,12 +365,6 @@ def test_tools():
   pylon.generate_figlet('task', fonts=['space_op'])
   pylon.generate_figlet('page', fonts=['space_op'])
   pylon.generate_figlet('test', fonts=['space_op'])
-
-
-
-
-
-
 
 
 

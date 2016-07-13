@@ -135,59 +135,10 @@ def comment_to_string(comment):
   return text
 
 
-def fill_template(author, topics, motto, title, question_details, content,
-                  voteup_count, thanks_count, conversations, count,
-                  answer_id, question_id, create_date, edit_date, fetch_date,
-                  ):
-
-  tmpl_body = '''
-
-**话题**: {{topics}}
-{% if question_details %}
-
-**Description**:
-
-{{question_details}}
-{% endif %}
-
-    author: {{author}} {{motto}}
-    voteup: {{voteup_count}} 赞同
-    thanks: {{thanks_count}} 感谢
-    create: {{create_date}}
-    edit:   {{edit_date}}
-    fetch:  {{fetch_date}}
-    count:  {{count}} 字
-    url:    https://www.zhihu.com/question/{{question_id}}/answer/{{answer_id}}
-
-{{content}}
-
-
-
-'''
-
-  tmpl_comments = '''
-
-{% if conversations %}
-{% for conversation in conversations %}
-{%- for comment in conversation %}
-{{comment}}
-{% endfor %}
-　　
-{% endfor %}
-{% endif %}
-
-'''
-  body = Template(tmpl_body).render(**locals())
-  comments = Template(tmpl_comments).render(**locals())
-  return body, comments
-
-
-
 
 
 
 def fetch_zhihu_answer(answer):
-  # time.sleep(1)
   answer = parse_answer(answer)
   author = answer.author
   question = answer.question
@@ -199,35 +150,68 @@ def fetch_zhihu_answer(answer):
     raise ZhihuParseError(msg.format(answer.question.title, answer._build_url()))
 
 
+  answer_body = zhihu_content_html2md(content).strip()
 
+  # suggest_edit 答案是否处于「被建议修改」状态，常见返回值为：
+  # { 'status': True,
+  #   'title': '为什么回答会被建议修改',
+  #   'tip': '作者修改内容通过后，回答会重新显示。如果一周内未得到有效修改，回答会自动折叠',
+  #   'reason': '回答被建议修改：\n不宜公开讨论的政治内容',
+  #   'url': 'zhihu://questions/24752645' }
+  if answer.suggest_edit.status:
+    answer_body += '\n' + answer.suggest_edit.reason + '\n' + answer.suggest_edit.tip
 
-  answer_body = zhihu_content_html2md(content)
-  # print(answer_body)
   motto = '({})'.format(author.headline) if author.headline else ''
   question_details = zhihu_content_html2md(question.detail).strip()
   title = question.title + ' - ' + author.name + '的回答'
   topics = ', '.join(t.name for t in question.topics)
+  question_id = question.id
+  answer_id = answer.id
+  count = len(answer_body)
+  voteup_count = answer.voteup_count
+  thanks_count = answer.thanks_count
+  create_date = parse_json_date(answer.created_time)
+  edit_date = parse_json_date(answer.updated_time)
+  fetch_date = time.strftime('%Y-%m-%d')
 
-  t = fill_template(author=author.name,
-                    motto=motto,
-                    topics=topics,
-                    title=title,
-                    question_details=question_details,
-                    content=answer_body,
-                    voteup_count=answer.voteup_count,
-                    thanks_count=answer.thanks_count,
-                    conversations=get_valuable_conversations(answer.comments, limit=10),
-                    count=len(answer_body),
-                    question_id=question.id,
-                    answer_id=answer.id,
-                    create_date=parse_json_date(answer.created_time),
-                    edit_date=parse_json_date(answer.updated_time),
-                    fetch_date=time.strftime('%Y-%m-%d'),
-                    )
-  body, comments = t
+  conversations = get_valuable_conversations(answer.comments, limit=10)
+
+  url = 'https://www.zhihu.com/question/{}/answer/{}'.format(question_id, answer_id)
+
+  metadata_tmpl = '''
+    author: {{author.name}} {{motto}}
+    voteup: {{voteup_count}} 赞同
+    thanks: {{thanks_count}} 感谢
+    create: {{create_date}}
+    edit:   {{edit_date}}
+    fetch:  {{fetch_date}}
+    count:  {{count}} 字
+    url:    {{url}}
+'''
+  metadata = Template(metadata_tmpl).render(**locals())
+
+
+  comments_tmpl = '''
+{% if conversations %}
+{% for conversation in conversations %}
+{%- for comment in conversation %}
+{{comment}}
+{% endfor %}
+　　
+{% endfor %}
+{% endif %}
+'''
+  comments = Template(comments_tmpl).render(**locals())
+
   return {'title': title,
-          'content': zhihu_fix_markdown(body),
-          'comments': zhihu_fix_markdown(comments)}
+          'content': zhihu_fix_markdown(answer_body).strip(),
+          'comments': zhihu_fix_markdown(comments).strip(),
+          'author': author.name,
+          'topic': topics,
+          'question': zhihu_fix_markdown(question_details).strip(),
+          'metadata': metadata,
+          'url': url,
+          }
 
 
 
@@ -250,11 +234,38 @@ def save_answer(answer, folder='test'):
   data = fetch_zhihu_answer(answer=answer)
   save_path = folder + '/' + remove_invalid_char(data['title']) + '.md'
 
+
+  tmpl = '''
+# {{data.title}}
+
+话题: {{data.topic}}
+
+问题描述:
+
+{{data.question}}
+
+{{data.metadata}}
+
+
+{{data.content}}
+
+
+
+　　
+
+评论:
+
+{{data.comments}}
+
+------------------
+
+from: [{{data.url}}]()
+
+'''
+  rendered = Template(tmpl).render(**locals())
+
   with open(save_path, 'w', encoding='utf-8') as f:
-    f.write('\n# ' + data['title'])
-    f.write(data['content'])
-    if data['comments'].strip():
-      f.write('\n\n　　\n### Top Comments\n\n' + data['comments'])
+    f.write(rendered)
     puts('write save_path done')
 
   fetch_images_for_markdown(save_path)  # get images in markdown
@@ -718,8 +729,6 @@ def test_save_answer_drop_redirect_links():
   # save_answer('https://www.zhihu.com/question/30595784/answer/49194862')
 
 
-def test_save_unicode():
-  pass
 
 def test_save_anonymous():
   # 辜鸿铭的英语学习方法有效吗？为什么？
@@ -746,65 +755,6 @@ def test_save_whitedot_bug():
   # print(answer)
   # print(answer.content)
   save_answer(url)
-
-
-
-
-
-
-
-
-
-
-
-def done_test_fix_img():
-  import html2text
-  h2t = html2text.HTML2Text()
-  h2t.body_width = 0
-  # 'http://zhuanlan.zhihu.com/xiepanda'
-  # url = 'http://www.zhihu.com/question/30595784/answer/49194862'
-  # url = 'http://www.zhihu.com/question/19622414/answer/19798844'
-  # url = 'http://www.zhihu.com/question/24413365/answer/27857112'
-  url = 'http://www.zhihu.com/question/23039503/answer/48635152'
-  answer = zhihu.Answer(url)
-  content = answer.content
-  answer_body = h2t.handle(content)
-  puts('answer content= answer_body=')
-
-
-
-
-
-
-
-
-def test_md_line_replace():
-  text = '感谢 [ @Jim Liu ](http://www.zhihu.com/744db) 乱入的 ** 湖北白河村 ** 与 ** 邯郸玉佛寺 ** ） **王維鈞（作者）** 回复 **Jade Shan**: 他作了一首诗：“床前明月光， ** 脱光光。'
-  pattern_hyperlink = re.compile(r'\[ (.+?) \](?=\(.+?\))')
-  pattern_strong = re.compile(r'\*\* (.+?) \*\*')
-  replace = lambda m: '** 回复 **' if m.group(1) == '回复' else '**'+m.group(1)+'**'
-  text2 = pattern_hyperlink.sub(r'[\1]', text)
-  text3 = pattern_strong.sub(replace, text2)
-  puts()
-  print(text3)
-  # print(text3)
-
-
-
-
-
-
-
-def test_fetch_images_for_markdown():
-  # QQ 的登录封面（QQ印象）是怎么设计的？
-  url = 'http://www.zhihu.com/question/22497026/answer/21551914/'
-  save_answer(url)
-  markdown_file = '/Users/probe/git/zhihumark/test/QQ 的登录封面（QQ印象）是怎么设计的？ - 傅仲的回答.md'
-  fetch_images_for_markdown(markdown_file)
-
-
-
-
 
 
 

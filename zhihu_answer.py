@@ -443,6 +443,22 @@ def save_from_question(url):
 
 
 
+def topic_best_answers(topic_id, limit=100, min_voteup=300):
+  # id = 19641972 # '政治'
+  topic = client.topic(topic_id)
+  # print(topic.name)
+  for answer, i in zip(topic.best_answers, range(limit)):
+    # print(answer.question.title, answer.author.name, answer.voteup_count)
+    if answer.voteup_count >= min_voteup:
+      yield answer
+
+
+
+
+
+
+
+
 def save_from_topic(url, limit=200,
                     min_voteup=1000, max_upvote=100000000,
                     folder='test',
@@ -758,4 +774,13 @@ def test_save_whitedot_bug():
 
 
 
+def test_yield_topic():
+  id = 19641972 # '政治'
+  topic = client.topic(id)
+  print(topic.name)
 
+  i = 0
+  for answer in topic.top_answers:
+    print(answer.question.title, answer.author.name, answer.voteup_count)
+    i += 1
+  print(i)

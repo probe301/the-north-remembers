@@ -3,12 +3,15 @@
 
 
 import time
-# import os
+import sys
+import os
 # import shutil
 # import re
 from pylon import puts
 from pylon import form
 from pylon import datalines
+from pylon import create_logger
+log = create_logger(__file__)
 # from pylon import enumrange
 from datetime import datetime
 
@@ -27,9 +30,12 @@ from peewee import Model
 # from peewee import fn
 # from peewee import JOIN
 import arrow
+from zhihu_answer import topic_best_answers
+from zhihu_answer import fetch_zhihu_answer
 
 
 db = SqliteDatabase('zhihu.sqlite')
+
 
 
 def convert_time(d, humanize=False):
@@ -74,7 +80,7 @@ class Task(Model):
   '''
   page_type = CharField()
   url = CharField(unique=True)
-  title = CharField(default='(has not fetched)')
+  title = CharField(null=True)
   # status = CharField()
   last_watch = DateTimeField(null=True)
   next_watch = DateTimeField(null=True)
@@ -96,7 +102,7 @@ class Task(Model):
                     )
 
   @classmethod
-  def add(cls, url):
+  def add(cls, url, title=None):
     '''添加抓取任务
     如果已经添加过了, 也应该将 next_watch 归零
     使得今后触发一次抓取
@@ -107,7 +113,7 @@ class Task(Model):
     existed = cls.select().where(cls.url == url)
     if existed:
       task = existed.get()
-      print('Task.add has already existed: {}'.format(task))
+      log('Task.add has already existed: {}'.format(task))
       task.next_watch = datetime.now()
       task.not_modified = 0
       task.save()
@@ -115,6 +121,7 @@ class Task(Model):
     else:
       task = cls.create(url=url,
                         page_type=page_type,
+                        title=title or '(has not fetched)',
                         next_watch=datetime.now())
       return task
 
@@ -159,7 +166,6 @@ class Task(Model):
     return url
 
   def watch(self):
-    from zhihu_answer import fetch_zhihu_answer
     zhihu_answer = fetch_zhihu_answer(self.url)
     page = self.remember(zhihu_answer)
     return page
@@ -169,18 +175,18 @@ class Task(Model):
   def multiple_watch(cls, sleep_seconds=10, limit=10):
     for i in range(1, limit+1):
       now = datetime.now()
-      print('\n\n  loop {}/{} current_time={}'.format(i, limit, convert_time(now)))
+      log('\n\n  loop {}/{} current_time={}'.format(i, limit, convert_time(now)))
       task = Task.select().order_by(Task.next_watch).get()
       if not task:
-        print('can not find any task')
+        log('can not find any task')
         continue
       elif task.next_watch <= now:
-        print('start: {}'.format(task))
+        log('start: {}'.format(task))
         page = task.watch()
-        print('done! {}'.format(page))
+        log('done! {}'.format(page))
         time.sleep(sleep_seconds)
       else:
-        print('not today... {}'.format(task))
+        log('not today... {}'.format(task))
 
   @classmethod
   def report(cls):
@@ -188,10 +194,10 @@ class Task(Model):
     now = datetime.now()
     tasks_todo = Task.select().where(Task.next_watch <= now)
 
-    print('Task total={} todo={}'.format(tasks.count(), tasks_todo.count()))
-    print('todo tasks:')
+    log('Task total={} todo={}'.format(tasks.count(), tasks_todo.count()))
+    log('todo tasks:')
     for task in tasks_todo.order_by(Task.next_watch):
-      print(task)
+      log(task)
 
 
 
@@ -366,5 +372,24 @@ def test_tools():
   pylon.generate_figlet('page', fonts=['space_op'])
   pylon.generate_figlet('test', fonts=['space_op'])
 
+
+
+def test_topic():
+  topic_id = 19641972 # 货币政策
+  for answer in topic_best_answers(topic_id=topic_id):
+    log(answer.question.title, answer.author.name, answer.voteup_count)
+
+
+def test_fetch_topic():
+  topic_id = 19641972 # 货币政策
+  topic_id = 19565985 # 中国经济
+  # topic_id = 19551424 # 政治
+  # topic_id = 19556950 # 物理学
+  topic_id = 19612637 # 科学
+  for answer in topic_best_answers(topic_id=topic_id, limit=10):
+    log(answer.question.title, answer.author.name, answer.voteup_count)
+    url = 'https://www.zhihu.com/question/{}/answer/{}'.format(answer.question.id, answer.id)
+
+    Task.add(url=url, title=answer.question.title)
 
 

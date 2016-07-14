@@ -573,6 +573,25 @@ def topic_best_answers(topic_id, limit=100, min_voteup=300):
       yield answer
 
 
+def get_old_fashion_topic_answers(topic_id, mode=('all', 'best')[0],
+                                  limit=100, min_voteup=300):
+  # id = 19641972 # '政治'
+  topic = old_client.topic('https://www.zhihu.com/topic/{}'.format(topic_id))
+  # top_answers(self): 获取话题下的精华答案. :return: 话题下的精华答案，返回生成器.
+  # def answers(self): 获取话题下所有答案（按时间降序排列） :return: 话题下所有答案，返回生成器
+  if mode == 'all':
+    answers = topic.answers
+  elif mode == 'best':
+    answers = topic.top_answers
+  else:
+    raise
+  for old_answer, i in zip(answers, range(limit)):
+    answer = client.answer(int(old_answer.id))
+    # print(answer.question.title, answer.author.name, answer.id, answer.question.id)
+    if answer.voteup_count >= min_voteup:
+      yield answer
+
+
 
 
 
@@ -895,7 +914,7 @@ def test_save_whitedot_bug():
 
 
 def test_yield_topic():
-  id = 19641972 # '政治'
+  id = 19641972 # '货币政策'
   topic = client.topic(id)
   print(topic.name)
 
@@ -916,12 +935,6 @@ def get_api_json(url='https://api.zhihu.com/answers/94150403'):
   pprint(j)
 
 
-
-def test_get_html_not_json():
-  url='http://www.zhihu.com/node/AnswerCommentBoxV2?params=%7B%22answer_id%22%3A%2227109662%22%2C%22load_all%22%3Atrue%7D'
-  client.test_api('GET', url)
-
-  print()
 
 
 
@@ -948,3 +961,10 @@ def test_comments_old_fashion():
   for c in get_old_fashion_comments(answer_url=url):
     c | log
 
+
+
+def test_yield_old_topic():
+  id = 19641972 # '货币政策'
+  for answer in get_old_fashion_topic_answers(topic_id=id, mode='all',
+                                              limit=30, min_voteup=10):
+    log([answer.question.title, answer.voteup_count, answer.author.name])

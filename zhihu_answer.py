@@ -13,12 +13,19 @@ import datetime
 
 from zhihu_oauth import ZhihuClient
 from zhihu_oauth.zhcls.utils import remove_invalid_char
+
+
+
 from jinja2 import Template
 import re
+from pyquery import PyQuery
+import requests
 
 import urllib.request
 
+from pylon import create_logger
 
+log = create_logger(__file__)
 class ZhihuParseError(Exception):
   pass
 
@@ -28,6 +35,99 @@ class ZhihuParseError(Exception):
 TOKEN_FILE = 'token.pkl'
 client = ZhihuClient()
 client.load_token(TOKEN_FILE)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# OldZhihuClient 用于 zhihu-py3 cookie 模拟登录
+# 到 http://www.zhihu.com/node/AnswerCommentBoxV2?params= 取得评论对象
+# 比 API 方式快很多
+# 如果不登录获取 cookie, 则在返回结果中看不到具体的作者名字
+from zhihu import ZhihuClient as OldZhihuClient
+old_client = OldZhihuClient('cookies.json')
+
+def comment_list_id(url):
+  """返回 aid 用于拼接 url get 该回答的评论
+  <div tabindex="-1" class="zm-item-answer" itemscope="" itemtype="http://schema.org/Answer" data-aid="14852408" data-atoken="48635152" data-collapsed="0" data-created="1432285826" data-deleted="0" data-helpful="1" data-isowner="0" data-score="34.1227812032">
+  """
+  headers = {
+    'User-agent': 'Mozilla/5.0',
+  }
+  r = old_client._session.get(url)
+  return PyQuery(r.content).find('div.zm-item-answer').attr('data-aid')
+
+
+class OldFashionAuthor:
+  """配合 OldFashionComment 使用的 author"""
+  def __init__(self, name):
+    self.name = name
+  def __str__(self):
+    return '<OldFashionAuthor {}>'.format(self.name)
+
+
+class OldFashionComment:
+  """
+  使用 http://www.zhihu.com/node/AnswerCommentBoxV2?params= 取得的评论对象
+  速度比较快
+  comment.author.name, reply_to_author, content, vote_count
+  """
+  def __init__(self, cid, vote_count, author, content, reply_to):
+    self.cid = cid
+    self.vote_count = vote_count
+    self.content = content
+    self.author = author
+    self.reply_to = reply_to
+  def __str__(self):
+    s = '<OldFashionComment cid={} vote_count={}\n  author="{}" reply_to="{}">\n  {}'
+    return s.format(self.cid, self.vote_count, self.author, self.reply_to, self.content)
+
+
+def get_old_fashion_comments(answer_url):
+
+  aid = comment_list_id(answer_url)
+  comment_box_link = 'http://www.zhihu.com/node/AnswerCommentBoxV2?params=%7B%22answer_id%22%3A%22{}%22%2C%22load_all%22%3Atrue%7D'.format(aid) | log
+  r = old_client._session.get(comment_box_link)
+  doc = PyQuery(str(r.content, encoding='utf-8'))
+  comments = []
+  for div in doc.find('div.zm-item-comment'):
+    div = PyQuery(div)
+    cid = div.attr('data-id')
+    vote_count = int(div.find('span.like-num').find('em').text())
+    content = div.find('div.zm-comment-content').html()
+    author_text = div.find('div.zm-comment-hd').text().replace('\n', ' ')
+    if ' 回复 ' in author_text:
+      author, reply_to = author_text.split(' 回复 ')
+    else:
+      author, reply_to = author_text, None
+
+    comment = OldFashionComment(cid=cid,
+                                vote_count=vote_count,
+                                content=content,
+                                author=OldFashionAuthor(author),
+                                reply_to=OldFashionAuthor(reply_to) if reply_to else None)
+    comments.append(comment)
+  return comments
+
+
+
+
+
+
+
+
+
+
+
 
 
 def zhihu_content_html2md(html):
@@ -138,6 +238,25 @@ def comment_to_string(comment):
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 def fetch_zhihu_answer(answer):
   answer = parse_answer(answer)
   author = answer.author
@@ -174,9 +293,10 @@ def fetch_zhihu_answer(answer):
   edit_date = parse_json_date(answer.updated_time)
   fetch_date = time.strftime('%Y-%m-%d')
 
-  conversations = get_valuable_conversations(answer.comments, limit=10)
+  # conversations = get_valuable_conversations(answer.comments, limit=10)
 
   url = 'https://www.zhihu.com/question/{}/answer/{}'.format(question_id, answer_id)
+  conversations = get_valuable_conversations(get_old_fashion_comments(url), limit=10)
 
   metadata_tmpl = '''
     author: {{author.name}} {{motto}}
@@ -784,3 +904,47 @@ def test_yield_topic():
     print(answer.question.title, answer.author.name, answer.voteup_count)
     i += 1
   print(i)
+
+
+
+def get_api_json(url='https://api.zhihu.com/answers/94150403'):
+  from pprint import pprint
+  import json
+  r = client.test_api('GET', url)
+  # s = str(r.content, encoding='utf-8')
+  j = json.loads(str(r.content, encoding='utf-8'))
+  pprint(j)
+
+
+
+def test_get_html_not_json():
+  url='http://www.zhihu.com/node/AnswerCommentBoxV2?params=%7B%22answer_id%22%3A%2227109662%22%2C%22load_all%22%3Atrue%7D'
+  client.test_api('GET', url)
+
+  print()
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+def test_comments_old_fashion():
+  # 大偏差技术是什么？
+  url = 'https://www.zhihu.com/question/29400357/answer/82408466'
+  # 人们买不起房子是因为房子价格太高，还是因为我们的工资太低？
+  url = 'https://www.zhihu.com/question/47275087/answer/106335325'
+
+  # 如何看待许知远在青年领袖颁奖典礼上愤怒「砸场」？
+  # url = 'https://www.zhihu.com/question/30595784/answer/49194862'
+  for c in get_old_fashion_comments(answer_url=url):
+    c | log
+

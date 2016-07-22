@@ -24,8 +24,9 @@ import requests
 import urllib.request
 
 from pylon import create_logger
-
 log = create_logger(__file__)
+
+
 class ZhihuParseError(Exception):
   pass
 
@@ -43,12 +44,25 @@ client.load_token(TOKEN_FILE)
 
 
 
+def zhihu_answer_url(answer):
+  return 'https://www.zhihu.com/question/{}/answer/{}'.format(answer.question.id, answer.id)
 
 
 
 
+'''
+ #####  ##      ######
+##   ## ##      ##   ##
+##   ## ##      ##   ##
+##   ## ##      ##   ##
+ #####  ####### ######
 
-
+ ###### #####  ##   ## ##   ## ####### ##   ## #######
+###    ##   ## ### ### ### ### ##      ###  ##    ##
+##     ##   ## ## # ## ## # ## ######  ## # ##    ##
+###    ##   ## ##   ## ##   ## ##      ##  ###    ##
+ ###### #####  ##   ## ##   ## ####### ##   ##    ##
+'''
 # OldZhihuClient 用于 zhihu-py3 cookie 模拟登录
 # 到 http://www.zhihu.com/node/AnswerCommentBoxV2?params= 取得评论对象
 # 比 API 方式快很多
@@ -93,9 +107,8 @@ class OldFashionComment:
 
 
 def get_old_fashion_comments(answer_url):
-
   aid = comment_list_id(answer_url)
-  comment_box_link = 'http://www.zhihu.com/node/AnswerCommentBoxV2?params=%7B%22answer_id%22%3A%22{}%22%2C%22load_all%22%3Atrue%7D'.format(aid) | log
+  comment_box_link = 'http://www.zhihu.com/node/AnswerCommentBoxV2?params=%7B%22answer_id%22%3A%22{}%22%2C%22load_all%22%3Atrue%7D'.format(aid) # | log
   r = old_client._session.get(comment_box_link)
   doc = PyQuery(str(r.content, encoding='utf-8'))
   comments = []
@@ -117,29 +130,6 @@ def get_old_fashion_comments(answer_url):
                                 reply_to=OldFashionAuthor(reply_to) if reply_to else None)
     comments.append(comment)
   return comments
-
-
-
-
-
-
-
-
-
-
-
-
-
-def zhihu_content_html2md(html):
-  h2t = html2text.HTML2Text()
-  h2t.body_width = 0
-  r = h2t.handle(html).strip()
-  r = '\n'.join(p.rstrip() for p in r.split('\n'))
-  return re.sub('\n{4,}', '\n\n\n', r)
-
-
-def parse_json_date(n):
-  return str(datetime.datetime.fromtimestamp(n))
 
 
 
@@ -223,8 +213,6 @@ def get_all_conversations(comments):
 
 
 
-
-
 def comment_to_string(comment):
   reply_to_author = ' 回复 **{}**'.format(comment.reply_to.name) if comment.reply_to else ''
   vote_count = '  ({} 赞)'.format(comment.vote_count) if comment.vote_count else ''
@@ -255,7 +243,13 @@ def comment_to_string(comment):
 
 
 
-
+'''
+####### ####### ####### ###### ##   ##
+##      ##         ##  ###     ##   ##
+######  ######     ##  ##      #######
+##      ##         ##  ###     ##   ##
+##      #######    ##   ###### ##   ##
+'''
 
 def fetch_zhihu_answer(answer):
   answer = parse_answer(answer)
@@ -267,7 +261,6 @@ def fetch_zhihu_answer(answer):
   except AttributeError:
     msg = 'cannot parse answer.content: {} {}'
     raise ZhihuParseError(msg.format(answer.question.title, answer._build_url()))
-
 
   answer_body = zhihu_content_html2md(content).strip()
 
@@ -348,6 +341,7 @@ def parse_answer(answer):
   return answer
 
 
+
 def save_answer(answer, folder='test'):
   answer = parse_answer(answer)
 
@@ -391,6 +385,31 @@ from: [{{data.url}}]()
   fetch_images_for_markdown(save_path)  # get images in markdown
   return save_path
 
+
+
+
+
+
+
+
+'''
+######   #####  ######   ###### #######      ##   ## ######
+##   ## ##   ## ##   ## ##      ##           ### ### ##   ##
+######  ####### ######   #####  ######       ## # ## ##   ##
+##      ##   ## ##  ##       ## ##           ##   ## ##   ##
+##      ##   ## ##   ## ######  #######      ##   ## ######
+'''
+
+def zhihu_content_html2md(html):
+  h2t = html2text.HTML2Text()
+  h2t.body_width = 0
+  r = h2t.handle(html).strip()
+  r = '\n'.join(p.rstrip() for p in r.split('\n'))
+  return re.sub('\n{4,}', '\n\n\n', r)
+
+
+def parse_json_date(n):
+  return str(datetime.datetime.fromtimestamp(n))
 
 
 def fetch_image(url, ext, markdown_file, image_counter):
@@ -511,59 +530,26 @@ def zhihu_fix_markdown(text):
 
 
 
-def save_from_author(url, folder='test', min_voteup=500, overwrite=False):
-  # url = 'http://www.zhihu.com/people/nordenbox'
-  # TODO: thread
-  author = client.from_url(url)
-  # 获取用户名称
-  print(author.name, ' - ', author.headline)
-  # 获取用户答题数
-  print(author.answer_count)      # 227
-  for i, answer in enumerate(author.answers):
-    if answer.voteup_count < min_voteup:
-      continue
-    try:
-      print(answer._build_url())
-      save_answer(answer._build_url(), folder=folder)
-    except ZhihuParseError as e:
-      print(e)
-    except RuntimeError as e:
-      print(e, answer.question.title)
-    except AttributeError as e:
-      print(answer.question.title, answer._build_url(), e)
-      raise
 
 
 
 
 
-def save_from_collections(url, limit=10):
-  collection = client.Collection(url)
-  print(collection.name)
-  print(collection.followers_num)
-  for i, answer in enumerate(collection.answers):
-    # print(answer._url)
-    if i >= limit:
-      break
+'''
+##   ## ###### ####### ##      ######
+##   ##   ##   ##      ##      ##   ##
+ #####    ##   ######  ##      ##   ##
+   ##     ##   ##      ##      ##   ##
+   ##   ###### ####### ####### ######
 
-    save_answer(answer._url, folder='test')
+ ######  #####  ##   ## #######
+##      ##   ## ##   ## ##
+ #####  #######  ## ##  ######
+     ## ##   ##  ## ##  ##
+######  ##   ##   ###   #######
+'''
 
-
-
-
-def save_from_question(url):
-  question = client.Question(url)
-  print(question.title)
-  # 获取排名前十的十个回答
-  for answer in question.top_i_answers(10):
-    if answer.upvote > 1000:
-      save_answer(answer)
-
-
-
-
-
-def topic_best_answers(topic_id, limit=100, min_voteup=300):
+def yield_topic_best_answers(topic_id, limit=100, min_voteup=300):
   # id = 19641972 # '政治'
   topic = client.topic(topic_id)
   # print(topic.name)
@@ -573,7 +559,7 @@ def topic_best_answers(topic_id, limit=100, min_voteup=300):
       yield answer
 
 
-def get_old_fashion_topic_answers(topic_id, mode=('all', 'best')[0],
+def yield_old_fashion_topic_answers(topic_id, mode=('all', 'best')[0],
                                   limit=100, min_voteup=300):
   # id = 19641972 # '政治'
   topic = old_client.topic('https://www.zhihu.com/topic/{}'.format(topic_id))
@@ -592,7 +578,15 @@ def get_old_fashion_topic_answers(topic_id, mode=('all', 'best')[0],
       yield answer
 
 
-
+def yield_author_answers(author_id, limit=100, min_voteup=300):
+  # url = 'https://www.zhihu.com/people/shi-yidian-ban-98'
+  # author = client.from_url(url)
+  author = client.people(author_id)
+  # log(author.name)
+  for answer, i in zip(author.answers, range(limit)):
+    # print(answer.question.title, answer.author.name, answer.voteup_count)
+    if answer.voteup_count >= min_voteup:
+      yield answer
 
 
 
@@ -628,6 +622,50 @@ def save_from_topic(url, limit=200,
 
 
 
+def save_from_author(url, folder='test', min_voteup=500, overwrite=False):
+  # url = 'http://www.zhihu.com/people/nordenbox'
+  # TODO: thread
+  author = client.from_url(url)
+  # 获取用户名称
+
+  log([author.name, ' - ', author.headline])
+  # 获取用户答题数
+  log(author.answer_count)      # 227
+
+  for answer in yield_author_answers(author.id, limit=100, min_voteup=min_voteup):
+    url = zhihu_answer_url(answer)
+    try:
+      log(['try answer', url])
+      save_answer(url, folder=folder)
+    except ZhihuParseError as e:
+      print(e)
+    except RuntimeError as e:
+      print(e, answer.question.title)
+    except AttributeError as e:
+      print(answer.question.title, url, e)
+      raise
+
+
+
+def save_from_collections(url, limit=10):
+  collection = client.Collection(url)
+  print(collection.name)
+  print(collection.followers_num)
+  for i, answer in enumerate(collection.answers):
+    # print(answer._url)
+    if i >= limit:
+      break
+
+    save_answer(answer._url, folder='test')
+
+
+def save_from_question(url):
+  question = client.Question(url)
+  print(question.title)
+  # 获取排名前十的十个回答
+  for answer in question.top_i_answers(10):
+    if answer.upvote > 1000:
+      save_answer(answer)
 
 
 
@@ -642,16 +680,13 @@ def save_from_topic(url, limit=200,
 
 
 
-
-
-
-
+'''
 ####### ##   ## ####### ######
 ##       ## ##  ##     ###
 ######    ###   ###### ##
 ##       ## ##  ##     ###
 ####### ##   ## ####### ######
-
+'''
 
 def exec_save_from_collections():
   # 采铜 的收藏 我心中的知乎TOP100
@@ -665,8 +700,13 @@ def exec_save_from_authors():
   # save_from_author(url, folder='test', min_voteup=500)
   # url = 'https://www.zhihu.com/people/zhao-hao-yang-1991'  # 赵皓阳
   # save_from_author(url, folder='authors', min_voteup=300)
-  url = 'https://www.zhihu.com/people/mandelbrot-11'  # Mandelbrot
-  save_from_author(url, folder='test', min_voteup=500)
+  # url = 'https://www.zhihu.com/people/mandelbrot-11'  # Mandelbrot
+  # save_from_author(url, folder='test', min_voteup=500)
+  # url = 'https://www.zhihu.com/people/shi-yidian-ban-98'  # shi-yidian-ban
+  # save_from_author(url, folder='shi-yidian-ban', min_voteup=20)
+  url = 'https://www.zhihu.com/people/heismail' # 卡夫卡斯
+  save_from_author(url, folder='heismail', min_voteup=20)
+
 
 # exec_save_from_authors()
 
@@ -827,13 +867,13 @@ def exec_massive_download():
 
 
 
-
+'''
 ####### #######  ###### #######
    ##   ##      ##         ##
    ##   ######   #####     ##
    ##   ##           ##    ##
    ##   ####### ######     ##
-
+'''
 
 
 def test_answer_banned():
@@ -913,7 +953,7 @@ def test_save_whitedot_bug():
 
 
 
-def test_yield_topic():
+def test_yield_answers_by_topic():
   id = 19641972 # '货币政策'
   topic = client.topic(id)
   print(topic.name)
@@ -923,6 +963,20 @@ def test_yield_topic():
     print(answer.question.title, answer.author.name, answer.voteup_count)
     i += 1
   print(i)
+
+
+def test_yield_answers_by_author():
+  url = 'https://www.zhihu.com/people/shi-yidian-ban-98'
+  author = client.from_url(url)
+  author = client.people('shi-yidian-ban-98')
+
+  log(author.name)
+  i = 0
+  for answer in author.answers:
+    print(answer.question.title, answer.author.name, answer.voteup_count)
+    i += 1
+  print(i)
+
 
 
 
@@ -968,3 +1022,10 @@ def test_yield_old_topic():
   for answer in get_old_fashion_topic_answers(topic_id=id, mode='all',
                                               limit=30, min_voteup=10):
     log([answer.question.title, answer.voteup_count, answer.author.name])
+
+
+def test_genenate_figlet():
+  from pylon import generate_figlet
+  generate_figlet('yield', fonts=['space_op'])
+  generate_figlet('save', fonts=['space_op'])
+  generate_figlet('parse md', fonts=['space_op'])

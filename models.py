@@ -30,8 +30,10 @@ from peewee import Model
 # from peewee import fn
 # from peewee import JOIN
 import arrow
-from zhihu_answer import topic_best_answers
+from zhihu_answer import yield_topic_best_answers
+from zhihu_answer import yield_author_answers
 from zhihu_answer import fetch_zhihu_answer
+from zhihu_answer import zhihu_answer_url
 
 
 db = SqliteDatabase('zhihu.sqlite')
@@ -386,10 +388,16 @@ def test_fetch_topic():
   # topic_id = 19551424 # 政治
   # topic_id = 19556950 # 物理学
   topic_id = 19612637 # 科学
-  for answer in topic_best_answers(topic_id=topic_id, limit=10):
+  for answer in yield_topic_best_answers(topic_id=topic_id, limit=10):
     log(answer.question.title, answer.author.name, answer.voteup_count)
-    url = 'https://www.zhihu.com/question/{}/answer/{}'.format(answer.question.id, answer.id)
-
+    # url = 'https://www.zhihu.com/question/{}/answer/{}'.format(answer.question.id, answer.id)
+    url = zhihu_answer_url(answer)
     Task.add(url=url, title=answer.question.title)
 
 
+def test_add_task_by_author():
+  id = 'shi-yidian-ban-98'
+  for answer in yield_author_answers(id, limit=100, min_voteup=10):
+    url = zhihu_answer_url(answer)
+    print(url)
+    Task.add(url=url)

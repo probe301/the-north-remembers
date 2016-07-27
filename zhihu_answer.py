@@ -45,9 +45,19 @@ client.load_token(TOKEN_FILE)
 
 
 def zhihu_answer_url(answer):
+  if isinstance(answer, int):
+    answer = client.answer(answer)
   return 'https://www.zhihu.com/question/{}/answer/{}'.format(answer.question.id, answer.id)
 
-
+def zhihu_answer_format(answer):
+  if isinstance(answer, int):
+    answer = client.answer(answer)
+  url = zhihu_answer_url(answer)
+  title = answer.question.title
+  author = answer.author.name
+  vote = answer.voteup_count
+  topic = [t.name for t in answer.question.topics]
+  return '<ZhihuAnswer {title} {author} {vote} {topic}>\n{url}'.format(**locals())
 
 
 '''
@@ -582,7 +592,7 @@ def yield_author_answers(author_id, limit=100, min_voteup=300):
   # url = 'https://www.zhihu.com/people/shi-yidian-ban-98'
   # author = client.from_url(url)
   author = client.people(author_id)
-  # log(author.name)
+  log(author.name)
   for answer, i in zip(author.answers, range(limit)):
     # print(answer.question.title, answer.author.name, answer.voteup_count)
     if answer.voteup_count >= min_voteup:

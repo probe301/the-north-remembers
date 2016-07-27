@@ -36,6 +36,7 @@ from zhihu_answer import fetch_zhihu_answer
 from zhihu_answer import zhihu_answer_url
 
 
+from jinja2 import Template
 db = SqliteDatabase('zhihu.sqlite')
 
 
@@ -89,7 +90,7 @@ class Task(Model):
   weight = FloatField(default=1)
   not_modified = IntegerField(default=0)
 
-  BASETIMEOUT = 3600 # 0.1 hour
+  BASETIMEOUT = 36000 # 10 hours
   class Meta:
     database = db
 
@@ -125,6 +126,13 @@ class Task(Model):
                         page_type=page_type,
                         title=title or '(has not fetched)',
                         next_watch=datetime.now())
+      return task
+
+  @classmethod
+  def add_by(cls, answer_id=None, title=None):
+    if answer_id:
+      url = zhihu_answer_url(int(answer_id))
+      task = Task.add(url, title=title)
       return task
 
 
@@ -286,6 +294,38 @@ class Page(Model):
 
 
 
+  def full_content(self, type='md'):
+    tmpl = '''
+# {{data.title}}
+
+话题: {{data.topic}}
+
+问题描述:
+
+{{data.question}}
+
+{{data.metadata}}
+
+
+{{data.content}}
+
+
+
+　　
+
+评论:
+
+{{data.comment}}
+
+------------------
+
+from: [{{data.task.url}}]()
+
+'''
+    rendered = Template(tmpl).render(data=self)
+    return rendered
+
+
 
 
 
@@ -401,3 +441,10 @@ def test_add_task_by_author():
     url = zhihu_answer_url(answer)
     print(url)
     Task.add(url=url)
+
+
+
+def test_load_json():
+  import json
+
+  print(json.loads(open('mockup_topic_answers.json', encoding='utf-8').read()))

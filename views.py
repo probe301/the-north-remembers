@@ -6,9 +6,10 @@ import re
 from pylon import puts
 from pylon import datalines
 from pylon import enumrange
-from pylon import yaml_ordered_load
+from pylon import yaml_load
 from werkzeug.contrib.atom import AtomFeed
 from flask import request
+from flask import jsonify
 from datetime import datetime
 ####### ##       #####   ###### ##   ##
 ##      ##      ##   ## ##      ##  ##
@@ -22,8 +23,16 @@ from flask import render_template
 from flask import Response
 app = Flask(__name__)
 
+from pylon import create_logger
+log = create_logger(__file__)
 
-# 知乎马克 ZhihuMark
+
+
+
+from models import Task, Page
+
+from zhihu_answer import zhihu_answer_url
+
 
 
 @app.route('/')
@@ -40,14 +49,68 @@ def hello():
   return 'Hello World'
 
 
-@app.route('/question/<qid>/answer/<aid>')
-def zhihu_question_answer(qid, aid):
+
+
+
+@app.route('/answer/<answer_id>')
+def watch_zhihu_answer(answer_id):
   # https://www.zhihu.com/question/33918585/answer/89678373
-  from mark import fetch_answer
-  puts('fetching zhihu / question / answer')
-  mdfile = fetch_answer('https://www.zhihu.com/question/{}/answer/{}'.format(qid, aid))
-  return Response(mdfile, mimetype='text/text')
-  # return 'zhihu qid {} aid {}'.format(qid, aid)
+  # puts('fetching zhihu / question / answer')
+  task = Task.add_by(answer_id=answer_id)
+  page = task.watch()
+  return Response(page.full_content(), mimetype='text/text')
+
+
+
+
+
+
+@app.route('/author/<author_id>')
+def list_zhihu_answers_by_author(author_id):
+  from zhihu_answer import yield_author_answers
+  ret = []
+  for answer in yield_author_answers(author_id, limit=100, min_voteup=300):
+    url = zhihu_answer_url(answer)
+    ret.append({'url': url,
+                'title': answer.question.title,
+                'vote': answer.voteup_count,
+               })
+  return str(ret)
+  # return jsonify(ret)
+
+
+
+from pylon import form
+
+@app.route('/topic/<int:topic_id>')
+def list_zhihu_answers_by_topic(topic_id):
+  from zhihu_answer import yield_topic_best_answers
+
+
+  # mockup
+  def yield_topic_best_answers(topic_id, limit=100, min_voteup=300):
+    import json
+    data = json.loads(open('mockup_topic_answers.json', encoding='utf-8').read())
+    return (elem for elem in data)
+
+  ret = list(yield_topic_best_answers(topic_id))
+  return render_template("topics.html",
+                         title='Topics', topic_answers=ret)
+
+  # real
+  ret = []
+  for answer in yield_topic_best_answers(topic_id, limit=100, min_voteup=300):
+    url = zhihu_answer_url(answer)
+    ret.append({'url': url,
+                'title': answer.question.title,
+                'vote': answer.voteup_count,
+                'topic': [t.name for t in answer.question.topics],
+               })
+  # return form(ret)
+  # return jsonify(ret)
+
+  return render_template("topics.html",
+                         title='Topics', topic_answers=ret)
 
 
 
@@ -71,7 +134,7 @@ def recent_feed():
         published: 2016-1-12
 
     '''
-    articles = yaml_ordered_load(info)
+    articles = yaml_load(info)
     for article in articles:
         feed.add(article.get('title'),
                  article.get('rendered_text'),
@@ -86,6 +149,9 @@ def recent_feed():
 
 
 
+
+
+
 @app.route('/user/<username>')
 def show_user_profile(username):
   # show the user profile for that user
@@ -95,11 +161,12 @@ def show_user_profile(username):
 
 
 
+
+
+
 @app.route('/post/<int:post_id>')
 def show_post(post_id):
   # show the post with the given id, the id is an integer
-
-
   return 'Post %d' % post_id
   # return flask.jsonify(**f)
   # @app.route('/_get_current_user')
@@ -114,6 +181,12 @@ def show_post(post_id):
     #     "email": "admin@localhost",
     #     "id": 42
     # }
+
+
+
+
+
+
 
 if __name__ == '__main__':
   app.run(debug=True)

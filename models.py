@@ -90,7 +90,7 @@ class Task(Model):
   weight = FloatField(default=1)
   not_modified = IntegerField(default=0)
 
-  BASETIMEOUT = 36000 # 10 hours
+  BASETIMEOUT = 3600 * 24 * 3 # 72 hours
   class Meta:
     database = db
 
@@ -193,7 +193,7 @@ class Task(Model):
       elif task.next_watch <= now:
         log('start: {}'.format(task))
         page = task.watch()
-        log('done! {}'.format(page))
+        log('done!  {} {}'.format(page, task))
         time.sleep(sleep_seconds)
       else:
         log('not today... {}'.format(task))
@@ -350,7 +350,8 @@ def test_readd_task():
   task = Task.add(url=url)
   url = 'https://www.zhihu.com/question/30957313/answer/50266448' # 古典音乐
   task = Task.add(url=url)
-
+  url = 'https://www.zhihu.com/question/40056948/answer/110794550' # 四万亿
+  task = Task.add(url=url)
 
 def test_seed_add_tasks():
   urls = '''

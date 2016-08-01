@@ -364,7 +364,7 @@ def save_answer(answer, folder='test'):
 
 话题: {{data.topic}}
 
-问题描述:
+### 问题描述:
 
 {{data.question}}
 
@@ -377,7 +377,7 @@ def save_answer(answer, folder='test'):
 
 　　
 
-评论:
+### 评论:
 
 {{data.comments}}
 
@@ -519,11 +519,26 @@ def zhihu_fix_markdown(text):
   pattern_redirect_link = re.compile(r'\]\((https?:)?\/\/link\.zhihu\.com\/\?target=(.+?)\)')
   replace_redirect_link = lambda m: '](' + unquote(m.group(2)) + ')'
 
-  # line = pattern_hyperlink.sub(r'[\1]', line)
+  # ![](互联网领域的「用户研究」有哪些有趣的发现？ - 采铜的回答02.png)
+  img_reg = r'\n*\!\[\]\((https?://pic[^()]+?(\.jpg|\.png|\.gif))\)\n*'
+  pattern_img_start_inline = re.compile(img_reg)
+  def replace_img_start_inline(mat):
+    # 保证生成的 *.md 图片在新的一行
+    s = mat.group(0)
+    while not s.startswith('\n\n'):
+      s = '\n' + s
+    while not s.endswith('\n\n'):
+      s = s + '\n'
+    return s
+  pattern_multiple_newline = re.compile(r'\n{3,}') # 连续3+换行的都压缩到3个
+
   text = pattern_hyperlink.sub(hyperlink_replacer, text)
   text = pattern_strong.sub(replace_strong, text)
   text = pattern_redirect_link.sub(replace_redirect_link, text)
   text = pattern_tex_link.sub('](http://www.zhihu.com/equation?tex=', text)
+  text = pattern_img_start_inline.sub(replace_img_start_inline, text)
+  text = pattern_multiple_newline.sub('\n\n\n', text)
+
   return text
 
 
@@ -714,11 +729,12 @@ def exec_save_from_authors():
   # save_from_author(url, folder='test', min_voteup=500)
   # url = 'https://www.zhihu.com/people/shi-yidian-ban-98'  # shi-yidian-ban
   # save_from_author(url, folder='shi-yidian-ban', min_voteup=20)
-  url = 'https://www.zhihu.com/people/heismail' # 卡夫卡斯
-  save_from_author(url, folder='heismail', min_voteup=20)
+  # url = 'https://www.zhihu.com/people/heismail' # 卡夫卡斯
+  # url = 'https://www.zhihu.com/people/shu-sheng-4-25' # 书生
+  url = 'https://www.zhihu.com/people/cai-tong' # 采铜
+  save_from_author(url, folder='caitong', min_voteup=500)
 
 
-# exec_save_from_authors()
 
 
 def exec_save_answers():
@@ -895,6 +911,11 @@ def test_answer_banned():
   save_answer(url)
 
 
+def test_save_answer_image_url_should_on_newline():
+  # 互联网领域的「用户研究」有哪些有趣的发现？ - 采铜的回答
+  url = 'https://www.zhihu.com/question/42201108/answer/94323448'
+  save_answer(url)
+
 def test_save_answer_common():
   # 如何看待许知远在青年领袖颁奖典礼上愤怒「砸场」？
   save_answer('https://www.zhihu.com/question/30595784/answer/49194862')
@@ -1001,10 +1022,18 @@ def get_api_json(url='https://api.zhihu.com/answers/94150403'):
 
 
 
+def load_json_file(path):
+  from pprint import pprint
+  import json
+  j = json.loads(open(path, encoding='utf-8').read())
+  pprint(j)
 
 
 
+def test_load_json_file():
+  path = 'test_book/book.json'
 
+  load_json_file(path)
 
 
 

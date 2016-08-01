@@ -438,7 +438,8 @@ def test_fetch_topic():
 
 def test_add_task_by_author():
   id = 'shi-yidian-ban-98'
-  for answer in yield_author_answers(id, limit=100, min_voteup=10):
+  id = 'shu-sheng-4-25'
+  for answer in yield_author_answers(id, limit=100, min_voteup=100):
     url = zhihu_answer_url(answer)
     print(url)
     Task.add(url=url)

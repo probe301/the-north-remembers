@@ -7,7 +7,7 @@ from pylon import datalines
 import os
 import shutil
 import html2text
-from pylon import enumrange
+# from pylon import enumrange
 # import time
 import datetime
 
@@ -25,6 +25,7 @@ import urllib.request
 
 from pylon import create_logger
 log = create_logger(__file__)
+log_error = create_logger(__file__ + '.error')
 
 
 class ZhihuParseError(Exception):
@@ -56,8 +57,8 @@ def zhihu_answer_format(answer):
   title = answer.question.title
   author = answer.author.name
   vote = answer.voteup_count
-  topic = [t.name for t in answer.question.topics]
-  return '<ZhihuAnswer {title} {author} {vote} {topic}>\n{url}'.format(**locals())
+  topic = '|'.join([t.name for t in answer.question.topics])
+  return '<ZhihuAnswer {title} by {author} ({vote}赞) {topic}>\n{url}'.format(**locals())
 
 
 '''
@@ -352,13 +353,17 @@ def parse_answer(answer):
 
 
 
-def save_answer(answer, folder='test'):
+def save_answer(answer, folder='test', overwrite=True):
   answer = parse_answer(answer)
 
+  title = answer.question.title + ' - ' + answer.author.name + '的回答'
+  save_path = folder + '/' + remove_invalid_char(title) + '.md'
+  if not overwrite:
+    if os.path.exists(save_path):
+      log('already exist {}'.format(save_path))
+      return save_path
+
   data = fetch_zhihu_answer(answer=answer)
-  save_path = folder + '/' + remove_invalid_char(data['title']) + '.md'
-
-
   tmpl = '''
 # {{data.title}}
 
@@ -428,7 +433,7 @@ def fetch_image(url, ext, markdown_file, image_counter):
   需要转换每个 md 的附件名
   需要附件名编号'''
   if '.zhimg.com' not in url:
-    print('  exotic url: ', url)
+    log_error('  exotic url: ', url)
     return url
   # name = url.split('/')[-1]
   # nonlocal image_counter
@@ -443,10 +448,10 @@ def fetch_image(url, ext, markdown_file, image_counter):
   image_name = basename + image_index + ext
 
   if os.path.exists(image_fullname):
-    print('  existed: ', url)
+    log('  existed: ' + url)
     return image_name
 
-  print('    fetching', url)
+  log('    fetching' + url)
   data = urllib.request.urlopen(url).read()
   with open(image_fullname, "wb") as f:
     f.write(data)
@@ -475,9 +480,9 @@ def fetch_images_for_markdown(markdown_file):
   if n > 0:
     with open(markdown_file, 'w', encoding='utf-8') as f:
       f.write(text2)
-    print('parsing md file done:  ' + markdown_file.split('/')[-1])
+    log('parsing md file done:  ' + markdown_file.split('/')[-1])
   else:
-    print('no pictures downloaded:' + markdown_file.split('/')[-1])
+    log('no pictures downloaded: ' + markdown_file.split('/')[-1])
 
 
 from urllib.parse import unquote
@@ -588,8 +593,8 @@ def yield_old_fashion_topic_answers(topic_id, mode=('all', 'best')[0],
                                   limit=100, min_voteup=300):
   # id = 19641972 # '政治'
   topic = old_client.topic('https://www.zhihu.com/topic/{}'.format(topic_id))
-  # top_answers(self): 获取话题下的精华答案. :return: 话题下的精华答案，返回生成器.
-  # def answers(self): 获取话题下所有答案（按时间降序排列） :return: 话题下所有答案，返回生成器
+  # top_answers(self): 获取话题下的精华答案 返回生成器
+  # answers(self): 获取话题下所有答案（按时间降序排列）返回生成器
   if mode == 'all':
     answers = topic.answers
   elif mode == 'best':
@@ -605,96 +610,77 @@ def yield_old_fashion_topic_answers(topic_id, mode=('all', 'best')[0],
 
 def yield_author_answers(author_id, limit=100, min_voteup=300):
   # url = 'https://www.zhihu.com/people/shi-yidian-ban-98'
-  # author = client.from_url(url)
   author = client.people(author_id)
-  log(author.name)
   for answer, i in zip(author.answers, range(limit)):
-    # print(answer.question.title, answer.author.name, answer.voteup_count)
     if answer.voteup_count >= min_voteup:
       yield answer
 
 
 
+def yield_collection_answers(collection_id, limit=100, min_voteup=300):
+  # 'http://www.zhihu.com/collection/19845840' 我心中的知乎TOP100
+  collection = client.collection(collection_id)
+  for answer, i in zip(collection.answers, range(limit)):
+    if answer.voteup_count >= min_voteup:
+      yield answer
 
 
-def save_from_topic(url, limit=200,
-                    min_voteup=1000, max_upvote=100000000,
-                    folder='test',
-                    overwrite=True):
+# def save_from_question(url):
+#   question = client.Question(url)
+#   print(question.title)
+#   # 获取排名前十的十个回答
+#   for answer in question.top_i_answers(10):
+#     if answer.upvote > 1000:
+#       save_answer(answer)
 
+
+
+
+
+
+def smart_save(url, folder=None, limit=1000,
+               min_voteup=500, max_voteup=500000000,
+               overwrite=False):
+  '''根据 url 推断 话题 或者 作者, 自动抓取此类回答'''
+  if 'www.zhihu.com/topic/' in url:
+    topic = client.from_url(url)
+    log([topic.name, topic.id])
+    folder = folder or topic.name
+    # yield_old_fashion_topic_answers
+    answers = list(yield_topic_best_answers(topic.id, limit=limit, min_voteup=min_voteup))
+  elif 'www.zhihu.com/people/' in url:
+    author = client.from_url(url)
+    log([author.name, author.headline, 'answers', author.answer_count])
+    folder = folder or author.name
+    answers = list(yield_author_answers(author.id, limit=limit, min_voteup=min_voteup))
+  elif 'www.zhihu.com/collection/' in url:
+    collection = client.from_url(url)
+    log([collection.title, collection.creator.name, collection.description, collection.answer_count])
+    folder = folder or collection.title
+    answers = list(yield_collection_answers(collection.id, limit=limit, min_voteup=min_voteup))
+
+
+  log('detected {} answers'.format(len(answers)))
   if not os.path.exists(folder):
     os.makedirs(folder)
 
-  # topic = client.Topic(url)
-  topic = client.from_url(url)
-
-  for i, answer in enumrange(topic.best_answers, limit):
-    print('fetching', answer.question.title, ' - ', answer.voteup_count)
-
-    if answer.voteup_count < min_voteup:
-      break
-    if answer.voteup_count > max_upvote:
-      continue
-
-    try:
-      save_answer(answer, folder=folder)
-    except RuntimeError as e:
-      print(e, answer.question.title)
-    except TypeError as e:
-      print('question_link["href"]', e, answer.question.title)
-    # except AttributeError as e:
-    #   print('time to long? ', e, question_title)
-
-
-
-def save_from_author(url, folder='test', min_voteup=500, overwrite=False):
-  # url = 'http://www.zhihu.com/people/nordenbox'
-  # TODO: thread
-  author = client.from_url(url)
-  # 获取用户名称
-
-  log([author.name, ' - ', author.headline])
-  # 获取用户答题数
-  log(author.answer_count)      # 227
-
-  for answer in yield_author_answers(author.id, limit=100, min_voteup=min_voteup):
+  for answer in answers:
     url = zhihu_answer_url(answer)
     try:
-      log(['try answer', url])
-      save_answer(url, folder=folder)
+      log('start fetching answer {}'.format(zhihu_answer_format(answer)))
+      save_answer(url, folder=folder, overwrite=overwrite)
+      log('save done\n')
     except ZhihuParseError as e:
-      print(e)
+      log_error(e)
     except RuntimeError as e:
-      print(e, answer.question.title)
+      log_error(e, answer.question.title)
+    except requests.exceptions.RetryError as e:
+      log_error([e, 'on {}'.format(url)])
     except AttributeError as e:
       print(answer.question.title, url, e)
       raise
 
-
-
-def save_from_collections(url, limit=10):
-  collection = client.Collection(url)
-  print(collection.name)
-  print(collection.followers_num)
-  for i, answer in enumerate(collection.answers):
-    # print(answer._url)
-    if i >= limit:
-      break
-
-    save_answer(answer._url, folder='test')
-
-
-def save_from_question(url):
-  question = client.Question(url)
-  print(question.title)
-  # 获取排名前十的十个回答
-  for answer in question.top_i_answers(10):
-    if answer.upvote > 1000:
-      save_answer(answer)
-
-
-
-
+  log('all done!')
 
 
 
@@ -716,24 +702,21 @@ def save_from_question(url):
 def exec_save_from_collections():
   # 采铜 的收藏 我心中的知乎TOP100
   url = 'http://www.zhihu.com/collection/19845840'
-  save_from_collections(url, limit=10)
+  smart_save(url, limit=3000,
+             min_voteup=100, max_voteup=500000000,
+             overwrite=False)
 
-
+# exec_save_from_collections()
 
 def exec_save_from_authors():
   # url = 'https://www.zhihu.com/people/xbjf/'  # 玄不救非氪不改命
-  # save_from_author(url, folder='test', min_voteup=500)
   # url = 'https://www.zhihu.com/people/zhao-hao-yang-1991'  # 赵皓阳
-  # save_from_author(url, folder='authors', min_voteup=300)
   # url = 'https://www.zhihu.com/people/mandelbrot-11'  # Mandelbrot
-  # save_from_author(url, folder='test', min_voteup=500)
-  # url = 'https://www.zhihu.com/people/shi-yidian-ban-98'  # shi-yidian-ban
-  # save_from_author(url, folder='shi-yidian-ban', min_voteup=20)
+  # url = 'https://www.zhihu.com/people/shi-yidian-ban-98'  # shiyidianban
   # url = 'https://www.zhihu.com/people/heismail' # 卡夫卡斯
-  # url = 'https://www.zhihu.com/people/shu-sheng-4-25' # 书生
-  url = 'https://www.zhihu.com/people/cai-tong' # 采铜
-  save_from_author(url, folder='caitong', min_voteup=500)
-
+  url = 'https://www.zhihu.com/people/shu-sheng-4-25' # 书生
+  # url = 'https://www.zhihu.com/people/cai-tong' # 采铜
+  smart_save(url, folder=None, limit=2000, min_voteup=300, overwrite=False)
 
 
 
@@ -742,23 +725,23 @@ def exec_save_answers():
     https://www.zhihu.com/question/40305228/answer/86179116
     https://www.zhihu.com/question/36466762/answer/85475145
     https://www.zhihu.com/question/33246348/answer/86919689
-    https://www.zhihu.com/question/39906815/answer/88534869
+    # https://www.zhihu.com/question/39906815/answer/88534869
 
-    https://www.zhihu.com/question/40700155/answer/89002644
-    https://www.zhihu.com/question/36380091/answer/84690117
-    https://www.zhihu.com/question/33246348/answer/86919689
-    https://www.zhihu.com/question/35254746/answer/90252213
-    https://www.zhihu.com/question/23618517/answer/89823915
+    # https://www.zhihu.com/question/40700155/answer/89002644
+    # https://www.zhihu.com/question/36380091/answer/84690117
+    # https://www.zhihu.com/question/33246348/answer/86919689
+    # https://www.zhihu.com/question/35254746/answer/90252213
+    # https://www.zhihu.com/question/23618517/answer/89823915
 
-    https://www.zhihu.com/question/40677000/answer/87886574
+    # https://www.zhihu.com/question/40677000/answer/87886574
 
-    https://www.zhihu.com/question/41373242/answer/91417985
-    https://www.zhihu.com/question/47275087/answer/106335325
-    https://www.zhihu.com/question/47275087/answer/106335325 买不起房是房价太高还是工资太低？
-    https://www.zhihu.com/question/36129534/answer/91921682  印度经济会在本世纪追上中国吗？
-    https://www.zhihu.com/question/22513722/answer/21967185  火车票涨价是否能解决春运问题？
-    https://www.zhihu.com/question/32210508/answer/57701501  蒋兆和《流民图》为何受到批判？
-    https://www.zhihu.com/question/27820755/answer/107267228 裸辞后怎样解释以获工作机会？
+    # https://www.zhihu.com/question/41373242/answer/91417985
+    # https://www.zhihu.com/question/47275087/answer/106335325
+    # https://www.zhihu.com/question/47275087/answer/106335325 买不起房是房价太高还是工资太低？
+    # https://www.zhihu.com/question/36129534/answer/91921682  印度经济会在本世纪追上中国吗？
+    # https://www.zhihu.com/question/22513722/answer/21967185  火车票涨价是否能解决春运问题？
+    # https://www.zhihu.com/question/32210508/answer/57701501  蒋兆和《流民图》为何受到批判？
+    # https://www.zhihu.com/question/27820755/answer/107267228 裸辞后怎样解释以获工作机会？
   '''
   for url in datalines(urls):
     save_answer(url.split(' ')[0], folder='test')
@@ -823,6 +806,8 @@ def exec_save_from_topic():
     url, topic_name, topic_name_cn = line.split(' ')
     puts('start parsing topic_name url')
     save_from_topic(url, limit=10, min_voteup=1000, max_upvote=5000000, folder=topic_name_cn, overwrite=False)
+
+
 
 
 
@@ -909,6 +894,9 @@ def test_answer_banned():
   # 作者修改内容通过后，回答会重新显示。如果一周内未得到有效修改，回答会自动折叠。
   url = 'https://www.zhihu.com/question/33594085/answer/74817919/'
   save_answer(url)
+
+def untest_404():
+  url = 'https://www.zhihu.com/question/44069719/answer/97020803' # ???
 
 
 def test_save_answer_image_url_should_on_newline():
@@ -1068,3 +1056,5 @@ def test_genenate_figlet():
   generate_figlet('yield', fonts=['space_op'])
   generate_figlet('save', fonts=['space_op'])
   generate_figlet('parse md', fonts=['space_op'])
+
+

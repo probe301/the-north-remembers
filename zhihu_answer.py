@@ -29,7 +29,9 @@ log_error = create_logger(__file__ + '.error')
 
 
 class ZhihuParseError(Exception):
-  pass
+  def __init__(self, msg=None, value=None):
+    self.value = value
+    self.msg = msg
 
 
 
@@ -269,9 +271,20 @@ def fetch_zhihu_answer(answer):
 
   try:
     content = answer.content
-  except AttributeError:
-    msg = 'cannot parse answer.content: {} {}'
-    raise ZhihuParseError(msg.format(answer.question.title, answer._build_url()))
+    detail = question.detail
+    # log(question.title + ' ' + content[:50] + '...')
+  # except AttributeError:
+  #   msg = 'cannot parse answer.content: {} {}'
+  #   msg = msg.format(answer.question.title, zhihu_answer_url(answer))
+  #   raise ZhihuParseError(msg='不能解析回答', value=value)
+
+  except requests.exceptions.RetryError as e:
+    # 一般是问题已被删除
+    blank_answer = blank_zhihu_answer()
+    blank_answer['title'] = '(问题已删除)' + answer.question.title
+    blank_answer['url'] = zhihu_answer_url(answer)
+    raise ZhihuParseError(msg='问题已删除', value=blank_answer)
+
 
   answer_body = zhihu_content_html2md(content).strip()
 
@@ -285,7 +298,9 @@ def fetch_zhihu_answer(answer):
     answer_body += '\n' + answer.suggest_edit.reason + '\n' + answer.suggest_edit.tip
 
   motto = '({})'.format(author.headline) if author.headline else ''
-  question_details = zhihu_content_html2md(question.detail).strip()
+
+  question_details = zhihu_content_html2md(detail).strip()
+
   title = question.title + ' - ' + author.name + '的回答'
   topics = ', '.join(t.name for t in question.topics)
   question_id = question.id
@@ -338,6 +353,16 @@ def fetch_zhihu_answer(answer):
           }
 
 
+def blank_zhihu_answer():
+  return {'title': '',
+          'content': '',
+          'comments': '',
+          'author': '',
+          'topic': '',
+          'question': '',
+          'metadata': '',
+          'url': '',
+          }
 
 def parse_answer(answer):
   if isinstance(answer, str):
@@ -451,7 +476,7 @@ def fetch_image(url, ext, markdown_file, image_counter):
     log('  existed: ' + url)
     return image_name
 
-  log('    fetching' + url)
+  log('    fetching ' + url)
   data = urllib.request.urlopen(url).read()
   with open(image_fullname, "wb") as f:
     f.write(data)
@@ -664,10 +689,11 @@ def smart_save(url, folder=None, limit=1000,
   if not os.path.exists(folder):
     os.makedirs(folder)
 
-  for answer in answers:
+  for i, answer in enumerate(answers, 1):
     url = zhihu_answer_url(answer)
     try:
-      log('start fetching answer {}'.format(zhihu_answer_format(answer)))
+      log('start fetching answer {}/{}'.format(i, len(answers)))
+      log('{}'.format(zhihu_answer_format(answer)))
       save_answer(url, folder=folder, overwrite=overwrite)
       log('save done\n')
     except ZhihuParseError as e:
@@ -714,10 +740,11 @@ def exec_save_from_authors():
   # url = 'https://www.zhihu.com/people/mandelbrot-11'  # Mandelbrot
   # url = 'https://www.zhihu.com/people/shi-yidian-ban-98'  # shiyidianban
   # url = 'https://www.zhihu.com/people/heismail' # 卡夫卡斯
-  url = 'https://www.zhihu.com/people/shu-sheng-4-25' # 书生
+  # url = 'https://www.zhihu.com/people/shu-sheng-4-25' # 书生
   # url = 'https://www.zhihu.com/people/cai-tong' # 采铜
-  smart_save(url, folder=None, limit=2000, min_voteup=300, overwrite=False)
-
+  url = 'https://www.zhihu.com/people/chenqin'
+  smart_save(url, folder=None, limit=4000, min_voteup=500, overwrite=False)
+# exec_save_from_authors()
 
 
 def exec_save_answers():

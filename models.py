@@ -12,6 +12,8 @@ from pylon import form
 from pylon import datalines
 from pylon import create_logger
 log = create_logger(__file__)
+log_error = create_logger(__file__ + '.error')
+
 # from pylon import enumrange
 from datetime import datetime
 
@@ -34,7 +36,8 @@ from zhihu_answer import yield_topic_best_answers
 from zhihu_answer import yield_author_answers
 from zhihu_answer import fetch_zhihu_answer
 from zhihu_answer import zhihu_answer_url
-
+from zhihu_answer import ZhihuParseError
+import requests
 
 from jinja2 import Template
 db = SqliteDatabase('zhihu.sqlite')
@@ -176,10 +179,22 @@ class Task(Model):
     return url
 
   def watch(self):
-    zhihu_answer = fetch_zhihu_answer(self.url)
-    page = self.remember(zhihu_answer)
-    return page
+    try:
+      zhihu_answer = fetch_zhihu_answer(self.url)
+      page = self.remember(zhihu_answer)
+      return page
+    except ZhihuParseError as e:
+      blank_answer = e.value
+      log_error('!! 问题已删除 {} {}'.format(self.url, blank_answer['title']))
+      page = self.remember(blank_answer)
+      return page
+    except RuntimeError as e:
+      log_error(e, answer.question.title)
+      raise
 
+    # except AttributeError as e:
+    #   log_error(answer.question.title, url, e)
+    #   raise
 
   @classmethod
   def multiple_watch(cls, sleep_seconds=10, limit=10):
@@ -197,6 +212,9 @@ class Task(Model):
         time.sleep(sleep_seconds)
       else:
         log('not today... {}'.format(task))
+
+
+
 
   @classmethod
   def report(cls):
@@ -439,9 +457,11 @@ def test_fetch_topic():
 def test_add_task_by_author():
   id = 'shi-yidian-ban-98'
   id = 'shu-sheng-4-25'
-  for answer in yield_author_answers(id, limit=100, min_voteup=100):
+  id = 'xbjf'  # 玄不救非氪不改命
+
+  for answer in yield_author_answers(id, limit=500, min_voteup=100):
     url = zhihu_answer_url(answer)
-    print(url)
+    log(url)
     Task.add(url=url)
 
 

@@ -458,6 +458,7 @@ def test_add_task_by_author():
   id = 'shi-yidian-ban-98'
   id = 'shu-sheng-4-25'
   id = 'xbjf'  # 玄不救非氪不改命
+  id = 'zhao-hao-yang-1991'  # 赵皓阳
 
   for answer in yield_author_answers(id, limit=500, min_voteup=100):
     url = zhihu_answer_url(answer)

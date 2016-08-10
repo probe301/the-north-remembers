@@ -11,7 +11,10 @@
   <link href="../static/bootstrap.css" rel="stylesheet">
   <!-- <link href="../static/bootstrap-theme.css" rel="stylesheet">
   <link href="../static/flat-ui.css" rel="stylesheet"> -->
-
+  <script src="static/react.js"></script>
+  <script src="static/react-dom.js"></script>
+  <script src="static/browser.min.js"></script>
+  <script src="static/jquery-1.9.1.min.js"></script>
   {% if title %}
   <title>{{title}} - microblog</title>
   {% else %}
@@ -25,37 +28,14 @@
 
 
 <div class="container-fluid">
-  <div class="row-fluid">
-    <div class="span12">
-      <form class="form-horizontal">
-        <div class="form-group">
-          <label for="inputEmail3" class="col-sm-2 control-label">Email</label>
-          <div class="col-sm-10">
-            <input type="email" class="form-control" id="inputEmail3" />
-          </div>
-        </div>
-        <div class="form-group">
-           <label for="inputPassword3" class="col-sm-2 control-label">Password</label>
-          <div class="col-sm-10">
-            <input type="password" class="form-control" id="inputPassword3" />
-          </div>
-        </div>
 
-        <div class="form-group">
-          <div class="col-sm-offset-2 col-sm-10">
-             <button type="submit" class="btn btn-default">Sign in</button>
-          </div>
-        </div>
-      </form>
-    </div>
-  </div>
 
 
   <div class="row-fluid">
     <div class="span8">
       <div class="page-header">
         <h1>
-          ZhihuMark <small>用不一样的方式阅读知乎</small>
+          The North Remembers <small>History Timeline of Zhihu</small>
         </h1>
       </div>
 
@@ -65,13 +45,13 @@
             <div class="control-group">
               <label class="control-label sr-only col-sm-1" for="inputEmail">邮箱</label>
               <div class="col-sm-5">
-                <input type="text" class="form-control" id="inputEmail3" />
+                <input type="text" class="form-control" placeholder="shi-yidian-ban-98 作者ID / 话题ID / 回答ID" id="zhihu-input" />
               </div>
             </div>
 
             <div class="control-group">
               <div class="col-sm-4">
-                <button type="submit" class="btn"> 登 录 </button>
+                <button type="button" class="btn" id="zhihu-input-button"> Fetch </button>
               </div>
             </div>
           </form>
@@ -92,8 +72,89 @@
 
 
 
+<div id='container'></div>
 
 
+
+
+<script type="text/babel">
+
+  // let ZhihuInput = React.createClass({
+  //   render: function() {
+  //     return <input type="text" placeholder= />;
+  //   }
+  // })
+
+
+
+  let ZhihuAnswer = React.createClass({
+
+    render: function() {
+      return (
+        <div className={"zhihu-answer"}>
+          <div className={"div-left"}>
+            checker
+          </div>
+          <div className={"div-right"}>
+            <div className={"zhihu-answer-title"}>{this.props.data.title}</div>
+            <div className={"zhihu-answer-metadata"}>{this.props.data.author}</div>
+            <div className={"zhihu-answer-url"}>{this.props.data.url}</div>
+          </div>
+        </div>
+      );
+    }
+  });
+
+
+  let ZhihuAnswerList = React.createClass({
+    getInitialState: function() {
+      return {
+        loading: true,
+        error: null,
+        data: null
+      };
+    },
+    componentDidMount: function() {
+      this.props.promise.then(
+        value => this.setState({loading: false, data: value}),
+        error => this.setState({loading: false, error: error})
+        );
+    },
+    render: function() {
+      if (this.state.loading) {
+        return <span>Loading...</span>;
+      }
+      else if (this.state.error !== null) {
+        return <span>Error: {this.state.error.message}</span>;
+      }
+      else {
+        // var answers = this.state.data;
+        let answers = this.state.data.map(function (answer, index) {
+          return <ZhihuAnswer data={answer} />
+        });
+        return <div>{answers}</div>
+      }
+    }
+  });
+
+
+
+
+
+
+  $('#zhihu-input-button').click(function() {
+    let author_id = $('#zhihu-input').val()
+    let url = "http://127.0.0.1:5000/author/" + author_id + "?limit=5";
+    ReactDOM.render(
+      <ZhihuAnswerList promise={$.getJSON(url)} />,
+      document.getElementById('container')
+    );
+  })
+
+
+
+
+</script>
 
 </body>
 </html>

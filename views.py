@@ -69,14 +69,15 @@ def watch_zhihu_answer(answer_id):
 def list_zhihu_answers_by_author(author_id):
   from zhihu_answer import yield_author_answers
   ret = []
-  for answer in yield_author_answers(author_id, limit=100, min_voteup=300):
+  limit = int(request.args.get('limit', 10))
+  min_voteup = int(request.args.get('min_voteup', 300))
+  for answer in yield_author_answers(author_id, limit=limit, min_voteup=min_voteup):
     url = zhihu_answer_url(answer)
     ret.append({'url': url,
                 'title': answer.question.title,
                 'vote': answer.voteup_count,
                })
-  return str(ret)
-  # return jsonify(ret)
+  return jsonify(ret)
 
 
 

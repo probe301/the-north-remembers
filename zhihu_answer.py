@@ -608,14 +608,18 @@ def yield_topic_best_answers(topic_id, limit=100, min_voteup=300):
   # id = 19641972 # '政治'
   topic = client.topic(topic_id)
   # print(topic.name)
-  for answer, i in zip(topic.best_answers, range(limit)):
+  count = 0
+  for answer in topic.best_answers:
     # print(answer.question.title, answer.author.name, answer.voteup_count)
     if answer.voteup_count >= min_voteup:
+      count += 1
       yield answer
+    if count >= limit:
+      break
 
 
 def yield_old_fashion_topic_answers(topic_id, mode=('all', 'best')[0],
-                                  limit=100, min_voteup=300):
+                                    limit=100, min_voteup=300):
   # id = 19641972 # '政治'
   topic = old_client.topic('https://www.zhihu.com/topic/{}'.format(topic_id))
   # top_answers(self): 获取话题下的精华答案 返回生成器
@@ -626,29 +630,38 @@ def yield_old_fashion_topic_answers(topic_id, mode=('all', 'best')[0],
     answers = topic.top_answers
   else:
     raise
-  for old_answer, i in zip(answers, range(limit)):
+  count = 0
+  for old_answer in answers:
     answer = client.answer(int(old_answer.id))
     # print(answer.question.title, answer.author.name, answer.id, answer.question.id)
     if answer.voteup_count >= min_voteup:
+      count += 1
       yield answer
-
+    if count >= limit:
+      break
 
 def yield_author_answers(author_id, limit=100, min_voteup=300):
   # url = 'https://www.zhihu.com/people/shi-yidian-ban-98'
   author = client.people(author_id)
-  for answer, i in zip(author.answers, range(limit)):
+  count = 0
+  for answer in author.answers:
     if answer.voteup_count >= min_voteup:
+      count += 1
       yield answer
-
+    if count >= limit:
+      break
 
 
 def yield_collection_answers(collection_id, limit=100, min_voteup=300):
   # 'http://www.zhihu.com/collection/19845840' 我心中的知乎TOP100
   collection = client.collection(collection_id)
-  for answer, i in zip(collection.answers, range(limit)):
+  count = 0
+  for answer in collection.answers:
     if answer.voteup_count >= min_voteup:
+      count += 1
       yield answer
-
+    if count >= limit:
+      break
 
 # def save_from_question(url):
 #   question = client.Question(url)

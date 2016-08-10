@@ -459,11 +459,37 @@ def test_add_task_by_author():
   id = 'shu-sheng-4-25'
   id = 'xbjf'  # 玄不救非氪不改命
   id = 'zhao-hao-yang-1991'  # 赵皓阳
+  id = 'mandelbrot-11'  # Mandelbrot
+  id = 'shu-sheng-4-25' # 书生
+  id = 'cai-tong' # 采铜
 
-  for answer in yield_author_answers(id, limit=500, min_voteup=100):
-    url = zhihu_answer_url(answer)
-    log(url)
-    Task.add(url=url)
+  ids = '''
+  #done leng-zhe
+  #done BlackCloak
+  #done ma-bo-yong
+  #done hutianyi
+  #done lawrencelry
+  #done Metaphox
+  #done calon
+  # xiepanda
+  # cogito
+  # talich
+  # commando
+  # fu-er
+  # tassandar
+  # zhou-xiao-nong
+  # yinshoufu
+  # tangsyau
+  # lianghai
+  # zhang-jia-wei
+  '''
+  count = 0
+  for id in datalines(ids):
+    for answer in yield_author_answers(id, limit=3000, min_voteup=100):
+      url = zhihu_answer_url(answer)
+      count += 1
+      log('<{}> {}'.format(count, url))
+      Task.add(url=url)
 
 
 

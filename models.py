@@ -357,8 +357,9 @@ from: [{{data.task.url}}]()
 '''
 
 def test_new_task():
-  url = 'https://www.zhihu.com/question/30595784/answer/49194862'
+  # url = 'https://www.zhihu.com/question/30595784/answer/49194862'
   # 如何看待许知远在青年领袖颁奖典礼上愤怒「砸场」？
+  url = 'https://www.zhihu.com/question/22316395/answer/100909780'
   task = Task.add(url=url)
 
 

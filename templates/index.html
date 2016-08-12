@@ -5,12 +5,7 @@
 <head>
 
   <link href="/static/bootstrap.css" rel="stylesheet">
-  <!-- <link href="/static/bootstrap-theme.css" rel="stylesheet"> -->
   <link href="/static/flat-ui.css" rel="stylesheet">
-
-  <link href="../static/bootstrap.css" rel="stylesheet">
-  <!-- <link href="../static/bootstrap-theme.css" rel="stylesheet">
-  <link href="../static/flat-ui.css" rel="stylesheet"> -->
   <script src="static/react.js"></script>
   <script src="static/react-dom.js"></script>
   <script src="static/browser.min.js"></script>
@@ -73,6 +68,7 @@
 
 
 <div id='container'></div>
+<div id='container_test'></div>
 
 
 
@@ -88,7 +84,6 @@
 
 
   let ZhihuAnswer = React.createClass({
-
     render: function() {
       return (
         <div className={"zhihu-answer"}>
@@ -141,7 +136,6 @@
 
 
 
-
   $('#zhihu-input-button').click(function() {
     let author_id = $('#zhihu-input').val()
     let url = "http://127.0.0.1:5000/author/" + author_id + "?limit=5";
@@ -150,6 +144,8 @@
       document.getElementById('container')
     );
   })
+
+
 
 
 

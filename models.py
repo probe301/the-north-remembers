@@ -35,6 +35,7 @@ import arrow
 from zhihu_answer import yield_topic_best_answers
 from zhihu_answer import yield_author_answers
 from zhihu_answer import fetch_zhihu_answer
+from zhihu_answer import fill_full_content
 from zhihu_answer import zhihu_answer_url
 from zhihu_answer import ZhihuParseError
 import requests
@@ -47,6 +48,8 @@ db = SqliteDatabase('zhihu.sqlite')
 def convert_time(d, humanize=False):
   if not d:
     return None
+  if isinstance(d, int):
+    d = datetime.utcfromtimestamp(d)
   if humanize:
     return arrow.get(d.strftime('%Y-%m-%d %H:%M:%S') + '+08:00').humanize()
   else:
@@ -93,7 +96,7 @@ class Task(Model):
   weight = FloatField(default=1)
   not_modified = IntegerField(default=0)
 
-  BASETIMEOUT = 3600 * 24 * 3 # 72 hours
+  BASETIMEOUT = 3600 * 24 * 7 # 7 days
   class Meta:
     database = db
 
@@ -121,49 +124,39 @@ class Task(Model):
       task = existed.get()
       log('Task.add has already existed: {}'.format(task))
       task.next_watch = datetime.now()
-      task.not_modified = 0
+      # task.not_modified = 0
       task.save()
-      return task
     else:
       task = cls.create(url=url,
                         page_type=page_type,
                         title=title or '(has not fetched)',
                         next_watch=datetime.now())
-      return task
+
+    return task
+
 
   @classmethod
-  def add_by(cls, answer_id=None, title=None):
-    if answer_id:
-      url = zhihu_answer_url(int(answer_id))
-      task = Task.add(url, title=title)
-      return task
+  def add_by_answer(cls, answer_id, title=None, force_start=False):
+    # log('add by answer')
+    url = zhihu_answer_url(answer_id)
+    # log('add by answer {}'.format(url))
+    task = cls.add(url, title=title)
+    # log('add by answer {} {}'.format(url, task))
+    if force_start:
+      task.watch()
+    return task
 
 
-  def remember(self, data):
-    now = datetime.now()
-    page = Page(task=self,
-                title=data['title'].strip(),
-                author=data['author'].strip(),
-                content=data['content'].strip(),
-                comment=data['comments'].strip(),
-                metadata=data['metadata'],
-                topic=data['topic'].strip(),
-                question=data['question'].strip(),
-                watch_date=now)
+  @classmethod
+  def add_by_author(cls, force_start=False):
+    pass
 
-    self.last_watch = now
-    if page.same_as_last():
-      self.not_modified += 1
-    else:
-      self.not_modified = 0
+  @classmethod
+  def add_by_topic(cls, force_start=False):
+    pass
 
-    page.save()
-    seconds = 2 ** self.not_modified * self.BASETIMEOUT
-    # 如果几次都是 not_modified, 则下次计划任务会安排的较晚
-    self.next_watch = now + timedelta(seconds=seconds)
-    self.title = data['title'].strip()
-    self.save()
-    return page
+
+
 
   @classmethod
   def get_page_type(cls, url):
@@ -192,9 +185,7 @@ class Task(Model):
       log_error(e, answer.question.title)
       raise
 
-    # except AttributeError as e:
-    #   log_error(answer.question.title, url, e)
-    #   raise
+
 
   @classmethod
   def multiple_watch(cls, sleep_seconds=10, limit=10):
@@ -216,6 +207,42 @@ class Task(Model):
 
 
 
+
+  def remember(self, data):
+    now = datetime.now()
+    page = Page(task=self,
+                title=data['title'].strip(),
+                author=data['author'].strip(),
+                content=data['content'].strip(),
+                comment=data['comments'].strip(),
+                metadata=data['metadata'],
+                topic=data['topic'].strip(),
+                question=data['question'].strip(),
+                watch_date=now)
+
+    self.last_watch = now
+    if page.same_as_last():
+      self.not_modified += 1
+    else:
+      self.not_modified = 0
+
+    page.save()
+    seconds = 2 ** self.not_modified * self.BASETIMEOUT
+    # 如果几次都是 not_modified, 则下次计划任务会安排的较晚
+    # 推迟时间算法有问题, 如果几分钟内反复fetch,
+    # 基本不会有内容变化, 将导致下一次获取时间极大的延后
+    self.next_watch = now + timedelta(seconds=seconds)
+    self.title = data['title'].strip()
+    self.save()
+    return page
+
+
+
+
+
+
+
+
   @classmethod
   def report(cls):
     tasks = Task.select()
@@ -228,8 +255,14 @@ class Task(Model):
       log(task)
 
 
-
-
+  @property
+  def last_page(self):
+    query = Page.select().where(Page.task == self)
+    if query:
+      last_page = query.order_by(-Page.watch_date).get()
+      return last_page
+    else:
+      raise ValueError('cannot find any page on {}'.format(self))
 
 
 
@@ -311,37 +344,45 @@ class Page(Model):
     pass
 
 
-
-  def full_content(self, type='md'):
-    tmpl = '''
-# {{data.title}}
-
-话题: {{data.topic}}
-
-问题描述:
-
-{{data.question}}
-
-{{data.metadata}}
-
-
-{{data.content}}
+  def to_dict(self):
+    return {
+            'title': self.title,
+            'full_content': self.full_content,
+            'author': self.author,
+            'watch_date': self.watch_date,
+            'url': self.url,
+            }
 
 
 
-　　
 
-评论:
 
-{{data.comment}}
+  @property
+  def full_content(self, mode='md'):
+    data = self
+    if mode == 'md':
+      rendered = fill_full_content(data)
+      return rendered
 
-------------------
 
-from: [{{data.task.url}}]()
+  @property
+  def comments(self):
+    return self.comment
 
-'''
-    rendered = Template(tmpl).render(data=self)
-    return rendered
+
+  @property
+  def url(self):
+    return self.task.url
+
+
+
+
+
+
+
+
+
+
 
 
 

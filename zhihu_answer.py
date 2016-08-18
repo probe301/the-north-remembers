@@ -45,13 +45,15 @@ client.load_token(TOKEN_FILE)
 
 
 
-
-
 def zhihu_answer_url(answer):
+  '''貌似答案被删也不报错'''
+  # log('zhihu_answer_url answer' + str(answer))
   if isinstance(answer, int):
     answer = client.answer(answer)
   return 'https://www.zhihu.com/question/{}/answer/{}'.format(answer.question.id, answer.id)
 
+# print(zhihu_answer_url(86179116))
+# print(zhihu_answer_url(116846451))
 def zhihu_answer_format(answer):
   if isinstance(answer, int):
     answer = client.answer(answer)
@@ -86,13 +88,24 @@ old_client = OldZhihuClient('cookies.json')
 def comment_list_id(url):
   """返回 aid 用于拼接 url get 该回答的评论
   <div tabindex="-1" class="zm-item-answer" itemscope="" itemtype="http://schema.org/Answer" data-aid="14852408" data-atoken="48635152" data-collapsed="0" data-created="1432285826" data-deleted="0" data-helpful="1" data-isowner="0" data-score="34.1227812032">
+
+  某些页面仅在登录后 才能取得 comment_list_id, 否则会进入 login 页面找不到该 id
+  可能跟答主允许站外分享有关
+  # client = ZhihuClient()
+  # client.create_cookies('cookies.json')
   """
+
   headers = {
     'User-agent': 'Mozilla/5.0',
   }
   r = old_client._session.get(url)
-  return PyQuery(r.content).find('div.zm-item-answer').attr('data-aid')
-
+  aid = PyQuery(r.content).find('div.zm-item-answer').attr('data-aid')
+  if aid:
+    return aid
+  else:
+    log_error(url + ' can not find aid in\n')
+    log_error(r.content)
+    raise ValueError
 
 class OldFashionAuthor:
   """配合 OldFashionComment 使用的 author"""
@@ -121,8 +134,10 @@ class OldFashionComment:
 
 def get_old_fashion_comments(answer_url):
   aid = comment_list_id(answer_url)
-  comment_box_link = 'http://www.zhihu.com/node/AnswerCommentBoxV2?params=%7B%22answer_id%22%3A%22{}%22%2C%22load_all%22%3Atrue%7D'.format(aid) # | log
+  comment_box_link = 'http://www.zhihu.com/node/AnswerCommentBoxV2?params=%7B%22answer_id%22%3A%22{}%22%2C%22load_all%22%3Atrue%7D'.format(aid)  # | log
+  # log('comments: ' + comment_box_link)
   r = old_client._session.get(comment_box_link)
+  # print(str(r.content))
   doc = PyQuery(str(r.content, encoding='utf-8'))
   comments = []
   for div in doc.find('div.zm-item-comment'):
@@ -266,10 +281,18 @@ def comment_to_string(comment):
 
 def fetch_zhihu_answer(answer):
   answer = parse_answer(answer)
-  author = answer.author
-  question = answer.question
 
   try:
+    author = answer.author
+  except requests.exceptions.RetryError as e:
+    # 回答已被删除? 目前分不清怎么判断 回答or问题 被删
+    blank_answer = blank_zhihu_answer()
+    blank_answer['title'] = '(本回答已删除)' # + answer.question.title
+    # blank_answer['url'] = zhihu_answer_url(answer)
+    raise ZhihuParseError(msg='本回答已删除', value=blank_answer)
+
+  try:
+    question = answer.question
     content = answer.content
     detail = question.detail
     # log(question.title + ' ' + content[:50] + '...')
@@ -277,7 +300,6 @@ def fetch_zhihu_answer(answer):
   #   msg = 'cannot parse answer.content: {} {}'
   #   msg = msg.format(answer.question.title, zhihu_answer_url(answer))
   #   raise ZhihuParseError(msg='不能解析回答', value=value)
-
   except requests.exceptions.RetryError as e:
     # 一般是问题已被删除
     blank_answer = blank_zhihu_answer()
@@ -389,14 +411,28 @@ def save_answer(answer, folder='test', overwrite=True):
       return save_path
 
   data = fetch_zhihu_answer(answer=answer)
+  rendered = fill_full_content(data)
+
+  with open(save_path, 'w', encoding='utf-8') as f:
+    f.write(rendered)
+    log('write {} done'.format(save_path))
+
+  # 本地存储, 需要抓取所有附图
+  fetch_images_for_markdown(save_path)
+  return save_path
+
+
+
+
+def fill_full_content(data):
   tmpl = '''
-# {{data.title}}
+### {{data.title}}
 
 话题: {{data.topic}}
 
-### 问题描述:
+#### 问题描述:
 
-{{data.question}}
+{{data.question or '(无)'}}
 
 {{data.metadata}}
 
@@ -407,7 +443,7 @@ def save_answer(answer, folder='test', overwrite=True):
 
 　　
 
-### 评论:
+#### 评论:
 
 {{data.comments}}
 
@@ -416,17 +452,8 @@ def save_answer(answer, folder='test', overwrite=True):
 from: [{{data.url}}]()
 
 '''
-  rendered = Template(tmpl).render(**locals())
-
-  with open(save_path, 'w', encoding='utf-8') as f:
-    f.write(rendered)
-    puts('write save_path done')
-
-  fetch_images_for_markdown(save_path)  # get images in markdown
-  return save_path
-
-
-
+  rendered = Template(tmpl).render(data=data)
+  return rendered
 
 
 
@@ -684,8 +711,8 @@ def smart_save(url, folder=None, limit=1000,
     topic = client.from_url(url)
     log([topic.name, topic.id])
     folder = folder or topic.name
-    # yield_old_fashion_topic_answers
-    answers = list(yield_topic_best_answers(topic.id, limit=limit, min_voteup=min_voteup))
+    answers = list(yield_topic_best_answers(int(topic.id), limit=limit, min_voteup=min_voteup))
+
   elif 'www.zhihu.com/people/' in url:
     author = client.from_url(url)
     log([author.name, author.headline, 'answers', author.answer_count])
@@ -831,9 +858,9 @@ def exec_save_from_topic():
     # https://www.zhihu.com/topic/19563625 astronomy 天文
     # https://www.zhihu.com/topic/19620787 universe 天文
     # https://www.zhihu.com/topic/19569034 philosophy_of_science 科学哲学
-    # https://www.zhihu.com/topic/19558740 statistics 统计
+    # https://www.zhihu.com/topic/19558740 statistics 统计学 answer 更多
     # https://www.zhihu.com/topic/19576422 statistics 统计
-    https://www.zhihu.com/topic/19552981 economics 经济
+    # https://www.zhihu.com/topic/19552981 economics 经济
     # https://www.zhihu.com/topic/19553550 paradox 悖论
     # https://www.zhihu.com/topic/19559450 machine_learning 机器学习
     # https://www.zhihu.com/topic/19551275 artificial_intelligence 人工智能
@@ -842,13 +869,8 @@ def exec_save_from_topic():
     # https://www.zhihu.com/topic/19571159 freelancer 自由职业
   '''
 
-  for line in datalines(urls_str):
-    url, topic_name, topic_name_cn = line.split(' ')
-    puts('start parsing topic_name url')
-    save_from_topic(url, limit=10, min_voteup=1000, max_upvote=5000000, folder=topic_name_cn, overwrite=False)
-
-
-
+  url= 'https://www.zhihu.com/topic/19558740'
+  smart_save(url, folder=None, limit=3000, min_voteup=400, overwrite=False)
 
 
 def exec_massive_download():
@@ -935,6 +957,19 @@ def test_answer_banned():
   url = 'https://www.zhihu.com/question/33594085/answer/74817919/'
   save_answer(url)
 
+
+def test_comments_dispaired():
+  # 近日河北邢台水淹村庄事件到底是天灾还是人祸？不做键盘侠，谁能给个真实的新闻？ - 玄不救非氪不改命
+  # old_fashion_comments url 返回 b''
+  url = 'https://www.zhihu.com/question/48793565/answer/112968110'
+  answer = parse_answer(url)
+  print(answer)
+  # print(answer.question.title)
+  # print(answer.content)
+  # print(answer.comments)
+  # print(list(answer.comments))
+  c = get_old_fashion_comments(url)
+
 def untest_404():
   url = 'https://www.zhihu.com/question/44069719/answer/97020803' # ???
 
@@ -1012,16 +1047,7 @@ def test_save_whitedot_bug():
 
 
 
-def test_yield_answers_by_topic():
-  id = 19641972 # '货币政策'
-  topic = client.topic(id)
-  print(topic.name)
 
-  i = 0
-  for answer in topic.top_answers:
-    print(answer.question.title, answer.author.name, answer.voteup_count)
-    i += 1
-  print(i)
 
 
 def test_yield_answers_by_author():
@@ -1085,10 +1111,24 @@ def test_comments_old_fashion():
 
 
 def test_yield_old_topic():
-  id = 19641972 # '货币政策'
-  for answer in get_old_fashion_topic_answers(topic_id=id, mode='all',
-                                              limit=30, min_voteup=10):
-    log([answer.question.title, answer.voteup_count, answer.author.name])
+  id = 19641972 # 货币政策
+  id = 19576422 # 统计
+  id = 19558740 # 统计学
+  answers = yield_old_fashion_topic_answers(topic_id=id, mode='best', limit=300, min_voteup=500)
+  for answer in answers:
+    log(zhihu_answer_format(answer))
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 def test_genenate_figlet():

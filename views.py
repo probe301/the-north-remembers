@@ -30,6 +30,7 @@ log = create_logger(__file__)
 
 
 from models import Task, Page
+from models import convert_time
 
 from zhihu_answer import zhihu_answer_url
 
@@ -55,10 +56,9 @@ def hello():
 @app.route('/answer/<answer_id>')
 def watch_zhihu_answer(answer_id):
   # https://www.zhihu.com/question/33918585/answer/89678373
-  # puts('fetching zhihu / question / answer')
-  task = Task.add_by(answer_id=answer_id)
-  page = task.watch()
-  return Response(page.full_content(), mimetype='text/text')
+  log('get /answer/<answer_id>' + str(answer_id))
+  task = Task.add_by_answer(answer_id=int(answer_id), force_start=True)
+  return jsonify(task.last_page.to_dict())
 
 
 
@@ -75,7 +75,10 @@ def list_zhihu_answers_by_author(author_id):
     url = zhihu_answer_url(answer)
     ret.append({'url': url,
                 'title': answer.question.title,
-                'vote': answer.voteup_count,
+                'voteup_count': answer.voteup_count,
+                'created_time': convert_time(answer.created_time),
+                'updated_time': convert_time(answer.updated_time),
+                'author_name': answer.author.name,
                })
   return jsonify(ret)
 

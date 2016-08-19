@@ -596,16 +596,44 @@ def zhihu_fix_markdown(text):
   text = pattern_img_start_inline.sub(replace_img_start_inline, text)
   text = pattern_multiple_newline.sub('\n\n\n', text)
 
+  text = zhihu_fix_mistake_headerline_splitter(text)
+
   return text
 
 
 
+def zhihu_fix_mistake_headerline_splitter(text):
+  ''' html to markdown 之后,
+  知乎回答内容中可能有分割线紧跟着上一节文本, 如
+  text1111
+  \--------------
+  text22222
+
+  此时 markdown 会将 text1111 解释为标题, 需修正'''
+  pattern = re.compile(r'(?<!\n)(\n\\\-{10,})')
+  text = pattern.sub(r'\n\1', text)
+
+  pattern = re.compile(r'(?<!\n)(\n={10,})')
+  text = pattern.sub(r'\n\1', text)
+  return text
 
 
 
+def test_zhihu_fix_mistake_headerline_splitter():
+  from pylon import all_files
 
+  root = 'D:/ZhihuEpub/统计学/'
+  for md in all_files(root, '*.md'):
+    # print(md)
+    text = open(md, encoding='utf8').read()
 
+    text_new = zhihu_fix_mistake_headerline_splitter(text)
 
+    if text_new != text:
+      with open(md, 'w', encoding='utf8') as f:
+        f.write(text_new)
+
+      print('write on ' + md)
 
 
 

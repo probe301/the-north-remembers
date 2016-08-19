@@ -110,6 +110,18 @@ class Task(Model):
                     convert_time(self.next_watch, humanize=True),
                     )
 
+
+  @classmethod
+  def report(cls):
+    tasks = Task.select()
+    now = datetime.now()
+    tasks_todo = Task.select().where(Task.next_watch <= now)
+
+    log('Task total={} todo={}'.format(tasks.count(), tasks_todo.count()))
+    log('todo tasks:')
+    for task in tasks_todo.order_by(Task.next_watch):
+      log(task)
+
   @classmethod
   def add(cls, url, title=None):
     '''添加抓取任务
@@ -241,18 +253,6 @@ class Task(Model):
 
 
 
-
-
-  @classmethod
-  def report(cls):
-    tasks = Task.select()
-    now = datetime.now()
-    tasks_todo = Task.select().where(Task.next_watch <= now)
-
-    log('Task total={} todo={}'.format(tasks.count(), tasks_todo.count()))
-    log('todo tasks:')
-    for task in tasks_todo.order_by(Task.next_watch):
-      log(task)
 
 
   @property
@@ -539,3 +539,33 @@ def test_load_json():
   import json
 
   print(json.loads(open('mockup_topic_answers.json', encoding='utf-8').read()))
+
+
+
+
+
+
+
+# def test_sqlite_zhihu_fix_mistake_headerline_splitter():
+#   '''修复db之前fetch的内容'''
+#   print('test')
+#   with db.atomic():
+#     query = Page.select()
+#     print(query)
+#     print(query.count())
+#     i = 0
+#     for page in query:
+#       content = page.content
+#       question = page.question
+
+#       content_ = zhihu_fix_mistake_headerline_splitter(content)
+#       question_ = zhihu_fix_mistake_headerline_splitter(question)
+
+#       if content != content_ or question != question_:
+#         print('detect diff on ' + page.title)
+#         i += 1
+#         page.content = content_
+#         page.question = question_
+#         page.save()
+
+#     print('total i= ' + str(i))

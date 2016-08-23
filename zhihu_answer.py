@@ -662,10 +662,10 @@ def test_zhihu_fix_mistake_headerline_splitter():
 def yield_topic_best_answers(topic_id, limit=100, min_voteup=300):
   # id = 19641972 # '政治'
   topic = client.topic(topic_id)
-  # print(topic.name)
+  log(topic.name + str(topic_id))
   count = 0
   for answer in topic.best_answers:
-    # print(answer.question.title, answer.author.name, answer.voteup_count)
+    # log('yield_topic_best {} {} {}'.format(answer.question.title, answer.author.name, answer.voteup_count))
     if answer.voteup_count >= min_voteup:
       count += 1
       yield answer
@@ -895,10 +895,11 @@ def exec_save_from_topic():
     # https://www.zhihu.com/topic/19553534 data_mining 数据挖掘
     # https://www.zhihu.com/topic/19815465 quantitative_trading 量化交易
     # https://www.zhihu.com/topic/19571159 freelancer 自由职业
+    # https://www.zhihu.com/topic/19555355 房地产
   '''
 
-  url= 'https://www.zhihu.com/topic/19558740'
-  smart_save(url, folder=None, limit=3000, min_voteup=400, overwrite=False)
+  url= 'https://www.zhihu.com/topic/19555355'
+  smart_save(url, folder=None, limit=3000, min_voteup=1000, overwrite=False)
 
 
 def exec_massive_download():

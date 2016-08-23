@@ -27,6 +27,7 @@ from peewee import IntegerField
 from peewee import DateTimeField
 from peewee import FloatField
 from peewee import ForeignKeyField
+from peewee import fn
 # from peewee import BooleanField
 from peewee import Model
 # from peewee import fn
@@ -37,8 +38,11 @@ from zhihu_answer import yield_author_answers
 from zhihu_answer import fetch_zhihu_answer
 from zhihu_answer import fill_full_content
 from zhihu_answer import zhihu_answer_url
+from zhihu_answer import fetch_images_for_markdown
 from zhihu_answer import ZhihuParseError
 import requests
+from zhihu_oauth.zhcls.utils import remove_invalid_char
+
 
 from jinja2 import Template
 db = SqliteDatabase('zhihu.sqlite')
@@ -143,7 +147,7 @@ class Task(Model):
                         page_type=page_type,
                         title=title or '(has not fetched)',
                         next_watch=datetime.now())
-
+      log('new Task added: {}'.format(task))
     return task
 
 
@@ -164,10 +168,8 @@ class Task(Model):
     pass
 
   @classmethod
-  def add_by_topic(cls, force_start=False):
+  def add_by_topic(cls, answer_id, force_start=False):
     pass
-
-
 
 
   @classmethod
@@ -301,10 +303,11 @@ class Page(Model):
     #   less_content = self.content[:250] + '  ...  ' + self.content[-50:]
     # else:
     #   less_content = self.content
-    s = '<Page title="{}" (version {})\n  watch_date on {} ({})\n  {!r}>'
+    s = '<Page title="{}" (version {})\n  watch_date on {} ({}) |{}|\n  {!r}>'
     return s.format(self.title, self.version,
                     convert_time(self.watch_date),
                     convert_time(self.watch_date, humanize=True),
+                    self.topic,
                     form(self.content, text_maxlen=300))
 
   def same_as_last(self):
@@ -354,15 +357,37 @@ class Page(Model):
             }
 
 
+  def to_local_file(self, folder, file_name=None,
+                    fetch_images=True, overwrite=False):
+    if not file_name:
+      file_name = self.title + ' - ' + self.author + '的回答'
+    save_path = folder + '/' + remove_invalid_char(file_name) + '.md'
+    if not overwrite:
+      if os.path.exists(save_path):
+        log('already exist {}'.format(save_path))
+        return save_path
+
+    rendered = self.full_content
+
+    with open(save_path, 'w', encoding='utf-8') as f:
+      f.write(rendered)
+      log('write {} done'.format(save_path))
+
+    if fetch_images:
+      # 本地存储, 需要抓取所有附图
+      fetch_images_for_markdown(save_path)
+    return save_path
+
+
+
 
 
 
   @property
-  def full_content(self, mode='md'):
+  def full_content(self):
     data = self
-    if mode == 'md':
-      rendered = fill_full_content(data)
-      return rendered
+    rendered = fill_full_content(data)
+    return rendered
 
 
   @property
@@ -469,6 +494,25 @@ def test_report():
   Task.report()
 
 
+def test_to_local_file():
+  # page = Page.select().order_by(-Page.id).get()
+
+  # page = Page.select(Page.topic).distinct().where(Page.topic.contains('房')).limit(5)
+  # q = Page.select(Page.id).distinct()
+  # for p in q:
+  #   print(p)
+  q = (Page.select(Page, Task)
+           .join(Task)
+           .where(Page.topic.contains('房'))
+           .group_by(Page.task)
+           .having(Page.watch_date == fn.MAX(Page.watch_date))
+           .limit(5))
+  for page in q:
+    print(page)
+
+    # page.to_local_file(folder='test')
+
+
 def test_tools():
   import pylon
   pylon.generate_figlet('task', fonts=['space_op'])
@@ -489,11 +533,18 @@ def test_fetch_topic():
   # topic_id = 19551424 # 政治
   # topic_id = 19556950 # 物理学
   topic_id = 19612637 # 科学
-  for answer in yield_topic_best_answers(topic_id=topic_id, limit=10):
-    log(answer.question.title, answer.author.name, answer.voteup_count)
+  topic_id = 19569034 # philosophy_of_science 科学哲学
+  topic_id = 19555355 # 房地产
+
+  print(topic_id)
+  for answer in yield_topic_best_answers(topic_id=topic_id,
+                                         limit=3000, min_voteup=1000):
+    # log(answer.question.title, answer.author.name, answer.voteup_count)
     # url = 'https://www.zhihu.com/question/{}/answer/{}'.format(answer.question.id, answer.id)
     url = zhihu_answer_url(answer)
     Task.add(url=url, title=answer.question.title)
+# test_fetch_topic()
+
 
 
 def test_add_task_by_author():

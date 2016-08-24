@@ -2,6 +2,7 @@
 
 
 
+
 import time
 import sys
 import os
@@ -106,11 +107,9 @@ class Task(Model):
 
 
   def __str__(self):
-    s = '<Task "{}"\n  "{}"\n  last_watch at {} ({})\n  next_watch should on {} ({})>'
+    s = '<Task "{}"\n      {} last_watch: {}, next_watch should: {}>'
     return s.format(self.title, self.url,
-                    convert_time(self.last_watch),
                     convert_time(self.last_watch, humanize=True),
-                    convert_time(self.next_watch),
                     convert_time(self.next_watch, humanize=True),
                     )
 
@@ -125,6 +124,17 @@ class Task(Model):
     log('todo tasks:')
     for task in tasks_todo.order_by(Task.next_watch):
       log(task)
+    log('Task total={} todo={}'.format(tasks.count(), tasks_todo.count()))
+
+
+  @classmethod
+  def is_watching(cls, url):
+    existed = cls.select().where(cls.url == url)
+    if existed:
+      return existed.get()
+    else:
+      return False
+
 
   @classmethod
   def add(cls, url, title=None):
@@ -164,12 +174,50 @@ class Task(Model):
 
 
   @classmethod
-  def add_by_author(cls, force_start=False):
-    pass
+  def add_by_author(cls, author_id, limit=3000, min_voteup=100,
+                    stop_at_existed=10, force_start=False):
+    existed_count = 0
+    added_count = 0
+    for answer in yield_author_answers(author_id, limit=limit, min_voteup=min_voteup):
+      url = zhihu_answer_url(answer)
+
+      t = Task.is_watching(url)
+      if t:
+        existed_count += 1
+        log('already watching {} {}'.format(t, existed_count))
+        if stop_at_existed and stop_at_existed <= existed_count:
+          break
+      else:
+        task = Task.add(url, title=answer.question.title)
+        added_count += 1
+        log('add_by_author {}'.format(added_count))
+        if force_start:
+          task.watch()
+    log('add_by_author done, total added {} skipped {}'.format(added_count, existed_count))
+
 
   @classmethod
-  def add_by_topic(cls, answer_id, force_start=False):
-    pass
+  def add_by_topic_best_answers(cls, topic_id, limit=3000, min_voteup=100,
+                                stop_at_existed=10, force_start=False):
+    existed_count = 0
+    added_count = 0
+    log(topic_id)
+    for answer in yield_topic_best_answers(topic_id, limit=limit, min_voteup=min_voteup):
+      url = zhihu_answer_url(answer)
+
+      t = Task.is_watching(url)
+      if t:
+        existed_count += 1
+        log('already watching {} {}'.format(t, existed_count))
+        if stop_at_existed and stop_at_existed <= existed_count:
+          break
+      else:
+        task = Task.add(url, title=answer.question.title)
+        added_count += 1
+        log('add_by_topic_best_answers {}'.format(added_count))
+        if force_start:
+          task.watch()
+    log('add_by_topic_best_answers done, total added {} skipped {}'.format(added_count, existed_count))
 
 
   @classmethod
@@ -185,6 +233,7 @@ class Task(Model):
       url = 'https' + url[4:]
     return url
 
+
   def watch(self):
     try:
       zhihu_answer = fetch_zhihu_answer(self.url)
@@ -196,9 +245,8 @@ class Task(Model):
       page = self.remember(blank_answer)
       return page
     except RuntimeError as e:
-      log_error(e, answer.question.title)
+      log_error(e)
       raise
-
 
 
   @classmethod
@@ -213,7 +261,8 @@ class Task(Model):
       elif task.next_watch <= now:
         log('start: {}'.format(task))
         page = task.watch()
-        log('done!  {} {}'.format(page, task))
+        next_time = convert_time(task.next_watch, humanize=True)
+        log('done!  {} (next watch: {})'.format(page, next_time))
         time.sleep(sleep_seconds)
       else:
         log('not today... {}'.format(task))
@@ -313,8 +362,6 @@ class Page(Model):
   def same_as_last(self):
     '''此时 page self 应当尚未储存
     取最新的 version 的 content 与尚未储存的 page content 对比'''
-    content = self.content
-    title = self.title
     query = Page.select().where(Page.task == self.task)
     if query:
       last_page = query.order_by(-Page.watch_date).get()
@@ -348,8 +395,7 @@ class Page(Model):
 
 
   def to_dict(self):
-    return {
-            'title': self.title,
+    return {'title': self.title,
             'full_content': self.full_content,
             'author': self.author,
             'watch_date': self.watch_date,
@@ -360,7 +406,7 @@ class Page(Model):
   def to_local_file(self, folder, file_name=None,
                     fetch_images=True, overwrite=False):
     if not file_name:
-      file_name = self.title + ' - ' + self.author + '的回答'
+      file_name = self.title
     save_path = folder + '/' + remove_invalid_char(file_name) + '.md'
     if not overwrite:
       if os.path.exists(save_path):
@@ -426,7 +472,9 @@ def test_new_task():
   # url = 'https://www.zhihu.com/question/30595784/answer/49194862'
   # 如何看待许知远在青年领袖颁奖典礼上愤怒「砸场」？
   url = 'https://www.zhihu.com/question/22316395/answer/100909780'
+  url = 'https://www.zhihu.com/question/47220155/answer/118154455'
   task = Task.add(url=url)
+  # task.watch()
 
 
 def test_readd_task():
@@ -506,12 +554,11 @@ def test_to_local_file():
            .where(Page.topic.contains('房'))
            .group_by(Page.task)
            .having(Page.watch_date == fn.MAX(Page.watch_date))
-           .limit(5))
+           .limit(500))
   for page in q:
-    print(page)
-
-    # page.to_local_file(folder='test')
-
+    log(page)
+    page.to_local_file(folder='fang')
+# test_to_local_file()
 
 def test_tools():
   import pylon
@@ -521,42 +568,38 @@ def test_tools():
 
 
 
-def test_topic():
-  topic_id = 19641972 # 货币政策
-  for answer in topic_best_answers(topic_id=topic_id):
-    log(answer.question.title, answer.author.name, answer.voteup_count)
-
 
 def test_fetch_topic():
-  topic_id = 19641972 # 货币政策
-  topic_id = 19565985 # 中国经济
   # topic_id = 19551424 # 政治
   # topic_id = 19556950 # 物理学
-  topic_id = 19612637 # 科学
-  topic_id = 19569034 # philosophy_of_science 科学哲学
-  topic_id = 19555355 # 房地产
-
-  print(topic_id)
-  for answer in yield_topic_best_answers(topic_id=topic_id,
-                                         limit=3000, min_voteup=1000):
-    # log(answer.question.title, answer.author.name, answer.voteup_count)
-    # url = 'https://www.zhihu.com/question/{}/answer/{}'.format(answer.question.id, answer.id)
-    url = zhihu_answer_url(answer)
-    Task.add(url=url, title=answer.question.title)
+  # topic_id = 19612637 # 科学
+  # topic_id = 19569034 # philosophy_of_science 科学哲学
+  # topic_id = 19555355 # 房地产
+  # topic_id = 19641972 # 货币政策
+  # topic_id = 19565985 # 中国经济
+  topic_id = 19644231 # 古建筑
+  topic_id = 19582176 # 建筑设计
+  topic_id = 19573393 # 建筑史
+  topic_id = 19568972 # 建筑学
+  # topic_id = 19551864 # 古典音乐
+  Task.add_by_topic_best_answers(topic_id, limit=3000, min_voteup=500,
+                                 stop_at_existed=200, force_start=False)
 # test_fetch_topic()
 
 
 
 def test_add_task_by_author():
-  id = 'shi-yidian-ban-98'
-  id = 'shu-sheng-4-25'
-  id = 'xbjf'  # 玄不救非氪不改命
-  id = 'zhao-hao-yang-1991'  # 赵皓阳
-  id = 'mandelbrot-11'  # Mandelbrot
-  id = 'shu-sheng-4-25' # 书生
-  id = 'cai-tong' # 采铜
 
   ids = '''
+  # shi-yidian-ban-98
+  # shu-sheng-4-25
+  # xbjf
+  # zhao-hao-yang-1991
+  # mandelbrot-11
+  # shu-sheng-4-25
+  # cai-tong
+
+
   #done leng-zhe
   #done BlackCloak
   #done ma-bo-yong
@@ -564,25 +607,35 @@ def test_add_task_by_author():
   #done lawrencelry
   #done Metaphox
   #done calon
-  # xiepanda
-  # cogito
-  # talich
-  # commando
-  # fu-er
+
+
+  # done xiepanda
+  # done cogito
+  # done talich
+  # done commando
+  # done fu-er
+
   # tassandar
   # zhou-xiao-nong
   # yinshoufu
   # tangsyau
   # lianghai
   # zhang-jia-wei
+  # huo-zhen-bu-lu-zi-lao-ye
   '''
-  count = 0
-  for id in datalines(ids):
-    for answer in yield_author_answers(id, limit=3000, min_voteup=100):
-      url = zhihu_answer_url(answer)
-      count += 1
-      log('<{}> {}'.format(count, url))
-      Task.add(url=url)
+  for author_id in datalines(ids):
+    # for answer in yield_author_answers(id, limit=3000, min_voteup=100):
+    #   url = zhihu_answer_url(answer)
+    #   count += 1
+    #   log('<{}> {}'.format(count, url))
+    #   Task.add(url=url)
+    log(author_id)
+    Task.add_by_author(author_id, limit=3000, min_voteup=500,
+                       stop_at_existed=10,
+                       force_start=False)
+
+# test_add_task_by_author()
+
 
 
 
@@ -594,29 +647,8 @@ def test_load_json():
 
 
 
+def test_banned_modes():
+  url = 'https://www.zhihu.com/question/40679967/answer/88310495'
+  # 政府推出开放小区政策的真正目的是什么？ 2201 孟德尔 回答建议修改：政治敏感
+  pass
 
-
-
-# def test_sqlite_zhihu_fix_mistake_headerline_splitter():
-#   '''修复db之前fetch的内容'''
-#   print('test')
-#   with db.atomic():
-#     query = Page.select()
-#     print(query)
-#     print(query.count())
-#     i = 0
-#     for page in query:
-#       content = page.content
-#       question = page.question
-
-#       content_ = zhihu_fix_mistake_headerline_splitter(content)
-#       question_ = zhihu_fix_mistake_headerline_splitter(question)
-
-#       if content != content_ or question != question_:
-#         print('detect diff on ' + page.title)
-#         i += 1
-#         page.content = content_
-#         page.question = question_
-#         page.save()
-
-#     print('total i= ' + str(i))

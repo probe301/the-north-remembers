@@ -1,7 +1,6 @@
 
 
 import time
-from pylon import puts
 from pylon import datalines
 
 import os
@@ -14,6 +13,7 @@ import datetime
 from zhihu_oauth import ZhihuClient
 from zhihu_oauth.zhcls.utils import remove_invalid_char
 
+from urllib.parse import unquote
 
 
 from jinja2 import Template
@@ -65,6 +65,19 @@ def zhihu_answer_format(answer):
   return '<ZhihuAnswer {title} by {author} ({vote}赞) {topic}>\n{url}'.format(**locals())
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
 '''
  #####  ##      ######
 ##   ## ##      ##   ##
@@ -95,9 +108,9 @@ def comment_list_id(url):
   # client.create_cookies('cookies.json')
   """
 
-  headers = {
-    'User-agent': 'Mozilla/5.0',
-  }
+  # headers = {
+  #   'User-agent': 'Mozilla/5.0',
+  # }
   r = old_client._session.get(url)
   aid = PyQuery(r.content).find('div.zm-item-answer').attr('data-aid')
   if aid:
@@ -459,12 +472,31 @@ from: [{{data.url}}]()
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 '''
-######   #####  ######   ###### #######      ##   ## ######
-##   ## ##   ## ##   ## ##      ##           ### ### ##   ##
-######  ####### ######   #####  ######       ## # ## ##   ##
-##      ##   ## ##  ##       ## ##           ##   ## ##   ##
-##      ##   ## ##   ## ######  #######      ##   ## ######
+######   #####  ######   ###### #######
+##   ## ##   ## ##   ## ##      ##
+######  ####### ######   #####  ######
+##      ##   ## ##  ##       ## ##
+##      ##   ## ##   ## ######  #######
 '''
 
 def zhihu_content_html2md(html):
@@ -537,7 +569,6 @@ def fetch_images_for_markdown(markdown_file):
     log('no pictures downloaded: ' + markdown_file.split('/')[-1])
 
 
-from urllib.parse import unquote
 
 
 
@@ -651,12 +682,6 @@ def test_zhihu_fix_mistake_headerline_splitter():
  #####    ##   ######  ##      ##   ##
    ##     ##   ##      ##      ##   ##
    ##   ###### ####### ####### ######
-
- ######  #####  ##   ## #######
-##      ##   ## ##   ## ##
- #####  #######  ## ##  ######
-     ## ##   ##  ## ##  ##
-######  ##   ##   ###   #######
 '''
 
 def yield_topic_best_answers(topic_id, limit=100, min_voteup=300):
@@ -730,6 +755,13 @@ def yield_collection_answers(collection_id, limit=100, min_voteup=300):
 
 
 
+'''
+ ######  #####  ##   ## #######
+##      ##   ## ##   ## ##
+ #####  #######  ## ##  ######
+     ## ##   ##  ## ##  ##
+######  ##   ##   ###   #######
+'''
 
 def smart_save(url, folder=None, limit=1000,
                min_voteup=500, max_voteup=500000000,
@@ -775,6 +807,23 @@ def smart_save(url, folder=None, limit=1000,
       raise
 
   log('all done!')
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -896,11 +945,12 @@ def exec_save_from_topic():
     # https://www.zhihu.com/topic/19815465 quantitative_trading 量化交易
     # https://www.zhihu.com/topic/19571159 freelancer 自由职业
     # https://www.zhihu.com/topic/19555355 房地产
+    # https://www.zhihu.com/topic/19555407 桌面游戏
   '''
 
-  url= 'https://www.zhihu.com/topic/19555355'
-  smart_save(url, folder=None, limit=3000, min_voteup=1000, overwrite=False)
-
+  url = 'https://www.zhihu.com/topic/19555407'
+  smart_save(url, folder=None, limit=3000, min_voteup=300, overwrite=False)
+# exec_save_from_topic()
 
 def exec_massive_download():
 
@@ -1152,6 +1202,22 @@ def test_yield_old_topic():
 
 
 
+def test_fetch_blog():
+  url = 'https://www.zhihu.com/people/chenqin'
+  author_id = 'chenqin'
+
+  author = client.people(author_id)
+  log(author.name)
+
+  for a in author.articles:
+    if a.column:
+      log(a.title + ' - ' + a.column.title)
+    else:
+      log(a.title + ' - ' + 'None')
+  log('------------')
+  for c in author.columns:
+    log(c.title)
+  # smart_save(url, folder=None, limit=4000, min_voteup=500, overwrite=False)
 
 
 

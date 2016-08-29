@@ -95,3 +95,5 @@ def test_fetch():
 
   path = format_weixin_filename(page['title'] + '.md')
   print(page['content'], file=open(path, 'w', encoding='utf-8'))
+
+

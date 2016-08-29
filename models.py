@@ -190,7 +190,7 @@ class Task(Model):
       else:
         task = Task.add(url, title=answer.question.title)
         added_count += 1
-        log('add_by_author {}'.format(added_count))
+        log('add_by_author <{}>\n'.format(added_count))
         if force_start:
           task.watch()
     log('add_by_author done, total added {} skipped {}'.format(added_count, existed_count))
@@ -214,7 +214,7 @@ class Task(Model):
       else:
         task = Task.add(url, title=answer.question.title)
         added_count += 1
-        log('add_by_topic_best_answers {}'.format(added_count))
+        log('add_by_topic_best_answers <{}>\n'.format(added_count))
         if force_start:
           task.watch()
     log('add_by_topic_best_answers done, total added {} skipped {}'.format(added_count, existed_count))
@@ -473,6 +473,7 @@ def test_new_task():
   # 如何看待许知远在青年领袖颁奖典礼上愤怒「砸场」？
   url = 'https://www.zhihu.com/question/22316395/answer/100909780'
   url = 'https://www.zhihu.com/question/47220155/answer/118154455'
+  url = 'https://www.zhihu.com/question/49962599/answer/118716273'
   task = Task.add(url=url)
   # task.watch()
 
@@ -549,15 +550,16 @@ def test_to_local_file():
   # q = Page.select(Page.id).distinct()
   # for p in q:
   #   print(p)
-  q = (Page.select(Page, Task)
+  query = (Page.select(Page, Task)
            .join(Task)
-           .where(Page.topic.contains('房'))
+           .where(Page.author == 'chenqin')  # .where(Page.topic.contains('建筑'))
            .group_by(Page.task)
            .having(Page.watch_date == fn.MAX(Page.watch_date))
-           .limit(500))
-  for page in q:
-    log(page)
-    page.to_local_file(folder='fang')
+           .limit(8800))
+  for page in query:
+    log(page.title)
+    # log(page.metadata)
+    page.to_local_file(folder='chen', fetch_images=False)
 # test_to_local_file()
 
 def test_tools():
@@ -582,7 +584,7 @@ def test_fetch_topic():
   topic_id = 19573393 # 建筑史
   topic_id = 19568972 # 建筑学
   # topic_id = 19551864 # 古典音乐
-  Task.add_by_topic_best_answers(topic_id, limit=3000, min_voteup=500,
+  Task.add_by_topic_best_answers(topic_id, limit=3000, min_voteup=50,
                                  stop_at_existed=200, force_start=False)
 # test_fetch_topic()
 
@@ -600,13 +602,13 @@ def test_add_task_by_author():
   # cai-tong
 
 
-  #done leng-zhe
-  #done BlackCloak
-  #done ma-bo-yong
-  #done hutianyi
-  #done lawrencelry
-  #done Metaphox
-  #done calon
+  # done leng-zhe
+  # done BlackCloak
+  # done ma-bo-yong
+  # done hutianyi
+  # done lawrencelry
+  # done Metaphox
+  # done calon
 
 
   # done xiepanda
@@ -614,6 +616,9 @@ def test_add_task_by_author():
   # done talich
   # done commando
   # done fu-er
+
+  # done spto
+  # done chenqin
 
   # tassandar
   # zhou-xiao-nong
@@ -630,8 +635,8 @@ def test_add_task_by_author():
     #   log('<{}> {}'.format(count, url))
     #   Task.add(url=url)
     log(author_id)
-    Task.add_by_author(author_id, limit=3000, min_voteup=500,
-                       stop_at_existed=10,
+    Task.add_by_author(author_id, limit=3000, min_voteup=400,
+                       stop_at_existed=30,
                        force_start=False)
 
 # test_add_task_by_author()

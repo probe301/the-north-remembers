@@ -52,8 +52,8 @@ def zhihu_answer_url(answer):
     answer = client.answer(answer)
   return 'https://www.zhihu.com/question/{}/answer/{}'.format(answer.question.id, answer.id)
 
-# print(zhihu_answer_url(86179116))
-# print(zhihu_answer_url(116846451))
+
+
 def zhihu_answer_format(answer):
   if isinstance(answer, int):
     answer = client.answer(answer)
@@ -64,9 +64,8 @@ def zhihu_answer_format(answer):
   topic = '|'.join([t.name for t in answer.question.topics])
   return '<ZhihuAnswer {title} by {author} ({vote}赞) {topic}>\n{url}'.format(**locals())
 
-
-
-
+def answer_title_format(answer):
+  return answer.question.title + ' - ' + answer.author.name + '的回答'
 
 
 
@@ -333,7 +332,7 @@ def fetch_zhihu_answer(answer):
     answer_body += '\n' + answer.suggest_edit.reason + '\n' + answer.suggest_edit.tip
 
   motto = '({})'.format(author.headline) if author.headline else ''
-
+  motto = motto.replace('\n', ' ')
   question_details = zhihu_content_html2md(detail).strip()
 
   title = question.title + ' - ' + author.name + '的回答'
@@ -438,7 +437,9 @@ def save_answer(answer, folder='test', overwrite=True):
 
 
 def fill_full_content(data):
-  tmpl = '''
+
+  if 'answer' in data['url']:
+    tmpl = '''
 ### {{data.title}}
 
 话题: {{data.topic}}
@@ -465,6 +466,32 @@ def fill_full_content(data):
 from: [{{data.url}}]()
 
 '''
+  elif 'zhuanlan' in data['url']:
+    tmpl = '''
+### {{data.title}}
+
+
+{{data.metadata}}
+
+
+{{data.content}}
+
+
+
+　　
+
+#### 评论:
+
+{{data.comments}}
+
+------------------
+
+from: [{{data.url}}]()
+
+'''
+  else:
+    raise ValueError('cannot parse url {}'.format(data['url']))
+
   rendered = Template(tmpl).render(data=data)
   return rendered
 
@@ -483,6 +510,142 @@ from: [{{data.url}}]()
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+def zhihu_article_format(article):
+  if isinstance(article, int):
+    article = client.article(article)
+  url = zhihu_article_url(article)
+  title = article.title
+  author = article.author.name
+  vote = article.voteup_count
+  column = article.column.title if article.column else '无专栏'
+  return '<ZhihuArticle {title} ({column}) by {author} ({vote}赞)>\n{url}'.format(**locals())
+
+def zhihu_article_url(article):
+  # https://zhuanlan.zhihu.com/p/22197924
+  if isinstance(article, int):
+    return 'https://zhuanlan.zhihu.com/p/{}'.format(article)
+  return 'https://zhuanlan.zhihu.com/p/{}'.format(article.id)
+
+def article_title_format(article):
+  title = article.title
+  author = article.author.name
+  column = article.column.title if article.column else ''
+  return '{title} - {author}的专栏 {column}'.format(**locals()).strip()
+
+def parse_article(article):
+  return article
+
+def fetch_zhihu_article(article):
+  article = parse_article(article)
+
+  author = article.author
+  content = article.content
+  column = article.column.title if article.column else '无专栏'
+
+  # try:  # 未观察到文章被删的情况, 暂时不适用 try except
+  #   author = article.author
+  # except requests.exceptions.RetryError as e:
+  #   blank_article = blank_zhihu_article()
+  #   blank_article['title'] = '(本文章已删除)' # + article.question.title
+  #   raise ZhihuParseError(msg='本文章已删除', value=blank_article)
+  # try:
+  #   question = article.question
+  #   content = article.content
+  #   detail = question.detail
+  # except requests.exceptions.RetryError as e:
+  #   blank_article = blank_zhihu_answer() # reuse blank answer
+  #   blank_article['title'] = '(文章已删除)' + article.question.title
+  #   blank_article['url'] = zhihu_article_url(article)
+  #   raise ZhihuParseError(msg='文章已删除', value=blank_article)
+
+  article_body = zhihu_content_html2md(content).strip()
+  if article.suggest_edit.status:
+    article_body += '\n' + article.suggest_edit.reason + '\n' + article.suggest_edit.tip
+
+  motto = '({})'.format(author.headline) if author.headline else ''
+  motto = motto.replace('\n', ' ')
+
+  title = article_title_format(article)
+
+  # TODO html fetch topic topics = ', '.join(t.name for t in question.topics)
+  topics = ''
+  count = len(article_body)
+  voteup_count = article.voteup_count
+  edit_date = parse_json_date(article.updated_time)
+  fetch_date = time.strftime('%Y-%m-%d')
+  url = zhihu_article_url(article)
+  conversations = None and get_valuable_conversations(get_old_fashion_comments(url), limit=10)
+
+  metadata_tmpl = '''
+    author: {{author.name}} {{motto}}
+    column: {{column}}
+    voteup: {{voteup_count}} 赞同
+    edit:   {{edit_date}}
+    fetch:  {{fetch_date}}
+    count:  {{count}} 字
+    url:    {{url}}
+'''
+  metadata = Template(metadata_tmpl).render(**locals())
+
+  comments_tmpl = '''
+{% if conversations %}
+{% for conversation in conversations %}
+{%- for comment in conversation %}
+{{comment}}
+{% endfor %}
+　　
+{% endfor %}
+{% endif %}
+'''
+  comments = Template(comments_tmpl).render(**locals())
+
+  return {'title': title,
+          'content': zhihu_fix_markdown(article_body).strip(),
+          'comments': zhihu_fix_markdown(comments).strip(),
+          'author': author.name,
+          'topic': topics,
+          'question': '',
+          'metadata': metadata,
+          'url': url,
+          }
+
+
+def save_article(article, folder='test', overwrite=True):
+  article = parse_article(article)
+
+  title = article_title_format(article)
+  save_path = folder + '/' + remove_invalid_char(title) + '.md'
+  if not overwrite:
+    if os.path.exists(save_path):
+      log('already exist {}'.format(save_path))
+      return save_path
+
+  data = fetch_zhihu_article(article=article)
+  rendered = fill_full_content(data)
+
+  with open(save_path, 'w', encoding='utf-8') as f:
+    f.write(rendered)
+    log('write {} done'.format(save_path))
+
+  # 本地存储, 需要抓取所有附图
+  fetch_images_for_markdown(save_path)
+  return save_path
 
 
 
@@ -1202,7 +1365,7 @@ def test_yield_old_topic():
 
 
 
-def test_fetch_blog():
+def test_fetch_articles():
   url = 'https://www.zhihu.com/people/chenqin'
   author_id = 'chenqin'
 
@@ -1221,9 +1384,27 @@ def test_fetch_blog():
 
 
 
+def test_fetch_one_article():
+  # url = 'https://zhuanlan.zhihu.com/p/19598346'
+  # https://zhuanlan.zhihu.com/p/22197924
+  # article = client.article(19598346) # 穿过黑箱的数据
+  # article = client.article(19950456)
+  article = client.article(22197924) # 明天究竟有多远——怎么加总贴现率
+
+  print(zhihu_article_format(article))
 
 
-
+  save_article(article)
+  # log(fetch_zhihu_article(article))
+  # log(article.title)
+  # log(article.author.name)
+  # # log(article.topics)
+  # log(article.column.title)
+  # log(article.voteup_count)
+  # log(zhihu_content_html2md(article.content))
+  # for comment in article.comments:
+  #   log(comment.author.name + ': ' + comment.content)
+  #   log('\n')
 
 
 def test_genenate_figlet():

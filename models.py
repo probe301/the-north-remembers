@@ -538,9 +538,13 @@ def test_new_task():
   url = 'https://www.zhihu.com/question/47220155/answer/118154455'
   url = 'https://www.zhihu.com/question/49962599/answer/118716273'
   url = 'https://zhuanlan.zhihu.com/p/19837940'
+  url = 'https://zhuanlan.zhihu.com/p/20639779'
+  url = 'https://zhuanlan.zhihu.com/p/20153329'
+  url = 'https://zhuanlan.zhihu.com/p/21281864'
+  url = 'https://zhuanlan.zhihu.com/p/19964142'
   task = Task.add(url=url)
   print(task)
-  task.watch()
+  # task.watch()
 
 
 def test_readd_task():
@@ -736,7 +740,9 @@ def test_add_articles():
 
 def test_add_articles__2():
   column_id = 'wontfallinyourlap'
-  Task.add_articles(column_id=column_id, limit=3000, min_voteup=10,
+  column_id = 'necromanov'
+  column_id = 'smartdesigner'
+  Task.add_articles(column_id=column_id, limit=3000, min_voteup=500,
                     stop_at_existed=30)
 
 

@@ -592,6 +592,14 @@ def fetch_zhihu_article(article):
   if article.suggest_edit.status:
     article_body += '\n' + article.suggest_edit.reason + '\n' + article.suggest_edit.tip
 
+  if article.image_url:
+    # https://pic4.zhimg.com/50/d58be60ea916b5c231e72e790dc71b33_hd.jpg
+    # 需要fix为
+    # https://pic4.zhimg.com/d58be60ea916b5c231e72e790dc71b33_hd.jpg
+    # 否则白色背景会显示为黑色背景
+    img_url = article.image_url.replace('.zhimg.com/50/', '.zhimg.com/')
+    article_body = '![]({})\n\n'.format(img_url) + article_body
+
   motto = '({})'.format(author.headline) if author.headline else ''
   motto = motto.replace('\n', ' ')
 
@@ -1430,11 +1438,14 @@ def test_fetch_one_article():
   # article = client.article(19610634) # 穿过黑箱的数据
   # article = client.article(19950456) # 警惕人工智能
   # article = client.article(19837940) # 二十四条逻辑谬误
-  article = client.article(20684541) # 俄罗斯 | 没人扎堆的博物馆
+  # article = client.article(20684541) # 俄罗斯 | 没人扎堆的博物馆
+  article = client.article(19964142) # 不同的调有什么区别？
+  # article = client.article(20361844) # 对位法入门
+
   # article = client.article(19950456)
   # article = client.article(22197924) # 明天究竟有多远——怎么加总贴现率
-
-  print(zhihu_article_format(article))
+  log(article.image_url)
+  # print(zhihu_article_format(article))
 
 
   save_article(article)

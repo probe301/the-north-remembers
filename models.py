@@ -36,9 +36,13 @@ from peewee import Model
 import arrow
 from zhihu_answer import yield_topic_best_answers
 from zhihu_answer import yield_author_answers
+from zhihu_answer import yield_author_articles
+from zhihu_answer import yield_column_articles
 from zhihu_answer import fetch_zhihu_answer
+from zhihu_answer import fetch_zhihu_article
 from zhihu_answer import fill_full_content
 from zhihu_answer import zhihu_answer_url
+from zhihu_answer import zhihu_article_url
 from zhihu_answer import fetch_images_for_markdown
 from zhihu_answer import ZhihuParseError
 import requests
@@ -125,7 +129,7 @@ class Task(Model):
     for task in tasks_todo.order_by(Task.next_watch):
       log(task)
     log('Task total={} todo={}'.format(tasks.count(), tasks_todo.count()))
-
+    return tasks_todo.count()
 
   @classmethod
   def is_watching(cls, url):
@@ -195,7 +199,6 @@ class Task(Model):
           task.watch()
     log('add_by_author done, total added {} skipped {}'.format(added_count, existed_count))
 
-
   @classmethod
   def add_by_topic_best_answers(cls, topic_id, limit=3000, min_voteup=100,
                                 stop_at_existed=10, force_start=False):
@@ -221,9 +224,54 @@ class Task(Model):
 
 
   @classmethod
+  def add_articles(cls, author_id=None, column_id=None,
+                   limit=3000, min_voteup=10,
+                   stop_at_existed=10, force_start=False):
+
+    if not author_id and not column_id:
+      raise ValueError('no author_id, no column_id')
+    if author_id:
+      yield_articles = yield_author_articles(author_id, limit=limit, min_voteup=min_voteup)
+    else:
+      yield_articles = yield_column_articles(column_id, limit=limit, min_voteup=min_voteup)
+
+    existed_count = 0
+    added_count = 0
+    for article in yield_articles:
+      url = zhihu_article_url(article)
+
+      t = Task.is_watching(url)
+      if t:
+        existed_count += 1
+        log('already watching {} {}'.format(t, existed_count))
+        if stop_at_existed and stop_at_existed <= existed_count:
+          break
+      else:
+        task = Task.add(url, title=article.title)
+        added_count += 1
+        log('add_articles <{}>\n'.format(added_count))
+        if force_start:
+          task.watch()
+    log('add_articles done, total added {} skipped {}'.format(added_count, existed_count))
+
+
+
+
+
+
+
+
+
+
+
+
+  @classmethod
   def get_page_type(cls, url):
     if 'zhihu.com' in url:
-      return 'zhihu_answer'
+      if 'answer' in url:
+        return 'zhihu_answer'
+      elif 'zhuanlan' in url:
+        return 'zhihu_article'
     else:
       raise
 
@@ -235,25 +283,37 @@ class Task(Model):
 
 
   def watch(self):
-    try:
-      zhihu_answer = fetch_zhihu_answer(self.url)
-      page = self.remember(zhihu_answer)
+    if self.page_type == 'zhihu_answer':
+      try:
+        zhihu_answer = fetch_zhihu_answer(self.url)
+        page = self.remember(zhihu_answer)
+        return page
+      except ZhihuParseError as e:
+        blank_answer = e.value
+        log_error('!! 问题已删除 {} {}'.format(self.url, blank_answer['title']))
+        page = self.remember(blank_answer)
+        return page
+      except RuntimeError as e:
+        log_error(e)
+        raise
+    elif self.page_type == 'zhihu_article':
+      zhihu_article = fetch_zhihu_article(self.url)
+      page = self.remember(zhihu_article)
       return page
-    except ZhihuParseError as e:
-      blank_answer = e.value
-      log_error('!! 问题已删除 {} {}'.format(self.url, blank_answer['title']))
-      page = self.remember(blank_answer)
-      return page
-    except RuntimeError as e:
-      log_error(e)
+    else:
       raise
-
 
   @classmethod
   def multiple_watch(cls, sleep_seconds=10, limit=10):
+    count = Task.report()
+    if count == 0:
+      log('current no tasks')
+      return
+
+    limit = min(limit, count)
     for i in range(1, limit+1):
       now = datetime.now()
-      log('\n\n  loop {}/{} current_time={}'.format(i, limit, convert_time(now)))
+      log('\nloop {}/{} current_time={}'.format(i, limit, convert_time(now)))
       task = Task.select().order_by(Task.next_watch).get()
       if not task:
         log('can not find any task')
@@ -407,6 +467,9 @@ class Page(Model):
                     fetch_images=True, overwrite=False):
     if not file_name:
       file_name = self.title
+    if not os.path.exists(folder):
+      os.makedirs(folder)
+
     save_path = folder + '/' + remove_invalid_char(file_name) + '.md'
     if not overwrite:
       if os.path.exists(save_path):
@@ -474,8 +537,10 @@ def test_new_task():
   url = 'https://www.zhihu.com/question/22316395/answer/100909780'
   url = 'https://www.zhihu.com/question/47220155/answer/118154455'
   url = 'https://www.zhihu.com/question/49962599/answer/118716273'
+  url = 'https://zhuanlan.zhihu.com/p/19837940'
   task = Task.add(url=url)
-  # task.watch()
+  print(task)
+  task.watch()
 
 
 def test_readd_task():
@@ -559,8 +624,25 @@ def test_to_local_file():
   for page in query:
     log(page.title)
     # log(page.metadata)
-    page.to_local_file(folder='chen', fetch_images=False)
+    # page.to_local_file(folder='chen', fetch_images=False)
 # test_to_local_file()
+
+def test_to_local_file__2():
+
+  query = (Page.select(Page, Task)
+           .join(Task)
+           .where((Task.page_type == 'zhihu_article') & (Page.author == '许哲'))
+           .group_by(Page.task)
+           .having(Page.watch_date == fn.MAX(Page.watch_date))
+           .limit(8800))
+  for page in query:
+    log(page.title)
+    page.to_local_file(folder='许哲', fetch_images=False)
+
+
+
+
+
 
 def test_tools():
   import pylon
@@ -620,6 +702,9 @@ def test_add_task_by_author():
   # done spto
   # done chenqin
 
+
+
+  xu-zhe-42
   # tassandar
   # zhou-xiao-nong
   # yinshoufu
@@ -635,12 +720,24 @@ def test_add_task_by_author():
     #   log('<{}> {}'.format(count, url))
     #   Task.add(url=url)
     log(author_id)
-    Task.add_by_author(author_id, limit=3000, min_voteup=400,
+    Task.add_by_author(author_id, limit=3000, min_voteup=300,
                        stop_at_existed=30,
                        force_start=False)
 
 # test_add_task_by_author()
 
+
+
+def test_add_articles():
+  author_id = 'chenqin'
+  author_id = 'chenqin'
+  Task.add_articles(author_id=author_id, limit=3000, min_voteup=10,
+                    stop_at_existed=30)
+
+def test_add_articles__2():
+  column_id = 'wontfallinyourlap'
+  Task.add_articles(column_id=column_id, limit=3000, min_voteup=10,
+                    stop_at_existed=30)
 
 
 

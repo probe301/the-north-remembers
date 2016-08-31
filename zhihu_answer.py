@@ -64,7 +64,7 @@ def zhihu_answer_format(answer):
   topic = '|'.join([t.name for t in answer.question.topics])
   return '<ZhihuAnswer {title} by {author} ({vote}赞) {topic}>\n{url}'.format(**locals())
 
-def answer_title_format(answer):
+def zhihu_answer_title(answer):
   return answer.question.title + ' - ' + answer.author.name + '的回答'
 
 
@@ -437,8 +437,8 @@ def save_answer(answer, folder='test', overwrite=True):
 
 
 def fill_full_content(data):
-
-  if 'answer' in data['url']:
+  url = data['url'] if isinstance(data, dict) else data.url
+  if 'answer' in url:
     tmpl = '''
 ### {{data.title}}
 
@@ -466,10 +466,9 @@ def fill_full_content(data):
 from: [{{data.url}}]()
 
 '''
-  elif 'zhuanlan' in data['url']:
+  elif 'zhuanlan' in url:
     tmpl = '''
 ### {{data.title}}
-
 
 {{data.metadata}}
 
@@ -523,7 +522,13 @@ from: [{{data.url}}]()
 
 
 
-
+'''
+ #####  ###### ####### ###### ###### ##      #######
+##   ## ##   ##   ##     ##  ###     ##      ##
+####### ######    ##     ##  ##      ##      ######
+##   ## ##  ##    ##     ##  ###     ##      ##
+##   ## ##   ##   ##   ###### ###### ####### #######
+'''
 
 
 def zhihu_article_format(article):
@@ -542,13 +547,22 @@ def zhihu_article_url(article):
     return 'https://zhuanlan.zhihu.com/p/{}'.format(article)
   return 'https://zhuanlan.zhihu.com/p/{}'.format(article.id)
 
-def article_title_format(article):
+def zhihu_article_title(article):
   title = article.title
   author = article.author.name
   column = article.column.title if article.column else ''
   return '{title} - {author}的专栏 {column}'.format(**locals()).strip()
 
 def parse_article(article):
+  if isinstance(article, str):
+    if 'api.zhihu.com' in article:
+      article = client.article(int(article.split('/')[-1]))
+    elif article.isdigit():
+      article = client.article(int(article))
+    else:
+      article = client.from_url(article)
+  elif isinstance(article, int):
+    article = client.article(article)
   return article
 
 def fetch_zhihu_article(article):
@@ -581,7 +595,7 @@ def fetch_zhihu_article(article):
   motto = '({})'.format(author.headline) if author.headline else ''
   motto = motto.replace('\n', ' ')
 
-  title = article_title_format(article)
+  title = zhihu_article_title(article)
 
   # TODO html fetch topic topics = ', '.join(t.name for t in question.topics)
   topics = ''
@@ -590,7 +604,8 @@ def fetch_zhihu_article(article):
   edit_date = parse_json_date(article.updated_time)
   fetch_date = time.strftime('%Y-%m-%d')
   url = zhihu_article_url(article)
-  conversations = None and get_valuable_conversations(get_old_fashion_comments(url), limit=10)
+  # log(list(article.comments))
+  conversations = get_valuable_conversations(article.comments, limit=10)
 
   metadata_tmpl = '''
     author: {{author.name}} {{motto}}
@@ -629,7 +644,7 @@ def fetch_zhihu_article(article):
 def save_article(article, folder='test', overwrite=True):
   article = parse_article(article)
 
-  title = article_title_format(article)
+  title = zhihu_article_title(article)
   save_path = folder + '/' + remove_invalid_char(title) + '.md'
   if not overwrite:
     if os.path.exists(save_path):
@@ -655,11 +670,11 @@ def save_article(article, folder='test', overwrite=True):
 
 
 '''
-######   #####  ######   ###### #######
-##   ## ##   ## ##   ## ##      ##
-######  ####### ######   #####  ######
-##      ##   ## ##  ##       ## ##
-##      ##   ## ##   ## ######  #######
+####### ###### ##   ##        ##   ## ######
+##        ##    ## ##         ### ### ##   ##
+######    ##     ###          ## # ## ##   ##
+##        ##    ## ##         ##   ## ##   ##
+##      ###### ##   ##        ##   ## ######
 '''
 
 def zhihu_content_html2md(html):
@@ -893,6 +908,28 @@ def yield_author_answers(author_id, limit=100, min_voteup=300):
       yield answer
     if count >= limit:
       break
+
+
+def yield_author_articles(author_id, limit=100, min_voteup=20):
+  author = client.people(author_id)
+  count = 0
+  for article in author.articles:
+    if article.voteup_count >= min_voteup:
+      count += 1
+      yield article
+    if count >= limit:
+      break
+
+def yield_column_articles(column_id, limit=100, min_voteup=20):
+  column = client.column(column_id)
+  count = 0
+  for article in column.articles:
+    if article.voteup_count >= min_voteup:
+      count += 1
+      yield article
+    if count >= limit:
+      break
+
 
 
 def yield_collection_answers(collection_id, limit=100, min_voteup=300):
@@ -1366,7 +1403,7 @@ def test_yield_old_topic():
 
 
 def test_fetch_articles():
-  url = 'https://www.zhihu.com/people/chenqin'
+  # url = 'https://www.zhihu.com/people/chenqin'
   author_id = 'chenqin'
 
   author = client.people(author_id)
@@ -1377,9 +1414,11 @@ def test_fetch_articles():
       log(a.title + ' - ' + a.column.title)
     else:
       log(a.title + ' - ' + 'None')
-  log('------------')
-  for c in author.columns:
-    log(c.title)
+    save_article(a)
+
+  # log('------------')
+  # for c in author.columns:
+  #   log(c.title)
   # smart_save(url, folder=None, limit=4000, min_voteup=500, overwrite=False)
 
 
@@ -1387,9 +1426,13 @@ def test_fetch_articles():
 def test_fetch_one_article():
   # url = 'https://zhuanlan.zhihu.com/p/19598346'
   # https://zhuanlan.zhihu.com/p/22197924
-  # article = client.article(19598346) # 穿过黑箱的数据
+  # article = client.article(19598346) # 设计一只蘑菇 - 傅渥成 生命的设计原则
+  # article = client.article(19610634) # 穿过黑箱的数据
+  # article = client.article(19950456) # 警惕人工智能
+  # article = client.article(19837940) # 二十四条逻辑谬误
+  article = client.article(20684541) # 俄罗斯 | 没人扎堆的博物馆
   # article = client.article(19950456)
-  article = client.article(22197924) # 明天究竟有多远——怎么加总贴现率
+  # article = client.article(22197924) # 明天究竟有多远——怎么加总贴现率
 
   print(zhihu_article_format(article))
 
@@ -1407,10 +1450,37 @@ def test_fetch_one_article():
   #   log('\n')
 
 
+
+
+def test_article_howto_fetch_quick_comments():
+  # article = client.article(19598346) # 设计一只蘑菇 - 傅渥成 生命的设计原则
+  # article = client.article(19610634) # 穿过黑箱的数据
+  # article = client.article(19950456) # 警惕人工智能
+
+  # print(zhihu_article_format(article))
+  # DEBUG: "GET /articles/19950456/comments?limit=20&offset=120
+  from pprint import pprint
+  import json
+  url = 'https://api.zhihu.com/articles/19950456/comments?limit=40'
+  r = client.test_api('GET', url)
+  # s = str(r.content, encoding='utf-8')
+  j = json.loads(str(r.content, encoding='utf-8'))
+  pprint(j)
+
+
+def test_yield_column_by_id():
+  cid = 'wontfallinyourlap'
+  for article in yield_column_articles(cid):
+    log(article.title)
+
+
+
 def test_genenate_figlet():
   from pylon import generate_figlet
   generate_figlet('yield', fonts=['space_op'])
   generate_figlet('save', fonts=['space_op'])
-  generate_figlet('parse md', fonts=['space_op'])
+  generate_figlet('fix md', fonts=['space_op'])
+  generate_figlet('article', fonts=['space_op'])
+
 
 

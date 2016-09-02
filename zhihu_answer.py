@@ -1268,7 +1268,7 @@ def test_save_answer_image_url_should_on_newline():
 
 def test_save_answer_common():
   # 如何看待许知远在青年领袖颁奖典礼上愤怒「砸场」？
-  save_answer('https://www.zhihu.com/question/30595784/answer/49194862')
+  # save_answer('https://www.zhihu.com/question/30595784/answer/49194862')
   # 人们买不起房子是因为房子价格太高，还是因为我们的工资太低？
   save_answer('https://www.zhihu.com/question/47275087/answer/106335325')
   # 如何从头系统地听古典音乐？
@@ -1352,7 +1352,7 @@ def test_yield_answers_by_author():
 
 
 
-def get_api_json(url='https://api.zhihu.com/answers/94150403'):
+def test_get_api_json(url='https://api.zhihu.com/answers/94150403'):
   from pprint import pprint
   import json
   r = client.test_api('GET', url)
@@ -1495,3 +1495,17 @@ def test_genenate_figlet():
 
 
 
+def test_file_fetch_images_zhuanlan():
+  file = 'D:/TheNorthRemembers/more/我们在地球这颗小小的蓝星上都留下过怎样的痕迹 - More的专栏 Voicer.md'
+  # file = 'D:/TheNorthRemembers/more/国家版戴维斯双杀 - 许哲的专栏 天上不会掉馅饼.md'
+  fetch_images_for_markdown(file)
+
+
+def test_https_image():
+  path = 'https://pic4.zhimg.com/fd40c5cc4e662895b57f5c4132fa54b7_b.jpg'
+  r = requests.get(path)
+  log(r.content)
+
+
+def test_https_image_tls():
+  pass

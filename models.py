@@ -4,7 +4,7 @@
 
 
 import time
-import sys
+# import sys
 import os
 # import shutil
 # import re
@@ -45,11 +45,11 @@ from zhihu_answer import zhihu_answer_url
 from zhihu_answer import zhihu_article_url
 from zhihu_answer import fetch_images_for_markdown
 from zhihu_answer import ZhihuParseError
-import requests
+# import requests
 from zhihu_oauth.zhcls.utils import remove_invalid_char
 
 
-from jinja2 import Template
+# from jinja2 import Template
 db = SqliteDatabase('zhihu.sqlite')
 
 
@@ -376,7 +376,13 @@ class Task(Model):
       raise ValueError('cannot find any page on {}'.format(self))
 
 
-
+  @property
+  def pages(self):
+    query = Page.select().where(Page.task == self)
+    if query:
+      return list(query.order_by(Page.watch_date))
+    else:
+      return []
 
 
 
@@ -635,13 +641,13 @@ def test_to_local_file__2():
 
   query = (Page.select(Page, Task)
            .join(Task)
-           .where((Task.page_type == 'zhihu_article') & (Page.author == '许哲'))
+           .where((Task.page_type == 'zhihu_article') & (Page.author == 'More'))
            .group_by(Page.task)
            .having(Page.watch_date == fn.MAX(Page.watch_date))
            .limit(8800))
   for page in query:
     log(page.title)
-    page.to_local_file(folder='许哲', fetch_images=False)
+    page.to_local_file(folder='more', fetch_images=True)
 
 
 
@@ -679,16 +685,16 @@ def test_fetch_topic():
 def test_add_task_by_author():
 
   ids = '''
-  # shi-yidian-ban-98
-  # shu-sheng-4-25
-  # xbjf
-  # zhao-hao-yang-1991
-  # mandelbrot-11
-  # shu-sheng-4-25
-  # cai-tong
+  shi-yidian-ban-98
+  xbjf
+  zhao-hao-yang-1991
+  mandelbrot-11
+  chenqin
+  leng-zhe
 
 
-  # done leng-zhe
+  # cai-tog
+  # shu-sheng-4-25
   # done BlackCloak
   # done ma-bo-yong
   # done hutianyi
@@ -704,18 +710,18 @@ def test_add_task_by_author():
   # done fu-er
 
   # done spto
-  # done chenqin
 
 
 
-  xu-zhe-42
+  # done xu-zhe-42
+
+
   # tassandar
   # zhou-xiao-nong
   # yinshoufu
+  # huo-zhen-bu-lu-zi-lao-ye
   # tangsyau
   # lianghai
-  # zhang-jia-wei
-  # huo-zhen-bu-lu-zi-lao-ye
   '''
   for author_id in datalines(ids):
     # for answer in yield_author_answers(id, limit=3000, min_voteup=100):
@@ -724,8 +730,8 @@ def test_add_task_by_author():
     #   log('<{}> {}'.format(count, url))
     #   Task.add(url=url)
     log(author_id)
-    Task.add_by_author(author_id, limit=3000, min_voteup=300,
-                       stop_at_existed=30,
+    Task.add_by_author(author_id, limit=3000, min_voteup=50,
+                       stop_at_existed=5,
                        force_start=False)
 
 # test_add_task_by_author()
@@ -760,3 +766,145 @@ def test_banned_modes():
   # 政府推出开放小区政策的真正目的是什么？ 2201 孟德尔 回答建议修改：政治敏感
   pass
 
+def test_explore():
+  # Tweet.select(fn.COUNT(Tweet.id)).where(Tweet.user == User.id)
+  query = (Task
+           .select(Task, fn.COUNT(Page.id).alias('fetched_count'))
+           .join(Page)
+           .group_by(Task.title)
+           .limit(50)
+           .offset(200)
+           .order_by(fn.COUNT(Page.id).desc()))
+
+  for task in query:
+    log(task.title + ' : ' + str(task.fetched_count) + '  task_id ' + str(task.id))
+
+def test_explore_watching_results_diff():
+
+  import difflib
+
+  # 美国是不是正在为瓦解中国做准备？ - 张俊麒的回答 : 16  task_id 46
+
+  s = '''
+为什么很少看到患者砍莆田系医生的报道？ - 玄不救非氪不改命的回答 : 3  task_id 196
+为什么很难证伪马克思主义理论？ - 玄不救非氪不改命的回答 : 3  task_id 360
+为什么快速浏览一段内容的时候，很容易看到自己感兴趣的部分？ - 采铜的回答 : 3  task_id 742
+为什么拿广州恒大淘宝队与中国国家男子足球队做对比？ - 玄不救非氪不改命的回答 : 3  task_id 492
+为什么教育部门至今没有实现高考在省际的公平化？ - 玄不救非氪不改命的回答 : 3  task_id 368
+为什么文革时期故宫没有被砸？ - 书生的回答 : 3  task_id 690
+为什么斯大林作为一个格鲁吉亚人却会成为一个大俄罗斯主义者而执著地服务于俄民族利益而不是相反呢？ - 玄不救非氪不改命的回答 : 3  task_id 396
+为什么时间箭头是单向的，即为什么时间的流动是单向的呢？ - Mandelbrot的回答 : 3  task_id 612
+为什么明显矛盾的《国际歌》与《东方红》会共存？ - 玄不救非氪不改命的回答 : 3  task_id 225
+为什么星球都是球形的？ - Mandelbrot的回答 : 3  task_id 599
+为什么有了县长还要县委书记？ - 玄不救非氪不改命的回答 : 3  task_id 440
+为什么有些人说马克思是人渣？ - 玄不救非氪不改命的回答 : 3  task_id 485
+为什么有些人连街头小偷都不敢呵斥，却发誓跟美国兵血战到底？ - 玄不救非氪不改命的回答 : 3  task_id 125
+为什么有些异地考生觉得北京学生 400~500 就能上北大清华呢？ - 玄不救非氪不改命的回答 : 3  task_id 154
+为什么有人支持黑龙江延寿县高玉伦越狱？ - 赵皓阳的回答 : 3  task_id 571
+为什么有关北大清华在京录取比例的讨论中，往往忽视了各大高校对本地招生均有偏向性的事实？ - 玄不救非氪不改命的回答 : 3  task_id 152
+为什么有关部门不治理莆田系医院？ - 玄不救非氪不改命的回答 : 3  task_id 205
+为什么有的人喜欢吃五仁月饼？ - 赵皓阳的回答 : 3  task_id 573
+为什么朱元璋用重刑解决不了贪腐问题？ - 玄不救非氪不改命的回答 : 3  task_id 406
+为什么每年招那么多公务员，基层还是很缺人？ - 玄不救非氪不改命的回答 : 3  task_id 167
+为什么满族没有省级自治区？ - 玄不救非氪不改命的回答 : 3  task_id 123
+为什么生命起源一定要有水，不能存在一种外星文明是以液态乙醇什么的为生命之源的吗？ - Mandelbrot的回答 : 3  task_id 585
+为什么科学家要假设存在暗物质？ - Mandelbrot的回答 : 3  task_id 689
+为什么第三次长沙会战日军伤亡的统计中日之间如此悬殊？ - 书生的回答 : 3  task_id 709
+为什么网上对朱镕基的评价两极非常明显？ - 书生的回答 : 3  task_id 691
+为什么网友对警察扫黄这么不满？他们不满的到底是什么？ - 玄不救非氪不改命的回答 : 3  task_id 191
+为什么舟山发展这么慢？ - 玄不救非氪不改命的回答 : 3  task_id 175
+为什么蔡振华能当足协主席？ - 玄不救非氪不改命的回答 : 3  task_id 424
+为什么街区制在之前被很多知友认为是解决堵车的良方，非常支持。但当国家出台街区制之后知友们又大多反对呢？ - 玄不救非氪不改命的回答 : 3  task_id 348
+为什么要感谢日本侵略？ - 书生的回答 : 3  task_id 693
+为什么许多人不愿意相信现在乌克兰、伊拉克、阿富汗、利比亚处于民主的阵痛期呢？ - 玄不救非氪不改命的回答 : 3  task_id 478
+为什么贾静雯晒娃评论一片赞美甚至网友提出多晒，而范玮琪当初就被骂很惨？ - 玄不救非氪不改命的回答 : 3  task_id 256
+为什么那么多人喷朋友圈？ - 赵皓阳的回答 : 3  task_id 541
+为什么部分历史书说国民党消极抗日？ - 书生的回答 : 3  task_id 698
+为什么部分西方人认为西藏是一个国家？ - 玄不救非氪不改命的回答 : 3  task_id 216
+为什么雷锋精神没成为普世价值？ - 玄不救非氪不改命的回答 : 3  task_id 309
+为何 33 万人口的冰岛足球水平可观？ - 玄不救非氪不改命的回答 : 3  task_id 141
+为何东欧国家基本都走过了社会主义道路，而西欧国家却基本没有？ - 玄不救非氪不改命的回答 : 3  task_id 300
+为何殷素素在临死之前对张无忌说「越好看的女人越会骗人」 这句遗言在整部书里有何意义？ - 玄不救非氪不改命的回答 : 3  task_id 264
+乌克兰、塞尔维亚、格鲁吉亚这些欧洲国家老龄化严重，且人均GDP很低，是未富先老典型。他们怎么办？ - 玄不救非氪不改命的回答 : 3  task_id 409
+九一八事变，张学良为什么下不抵抗命令而丧权辱国？ - 书生的回答 : 3  task_id 699
+二战后德国怎么被西方国家重新接受的？ - 玄不救非氪不改命的回答 : 3  task_id 466
+二战没有国军的正面战场，中国单靠游击战能坚持到二战胜利吗？ - 玄不救非氪不改命的回答 : 3  task_id 163
+二维世界的的物理定律是怎样的? - Mandelbrot的回答 : 3  task_id 616
+于正又要拍《倚天屠龙记》，大陆港台演员，谁能胜任张无忌，赵敏，周芷若？这几个角色历代谁演的最好呢？ - 玄不救非氪不改命的回答 : 3  task_id 260
+互联网领域的「用户研究」有哪些有趣的发现？ - 采铜的回答 : 3  task_id 718
+人有翅膀能飞吗？ - Mandelbrot的回答 : 3  task_id 622
+人民币汇率是如何形成的？中国能算「汇率操纵国」吗？ - 冷哲的回答 : 3  task_id 1213
+人类将来的技术水平有可能延长太阳的「寿命」吗? - Mandelbrot的回答 : 3  task_id 657
+人类是否生活在电脑模拟出来的宇宙之中？ - Mandelbrot的回答 : 3  task_id 686
+  '''
+
+  for line in datalines(s):
+    task_id = int(line.split('task_id')[-1][1:])
+    # log(task_id)
+    task = Task.select().where(Task.id == task_id).get()
+    log(task)
+    # log(task.pages)
+
+    contents = [fix_in_compare(p.content) for p in task.pages]
+    metas = [p.metadata for p in task.pages]
+
+    # for meta in metas:
+    #   log(meta)
+
+
+    c0 = contents[0].split('\n')
+    c_1 = contents[-1].split('\n')
+    # diff = difflib.ndiff(c0, c_1)
+    # for line in diff:
+    #   log(line)
+    changes = [l for l in difflib.ndiff(c0, c_1) if l.startswith('+ ') or l.startswith('- ')]
+    for c in changes:
+      log(c)
+
+    log('------------------------\n\n')
+
+def fix_in_compare(text):
+  import re
+  img_reg = r'\n*\!\[\]\((https?://pic[^()]+?(\.jpg|\.png|\.gif))\)\n*'
+  pattern_img_start_inline = re.compile(img_reg)
+  def replace_img_start_inline(mat):
+    # 保证生成的 *.md 图片在新的一行
+    s = mat.group(0)
+    while not s.startswith('\n\n'):
+      s = '\n' + s
+    while not s.endswith('\n\n'):
+      s = s + '\n'
+    return s
+
+  text = pattern_img_start_inline.sub(replace_img_start_inline, text)
+
+  pattern_img_https = re.compile(r'http://pic(\d)\.zhimg\.com')
+  text = pattern_img_https.sub(r'https://pic\1.zhimg.com', text)
+  return text
+
+
+def test_explore_voteup_thanks():
+  '''感谢赞同比跟文章质量没啥关系'''
+  query = (Page.select(Page, Task)
+           .join(Task)
+           .where((Task.page_type == 'zhihu_answer'))
+           .group_by(Page.task)
+           .having(Page.watch_date == fn.MAX(Page.watch_date))
+           .limit(50)
+           .order_by(fn.Random())
+           )
+
+  def thanks_voteup_ratio(page):
+    thanks = int(page.metadata.split('thanks: ')[1].split(' ')[0])
+    voteup = int(page.metadata.split('voteup: ')[1].split(' ')[0])
+    return round(thanks / voteup, 3)
+
+  # for page in query:
+  #   log(page.title)
+
+  pages = sorted(query, key=thanks_voteup_ratio)
+  for page in pages:
+    log(page.title)
+    log(repr(page.content[:500]))
+    log(thanks_voteup_ratio(page))
+    log('-----------------\n\n\n')

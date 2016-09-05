@@ -1,26 +1,44 @@
 ﻿
 
 import re
-import json
-import sys
-import random
+# import json
+# import sys
+# import random
 import time
 from pyquery import PyQuery
-import requests
+# import requests
 import html2text
 from jinja2 import Template
 
 
+
+def format_url(html):
+  '''需要url中的4个参数
+     __biz=MzI3MDE0NzI0MA==
+   & mid=2650991378
+   & idx=1
+   & sn=7fb39f8f5b8d2b98751fd5515a7a4623
+  '''
+  pass
 
 def weixin_blog_html2md(html):
   h2t = html2text.HTML2Text()
   h2t.body_width = 0
   html = patch_weixin_blog_images(html)
 
+  html = replace_section_to_p(html)
+
   ret = h2t.handle(html).strip()
   ret = '\n'.join(p.rstrip() for p in ret.split('\n'))
   ret = re.sub('\n{4,}', '\n\n\n', ret)
   return ret
+
+
+def replace_section_to_p(html):
+  p = r'(</?)section'
+  html = re.sub(p, r'\1p', html)
+  return html
+
 
 def patch_weixin_blog_images(html):
   # <img data-s="300,640" data-type="jpeg" data-src="http://mmbiz.qpic.cn/mmbiz/ia241nPa7bNwribnXiazWBO2xYmosVEu5bXoLqyIoibqVk4zVANaC1oSviawIrJrCsYic4ic6ILY2qtbibbPfiaPFN99sKA/0?wx_fmt=jpeg" data-ratio="2.197802197802198" data-w="364"/>
@@ -31,13 +49,14 @@ def patch_weixin_blog_images(html):
 
 
 
-def fill_template(url=None, title=None, post_date=None,
+def fill_template(url=None, title=None, post_date=None, fetch_date=None,
                   content=None, author=None):
   tmpl_string = '''
 # {{title}}
 
     author: {{author}}
     post_date: {{post_date}}
+    fetch: {{fetch_date}}
     url: {{url}}
 
 
@@ -69,8 +88,11 @@ def fetch_weixin_blog(url):
 
 
   # TODO: 加上 header bg 图
+
+  # print(content.html(), file=open('test1.html', 'w', encoding='utf-8'))
   page = fill_template(title=title,
                        post_date=post_date,
+                       fetch_date=time.strftime('%Y-%m-%d'),
                        content=weixin_blog_html2md(content.html()),
                        author=author,
                        url=url)
@@ -89,8 +111,11 @@ def test_fetch():
   url = 'http://mp.weixin.qq.com/s?__biz=MzI3MDE0NzI0MA==&mid=2650991368&idx=2&sn=efc68055efff53061cedb8eba58bf5fd&scene=0#rd' # 伦敦
 
   url = 'http://mp.weixin.qq.com/s?__biz=MzA4MzA3MzExNg==&mid=2652690164&idx=1&sn=29d2b67be37d2bbda10b981a8b9ef420&scene=0#rd' # 地王
-  # url = 'http://mp.weixin.qq.com/s?__biz=MzI3MDE0NzI0MA==&mid=2650991378&idx=1&sn=7fb39f8f5b8d2b98751fd5515a7a4623&scene=0#rd' # 劳工运动会毁于精英主义吗
+  url = 'http://mp.weixin.qq.com/s?__biz=MzI3MDE0NzI0MA==&mid=2650991378&idx=1&sn=7fb39f8f5b8d2b98751fd5515a7a4623&scene=0#rd' # 劳工运动会毁于精英主义吗
 
+  # url = 'http://mp.weixin.qq.com/s?timestamp=1473058983&src=3&ver=1&signature=2gTbvfvRieZfUb99JUzpk8n1cqpTxqaTB4IdjkedT1N7AOtwiswxp84*DOJJ6r5s*ffnXW2O6Z45OmzBUtyMA4XDnQbg2dPHB7b6Q1SUel8Lt8Z5KL5pNpQHaMYwiRdcFju9n8l5kG6wbU-dA-OaJSfneBj4g7V3GkAGiJghmIg=' # 新海诚《你的名字》
+
+  url = 'http://mp.weixin.qq.com/s?__biz=MzA4MzA3MzExNg==&mid=2652690955&idx=2&sn=9f8a8c23ca60ac68d1b8647f8d80dd8f&scene=0#rd' # 高低配让开发商赚了钱
   page = fetch_weixin_blog(url)
 
   path = format_weixin_filename(page['title'] + '.md')

@@ -693,14 +693,13 @@ def test_add_task_by_author():
   leng-zhe
 
 
-  # cai-tog
-  # shu-sheng-4-25
-  # done BlackCloak
-  # done ma-bo-yong
-  # done hutianyi
-  # done lawrencelry
-  # done Metaphox
-  # done calon
+  cai-tong
+  shu-sheng-4-25
+  BlackCloak
+  ma-bo-yong
+  hutianyi
+  Metaphox
+  calon
 
 
   # done xiepanda
@@ -748,7 +747,9 @@ def test_add_articles__2():
   column_id = 'wontfallinyourlap'
   column_id = 'necromanov'
   column_id = 'smartdesigner'
-  Task.add_articles(column_id=column_id, limit=3000, min_voteup=500,
+  column_id = 'plant'
+  column_id = 'jingjixue'
+  Task.add_articles(column_id=column_id, limit=3000, min_voteup=50,
                     stop_at_existed=30)
 
 

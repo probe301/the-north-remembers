@@ -641,13 +641,13 @@ def test_to_local_file__2():
 
   query = (Page.select(Page, Task)
            .join(Task)
-           .where((Task.page_type == 'zhihu_article') & (Page.author == 'More'))
+           .where((Task.page_type == 'zhihu_article'))
            .group_by(Page.task)
            .having(Page.watch_date == fn.MAX(Page.watch_date))
            .limit(8800))
   for page in query:
     log(page.title)
-    page.to_local_file(folder='more', fetch_images=True)
+    page.to_local_file(folder='zhuanlan', fetch_images=False)
 
 
 
@@ -664,20 +664,21 @@ def test_tools():
 
 
 def test_fetch_topic():
-  # topic_id = 19551424 # 政治
+  topic_id = 19551424 # 政治
   # topic_id = 19556950 # 物理学
   # topic_id = 19612637 # 科学
   # topic_id = 19569034 # philosophy_of_science 科学哲学
   # topic_id = 19555355 # 房地产
-  # topic_id = 19641972 # 货币政策
+  topic_id = 19641972 # 货币政策
   # topic_id = 19565985 # 中国经济
-  topic_id = 19644231 # 古建筑
-  topic_id = 19582176 # 建筑设计
-  topic_id = 19573393 # 建筑史
-  topic_id = 19568972 # 建筑学
+  # topic_id = 19644231 # 古建筑
+  # topic_id = 19582176 # 建筑设计
+  # topic_id = 19573393 # 建筑史
+  # topic_id = 19568972 # 建筑学
+  # topic_id = 19574449 # 冰与火之歌（小说）
   # topic_id = 19551864 # 古典音乐
-  Task.add_by_topic_best_answers(topic_id, limit=3000, min_voteup=50,
-                                 stop_at_existed=200, force_start=False)
+  Task.add_by_topic_best_answers(topic_id, limit=3000, min_voteup=500,
+                                 stop_at_existed=100, force_start=False)
 # test_fetch_topic()
 
 
@@ -685,34 +686,34 @@ def test_fetch_topic():
 def test_add_task_by_author():
 
   ids = '''
-  shi-yidian-ban-98
-  xbjf
-  zhao-hao-yang-1991
-  mandelbrot-11
-  chenqin
-  leng-zhe
+  # shi-yidian-ban-98
+  # xbjf
+  # zhao-hao-yang-1991
+  # mandelbrot-11
+  # chenqin
+  # leng-zhe
 
 
-  cai-tong
-  shu-sheng-4-25
-  BlackCloak
-  ma-bo-yong
-  hutianyi
-  Metaphox
-  calon
+  # cai-tong
+  # shu-sheng-4-25
+  # BlackCloak
+  # ma-bo-yong
+  # hutianyi
+  # Metaphox
+  # calon
 
 
-  # done xiepanda
-  # done cogito
-  # done talich
-  # done commando
-  # done fu-er
+  # xiepanda
+  # cogito
+  # talich
+  # commando
+  # fu-er
 
-  # done spto
+  # spto
 
 
 
-  # done xu-zhe-42
+  xu-zhe-42
 
 
   # tassandar
@@ -744,15 +745,19 @@ def test_add_articles():
                     stop_at_existed=30)
 
 def test_add_articles__2():
-  column_id = 'wontfallinyourlap'
-  column_id = 'necromanov'
-  column_id = 'smartdesigner'
-  column_id = 'plant'
-  column_id = 'jingjixue'
-  column_id = 'Mrfox'  # 天淡银河垂地
-  column_id = 'laodaoxx'
-  Task.add_articles(column_id=column_id, limit=3000, min_voteup=50,
-                    stop_at_existed=30)
+  column_ids = '''
+    wontfallinyourlap
+    necromanov
+    smartdesigner
+    plant
+    jingjixue
+    # 天淡银河垂地
+    Mrfox
+    laodaoxx
+  '''
+  for column_id in datalines(column_ids):
+    Task.add_articles(column_id=column_id, limit=3000, min_voteup=1,
+                      stop_at_existed=5)
 
 
 
@@ -768,6 +773,13 @@ def test_banned_modes():
   url = 'https://www.zhihu.com/question/40679967/answer/88310495'
   # 政府推出开放小区政策的真正目的是什么？ 2201 孟德尔 回答建议修改：政治敏感
   pass
+
+
+def test_query_task():
+  s = 'https://www.zhihu.com/question/48737226/answer/113036453'
+  t = Task.select().where(Task.url == s)
+  t = t.get()
+  log(t.id)
 
 def test_explore():
   # Tweet.select(fn.COUNT(Tweet.id)).where(Tweet.user == User.id)
@@ -789,11 +801,12 @@ def test_explore_watching_results_diff():
   # 美国是不是正在为瓦解中国做准备？ - 张俊麒的回答 : 16  task_id 46
 
   s = '''
-为什么很少看到患者砍莆田系医生的报道？ - 玄不救非氪不改命的回答 : 3  task_id 196
-为什么很难证伪马克思主义理论？ - 玄不救非氪不改命的回答 : 3  task_id 360
-为什么快速浏览一段内容的时候，很容易看到自己感兴趣的部分？ - 采铜的回答 : 3  task_id 742
-为什么拿广州恒大淘宝队与中国国家男子足球队做对比？ - 玄不救非氪不改命的回答 : 3  task_id 492
-
+# 为什么很少看到患者砍莆田系医生的报道？ - 玄不救非氪不改命的回答 : 3  task_id 196
+# 为什么很难证伪马克思主义理论？ - 玄不救非氪不改命的回答 : 3  task_id 360
+# 为什么快速浏览一段内容的时候，很容易看到自己感兴趣的部分？ - 采铜的回答 : 3  task_id 742
+# 为什么拿广州恒大淘宝队与中国国家男子足球队做对比？ - 玄不救非氪不改命的回答 : 3  task_id 492
+# 如何看待里约奥运陈欣怡药检呈阳性反应？ - 玄不救非氪不改命的回答 : 3  task_id 2393
+为什么厌恶「国粉」的知乎用户远多于厌恶「毛粉」的？ - chenqin的 : 3  task_id 3313
   '''
 
   for line in datalines(s):
@@ -802,7 +815,7 @@ def test_explore_watching_results_diff():
     task = Task.select().where(Task.id == task_id).get()
     log(task)
     # log(task.pages)
-
+    # log(task.last_page)
     contents = [fix_in_compare(p.content) for p in task.pages]
     metas = [p.metadata for p in task.pages]
 
@@ -810,7 +823,7 @@ def test_explore_watching_results_diff():
     #   log(meta)
 
 
-    c0 = contents[0].split('\n')
+    c0 = contents[-2].split('\n')
     c_1 = contents[-1].split('\n')
     # diff = difflib.ndiff(c0, c_1)
     # for line in diff:
@@ -820,6 +833,8 @@ def test_explore_watching_results_diff():
       log(c)
 
     log('------------------------\n\n')
+    # log(c0)
+
 
 def fix_in_compare(text):
   import re

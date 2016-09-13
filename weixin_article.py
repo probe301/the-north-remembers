@@ -138,7 +138,7 @@ def fetch_weixin_blog(url):
 
   # TODO: 加上 header bg 图
 
-  print(content.html(), file=open(title + '.debug.html', 'w', encoding='utf-8'))
+  # print(content.html(), file=open(title + '.debug.html', 'w', encoding='utf-8'))
   page = fill_template(title=title,
                        post_date=post_date,
                        fetch_date=time.strftime('%Y-%m-%d'),
@@ -161,13 +161,18 @@ def format_weixin_filename(title):
 
 
 
+
+
 def extract_weixin_articles_from_feed(feed):
   # <title>做商业地产，也许可以听听这段异类的观点</title>
   # <link>http://www.iwgc.cn/link/2646045</link>
   # <description>...</description>
   # <pubDate>Sun, 11 Sep 2016 09:31:10 +0800</pubDate>
-  r = requests.get(feed)
-  doc = PyQuery(r.content)
+  log(feed)
+  # r = requests.get(feed)
+  # log(r.content)
+  # doc = PyQuery(r.content)
+  doc = PyQuery(open('knowleage_rss.xml', 'rb').read())
   for item in doc.find('item'):
     article = PyQuery(item)
     yield {'title': article.find('title').text(),
@@ -180,19 +185,49 @@ def follow_iwgc_redirect(url):
   response = requests.get(url)
   text = response.content
   # log(type(text))
-  text = str(text).split('window.location.href = \\\'')[1]
-  return text.split('\\\'')[0]
+  if 'iwgc.cn' in url:
+    text = str(text).split('window.location.href = \\\'')[1]
+    return text.split('\\\'')[0]
+  elif 'www.vccoo.com' in url:
+    # 境外server
+    # http://www.vccoo.com/v/899e61?source=rss
+    text = str(text).split('var s = "')[1]
+    return text.split('";')[0]
+  else:
+    raise ValueError()
 
 
 
 
+
+def test_rss():
+  feed = 'http://www.vccoo.com/a/vzr62/rss.xml'
+  feed = 'http://www.vccoo.com/v/f5b94c'
+  headers = {
+    'User-Agent': 'Mozilla/5.0 (Windows NT 6.1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/52.0.2743.116 Safari/537.36',
+    # "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+    # 'Referer': 'http://www.vccoo.com',
+    # 'Accept-Encoding': 'gzip, deflate, sdch',
+  }
+
+  # cookies = {'ASP.NET_SessionId': 'kbnrrb45ovcumwfy25xooxec'}
+  s = requests.Session()
+  r = s.get(feed, headers=headers)
+  log(r.content[:400])
+  # r = s.get(feed, headers=headers, stream=True)
+  # log(r)
 
 
 def test_extract_from_feed():
   feed = 'http://rss.iwgc.cn/rss/3615-43519defd654b27f8f3b5205e678b9bb1799'
+  feed = 'http://www.vccoo.com/a/vzr62/rss.xml'
   data = extract_weixin_articles_from_feed(feed)
+  i = 0
   for a in data:
     log(a)
+    i += 1
+    if i > 9999:
+      break
 
 
 
@@ -203,7 +238,71 @@ def test_extract_from_feed():
 
 
 
+def test_knewleagewealth():
+  s = '''
+    http://www.vccoo.com/v/b9c80e
+    http://www.vccoo.com/v/281ebb
+    http://www.vccoo.com/v/cc1c1c
+    http://www.vccoo.com/v/b2ed93
+    http://www.vccoo.com/v/899e61
+    http://www.vccoo.com/v/b62073
+    http://www.vccoo.com/v/4a8b83
+    http://www.vccoo.com/v/67dfde
+    http://www.vccoo.com/v/2d11aa
+    http://www.vccoo.com/v/dfbbd4
+    http://www.vccoo.com/v/f5b94c
+    http://www.vccoo.com/v/456a41
+    http://www.vccoo.com/v/f68c61
+    http://www.vccoo.com/v/36ead5
+    http://www.vccoo.com/v/10fead
+    http://www.vccoo.com/v/6cf373
+    http://www.vccoo.com/v/2c7531
+    http://www.vccoo.com/v/471418
+    http://www.vccoo.com/v/bc650c
+    http://www.vccoo.com/v/6c9518
+    http://www.vccoo.com/v/5a3234
+    http://www.vccoo.com/v/356f01
+    http://www.vccoo.com/v/35b3b7
+    http://www.vccoo.com/v/61b98a
+    http://www.vccoo.com/v/7ee861
+  '''
+  for line in datalines(s):
+    log(line)
+    # log(follow_iwgc_redirect(line))
 
+  s_finish = '''
+    # zhaohaoyang
+    http://mp.weixin.qq.com/s?__biz=MjM5NzE2NTY0Ng==&mid=2650672803&idx=1&sn=032a476cef35b974ed5f39e9b07fefa9#rd
+    http://mp.weixin.qq.com/s?__biz=MjM5NzE2NTY0Ng==&mid=2650672799&idx=1&sn=27453994634bb0245e9b4aaea0942b2b#rd
+    http://mp.weixin.qq.com/s?__biz=MjM5NzE2NTY0Ng==&mid=2650672791&idx=1&sn=c72f74615feb49c29d2d039bd20d8c09#rd
+    http://mp.weixin.qq.com/s?__biz=MjM5NzE2NTY0Ng==&mid=2650672788&idx=1&sn=4851efd729fa6b28c6335b9ba911393b#rd
+    http://mp.weixin.qq.com/s?__biz=MjM5NzE2NTY0Ng==&mid=2650672773&idx=1&sn=c06f03b9f0d72a33281e4ff71a09b2ee#rd
+    http://mp.weixin.qq.com/s?__biz=MjM5NzE2NTY0Ng==&mid=2650672765&idx=1&sn=d7472177530167c4031e8bfda8e74ef1#rd
+    http://mp.weixin.qq.com/s?__biz=MjM5NzE2NTY0Ng==&mid=2650672749&idx=1&sn=f0fbfcf12ae9f691e7ec61730613b0fb#rd
+    http://mp.weixin.qq.com/s?__biz=MjM5NzE2NTY0Ng==&mid=2650672739&idx=1&sn=e72ac99a37b0076dcd28446814aaa702#rd
+    http://mp.weixin.qq.com/s?__biz=MjM5NzE2NTY0Ng==&mid=2650672734&idx=1&sn=bbb6f4805603e04917cf1a7c99f328f6#rd
+    http://mp.weixin.qq.com/s?__biz=MjM5NzE2NTY0Ng==&mid=2650672727&idx=1&sn=102ab61d5d2299bffe26087f3f190b23#rd
+    http://mp.weixin.qq.com/s?__biz=MjM5NzE2NTY0Ng==&mid=2650672721&idx=1&sn=736094e9955e5bead81524fecf90bc7f#rd
+    http://mp.weixin.qq.com/s?__biz=MjM5NzE2NTY0Ng==&mid=2650672712&idx=1&sn=5f0ec02b5191a0cfea1067e25b8a844d#rd
+    http://mp.weixin.qq.com/s?__biz=MjM5NzE2NTY0Ng==&mid=2650672708&idx=1&sn=4b1f7d3e02a52c50217d8d274c10e325#rd
+    http://mp.weixin.qq.com/s?__biz=MjM5NzE2NTY0Ng==&mid=2650672687&idx=1&sn=03e8a22e114f6de57865a5a26e32f640#rd
+    http://mp.weixin.qq.com/s?__biz=MjM5NzE2NTY0Ng==&mid=2650672679&idx=1&sn=aa72c26e937580b45df811e0efc957ee#rd
+    http://mp.weixin.qq.com/s?__biz=MjM5NzE2NTY0Ng==&mid=403189023&idx=1&sn=8f5774a37f965d3e33901172d191ac91#rd
+    http://mp.weixin.qq.com/s?__biz=MjM5NzE2NTY0Ng==&mid=402667616&idx=1&sn=bff275d46d168f9844d1ebacc5d70ec6#rd
+    http://mp.weixin.qq.com/s?__biz=MjM5NzE2NTY0Ng==&mid=402419132&idx=1&sn=3d4c50c89f487cd2de18e381d339f0e8#rd
+    http://mp.weixin.qq.com/s?__biz=MjM5NzE2NTY0Ng==&mid=402782125&idx=1&sn=8ffaad2bc1e94f2f550f02eb01759d69#rd
+    http://mp.weixin.qq.com/s?__biz=MjM5NzE2NTY0Ng==&mid=402997622&idx=1&sn=f9eaa33a7d8894cc754b84949d89d096#rd
+    http://mp.weixin.qq.com/s?__biz=MjM5NzE2NTY0Ng==&mid=402265925&idx=1&sn=5de1f01d0c586185a06f71b0818e3568#rd
+    http://mp.weixin.qq.com/s?__biz=MjM5NzE2NTY0Ng==&mid=402904215&idx=1&sn=c2c52de290010b9af4b0361b3e3290ce#rd
+    http://mp.weixin.qq.com/s?__biz=MjM5NzE2NTY0Ng==&mid=403020365&idx=1&sn=0937c509bf719c7735ea0c834a82b602#rd
+    http://mp.weixin.qq.com/s?__biz=MjM5NzE2NTY0Ng==&mid=402345108&idx=1&sn=b41b60214c36cfb20e9a05e9d2a35704#rd
+    http://mp.weixin.qq.com/s?__biz=MjM5NzE2NTY0Ng==&mid=402149805&idx=1&sn=76473bc0189c5b70bb438ef0dfd326a1#rd
+  '''
+
+  for url in datalines(s_finish):
+    page = fetch_weixin_blog(url)
+    path = format_weixin_filename(page['title'] + '.md')
+    print(page['content'], file=open('knew/' + path, 'w', encoding='utf-8'))
 
 
 
@@ -215,6 +314,7 @@ def test_extract_from_feed():
 
 def test_follow_iwgc_redirect():
   url = 'http://www.iwgc.cn/link/2655245'
+  url = 'http://www.vccoo.com/v/f5b94c'
   new_url = follow_iwgc_redirect(url)
   log(new_url)
   # => http://mp.weixin.qq.com/s?__biz=MzA4MzA3MzExNg==&mid=2652691331&idx=1&sn=8c0756fa629940953ac8e353d662bf8d&chksm=84147ab0b363f3a6460df0e4581c0853f31b68a0bb0d729a52374af38414cd44fb9596e56205&scene=0#rd

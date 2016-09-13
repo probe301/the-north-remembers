@@ -188,7 +188,7 @@ class Task(Model):
       t = Task.is_watching(url)
       if t:
         existed_count += 1
-        log('already watching {} {}'.format(t, existed_count))
+        log('already watching {} {}'.format(t.title, existed_count))
         if stop_at_existed and stop_at_existed <= existed_count:
           break
       else:
@@ -243,7 +243,7 @@ class Task(Model):
       t = Task.is_watching(url)
       if t:
         existed_count += 1
-        log('already watching {} {}'.format(t, existed_count))
+        log('already watching {} {}'.format(t.title, existed_count))
         if stop_at_existed and stop_at_existed <= existed_count:
           break
       else:
@@ -686,40 +686,34 @@ def test_fetch_topic():
 def test_add_task_by_author():
 
   ids = '''
-  # shi-yidian-ban-98
-  # xbjf
-  # zhao-hao-yang-1991
-  # mandelbrot-11
-  # chenqin
-  # leng-zhe
+  shi-yidian-ban-98
+  xbjf
+  zhao-hao-yang-1991
+  mandelbrot-11
+  chenqin
+  leng-zhe
+  spto
+  xiepanda
+  cogito
+  xu-zhe-42
+  huo-zhen-bu-lu-zi-lao-ye
 
 
-  # cai-tong
-  # shu-sheng-4-25
-  # BlackCloak
-  # ma-bo-yong
-  # hutianyi
-  # Metaphox
-  # calon
+  cai-tong
+  shu-sheng-4-25
+  BlackCloak
+  ma-bo-yong
+  hutianyi
+  Metaphox
+  calon
 
 
-  # xiepanda
-  # cogito
   # talich
   # commando
   # fu-er
-
-  # spto
-
-
-
-  xu-zhe-42
-
-
   # tassandar
   # zhou-xiao-nong
   # yinshoufu
-  # huo-zhen-bu-lu-zi-lao-ye
   # tangsyau
   # lianghai
   '''
@@ -754,6 +748,7 @@ def test_add_articles__2():
     # 天淡银河垂地
     Mrfox
     laodaoxx
+    startup
   '''
   for column_id in datalines(column_ids):
     Task.add_articles(column_id=column_id, limit=3000, min_voteup=1,

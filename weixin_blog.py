@@ -1,14 +1,26 @@
 ﻿
 
 import re
-# import json
-# import sys
-# import random
+
 import time
 from pyquery import PyQuery
-# import requests
+
 import html2text
 from jinja2 import Template
+
+import time
+from pylon import datalines
+
+import shutil
+
+from urllib.parse import unquote
+from jinja2 import Template
+import re
+from pyquery import PyQuery
+import requests
+from pylon import create_logger
+log = create_logger(__file__)
+log_error = create_logger(__file__ + '.error')
 
 
 
@@ -141,6 +153,84 @@ def format_weixin_filename(title):
   invalid_chars = list('|?"\'')
   invalid_chars.append('\xa0')
   return ''.join(' ' if c in invalid_chars else c for c in title)
+
+
+
+
+
+
+
+
+def extract_weixin_articles_from_feed(feed):
+  # <title>做商业地产，也许可以听听这段异类的观点</title>
+  # <link>http://www.iwgc.cn/link/2646045</link>
+  # <description>...</description>
+  # <pubDate>Sun, 11 Sep 2016 09:31:10 +0800</pubDate>
+  r = requests.get(feed)
+  doc = PyQuery(r.content)
+  for item in doc.find('item'):
+    article = PyQuery(item)
+    yield {'title': article.find('title').text(),
+           'link': article.find('link').text(),
+           'description': article.find('description').text(),
+           'pubDate': article.find('pubDate').text()}
+
+
+def follow_iwgc_redirect(url):
+  response = requests.get(url)
+  text = response.content
+  # log(type(text))
+  text = str(text).split('window.location.href = \\\'')[1]
+  return text.split('\\\'')[0]
+
+
+
+
+
+
+def test_extract_from_feed():
+  feed = 'http://rss.iwgc.cn/rss/3615-43519defd654b27f8f3b5205e678b9bb1799'
+  data = extract_weixin_articles_from_feed(feed)
+  for a in data:
+    log(a)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+def test_follow_iwgc_redirect():
+  url = 'http://www.iwgc.cn/link/2655245'
+  new_url = follow_iwgc_redirect(url)
+  log(new_url)
+  # => http://mp.weixin.qq.com/s?__biz=MzA4MzA3MzExNg==&mid=2652691331&idx=1&sn=8c0756fa629940953ac8e353d662bf8d&chksm=84147ab0b363f3a6460df0e4581c0853f31b68a0bb0d729a52374af38414cd44fb9596e56205&scene=0#rd
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 def test_fetch():
 

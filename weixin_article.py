@@ -150,7 +150,7 @@ def fetch_weixin_blog(url):
 
 
 def format_weixin_filename(title):
-  invalid_chars = list('|?"\'')
+  invalid_chars = list('|?"\':<>/\\*')
   invalid_chars.append('\xa0')
   return ''.join(' ' if c in invalid_chars else c for c in title)
 
@@ -168,11 +168,13 @@ def extract_weixin_articles_from_feed(feed):
   # <link>http://www.iwgc.cn/link/2646045</link>
   # <description>...</description>
   # <pubDate>Sun, 11 Sep 2016 09:31:10 +0800</pubDate>
-  log(feed)
-  # r = requests.get(feed)
-  # log(r.content)
-  # doc = PyQuery(r.content)
-  doc = PyQuery(open('knowleage_rss.xml', 'rb').read())
+  # log(feed)
+  if feed.startswith('http'):
+    r = requests.get(feed)
+    # log(r.content)
+    doc = PyQuery(r.content)
+  else:
+    doc = PyQuery(open(feed, 'rb').read())
   for item in doc.find('item'):
     article = PyQuery(item)
     yield {'title': article.find('title').text(),
@@ -181,7 +183,8 @@ def extract_weixin_articles_from_feed(feed):
            'pubDate': article.find('pubDate').text()}
 
 
-def follow_iwgc_redirect(url):
+
+def follow_redirect(url):
   response = requests.get(url)
   text = response.content
   # log(type(text))
@@ -219,15 +222,16 @@ def test_rss():
 
 
 def test_extract_from_feed():
+  from pylon import enumrange
   feed = 'http://rss.iwgc.cn/rss/3615-43519defd654b27f8f3b5205e678b9bb1799'
-  feed = 'http://www.vccoo.com/a/vzr62/rss.xml'
+  feed = 'http://www.vccoo.com/a/vzr62/rss.xml'  # knowledgewealth
+  feed = 'http://www.vccoo.com/a/zy62j/rss.xml'  # zhenjiaolujun
+  # feed = 'zhenjiao.xml'  # zhenjiaolujun
   data = extract_weixin_articles_from_feed(feed)
-  i = 0
-  for a in data:
-    log(a)
-    i += 1
-    if i > 9999:
-      break
+  for i, a in enumrange(data, 3000):
+    # log(a)
+    log('# ' + a['title'])
+    log(follow_redirect(a['link']))
 
 
 
@@ -238,7 +242,8 @@ def test_extract_from_feed():
 
 
 
-def test_knewleagewealth():
+
+def test_knowledgewealth():
   s = '''
     http://www.vccoo.com/v/b9c80e
     http://www.vccoo.com/v/281ebb
@@ -268,7 +273,7 @@ def test_knewleagewealth():
   '''
   for line in datalines(s):
     log(line)
-    # log(follow_iwgc_redirect(line))
+    # log(follow_redirect(line))
 
   s_finish = '''
     # zhaohaoyang
@@ -299,10 +304,117 @@ def test_knewleagewealth():
     http://mp.weixin.qq.com/s?__biz=MjM5NzE2NTY0Ng==&mid=402149805&idx=1&sn=76473bc0189c5b70bb438ef0dfd326a1#rd
   '''
 
-  for url in datalines(s_finish):
+
+  zhenjiaolujun = '''
+    # 今年我见过最惊艳的项目，没有之一
+    http://mp.weixin.qq.com/s?__biz=MzA4MzA3MzExNg==&mid=2652691376&idx=1&sn=caccc74c9b639b3f824821fc3d02f04b&chksm=84147a83b363f395d433bdc9706018c2e660f72938c404841f272aa42c8798f2307ba5dfff3e#rd
+    # 今天下午4点，卢俊在斗鱼直播
+    http://mp.weixin.qq.com/s?__biz=MzA4MzA3MzExNg==&mid=2652691376&idx=2&sn=4cb8b4b8e133d2c5af847f3f9b39a4e8&chksm=84147a83b363f3957847479f99a31836bf6c04e07e9154a2d18c38ae3957af54366243f7b370#rd
+    # 商业地产的希望之处，来自走投无路
+    http://mp.weixin.qq.com/s?__biz=MzA4MzA3MzExNg==&mid=2652691331&idx=1&sn=8c0756fa629940953ac8e353d662bf8d&chksm=84147ab0b363f3a6460df0e4581c0853f31b68a0bb0d729a52374af38414cd44fb9596e56205#rd
+    # 这是一场霸气的发布会
+    http://mp.weixin.qq.com/s?__biz=MzA4MzA3MzExNg==&mid=2652691331&idx=2&sn=f672fb6ba3c0ef904d42f94d920bfc4e&chksm=84147ab0b363f3a6cfd9694d4808534093373c57828bdced1ce78ba5940d81ed1e903190abd9#rd
+    # 做商业地产，也许可以听听这段异类的观点
+    http://mp.weixin.qq.com/s?__biz=MzA4MzA3MzExNg==&mid=2652691310&idx=1&sn=dc8a15db8b83762102c782cff6d080c5&chksm=84147a5db363f34b0d0b7ff6590bd517e4ab20c7a893328a3caab5cd4cab4c7bcf67a3d06282#rd
+    # 马云开放湖畔大学，我成了第一批学员
+    http://mp.weixin.qq.com/s?__biz=MzA4MzA3MzExNg==&mid=2652691279&idx=2&sn=370e37b815ff58e8266ac09d53182949&chksm=84147a7cb363f36ab4244a9219e197b00acbdcfbf5d6f53897c3389e5314e12014df939cfbeb#rd
+    # 20天，我卖了1200套……
+    http://mp.weixin.qq.com/s?__biz=MzA4MzA3MzExNg==&mid=2652691260&idx=2&sn=931dab791cba8cce5dd14fb1e4ed5f07&chksm=84147a0fb363f319b4e22e03397bc968ea28ac9cc3ffd81c6dedd0c58146919d574986a9d025#rd
+    # 共享经济的前提是共享文明
+    http://mp.weixin.qq.com/s?__biz=MzA4MzA3MzExNg==&mid=2652691260&idx=1&sn=49654f335b8ec54086e2776de0f37b62&chksm=84147a0fb363f31928698a98025dc9cad27992a87c951c0344a7661c42a5a3533d511ebb8bbf#rd
+    # 哪有什么爱恨情仇，郭曹互杀早已在各行各业千百回上演
+    http://mp.weixin.qq.com/s?__biz=MzA4MzA3MzExNg==&mid=2652691255&idx=1&sn=66a0d824bf66ec612dd011a49046f0bc&chksm=84147a04b363f3126057870680fa02ac3664f4bafc727c5efb0c6cd85184ba79d0115c9a39ac#rd
+    # 微微一笑大结局，偶像剧的剧情但三观比谁都正
+    http://mp.weixin.qq.com/s?__biz=MzA4MzA3MzExNg==&mid=2652691169&idx=1&sn=00fd50fa72bbd58e380858bba720a96b&chksm=84147bd2b363f2c41cff8324d2d6a59ff94baf4e860a18625531e7d481b31c1c633843e426aa#rd
+    # 我想说个故事：地产人的无能为力和无可奈何
+    http://mp.weixin.qq.com/s?__biz=MzA4MzA3MzExNg==&mid=2652691115&idx=1&sn=bace23bc811274b0b420c9a481a21a69&chksm=84147b98b363f28ea4262d28a1a9bf91d4da9a04b15c58bfb4a395b1d48a9884381fce16591e#rd
+    # 今天下午四点，我开好房等你……
+    http://mp.weixin.qq.com/s?__biz=MzA4MzA3MzExNg==&mid=2652691115&idx=4&sn=d16eca2b401ca1c5bc1ffa48eb4fa09d&chksm=84147b98b363f28ea37d3afc7aaef6879522da9a006083b54c9ab17f10e4c5c299578592275d#rd
+    # 天蓬元帅撩嫦娥为啥会失败？
+    http://mp.weixin.qq.com/s?__biz=MzA4MzA3MzExNg==&mid=2652691115&idx=3&sn=5ab5881be36243f0baffd234c9dc358b&chksm=84147b98b363f28e2eb6d313f924948d797d05dfac2b49d7b0a196d6af351a03e490d3afacab#rd
+    # 如果有一天我不见了，来这个小号找我
+    http://mp.weixin.qq.com/s?__biz=MzA4MzA3MzExNg==&mid=2652691115&idx=2&sn=c40b165adec5d261860b9b2b41bcedfc&chksm=84147b98b363f28e08f93ae992be7359ffe7878fb1d650e2629b386ebcc0e69d65b8beb1db96#rd
+    # 明天，我开好房等你……
+    http://mp.weixin.qq.com/s?__biz=MzA4MzA3MzExNg==&mid=2652691110&idx=2&sn=911dfaca546980abfb1d6a0f3168d12e#rd
+    # 为了买房，我们会不会过的像这部三级片一样
+    http://mp.weixin.qq.com/s?__biz=MzA4MzA3MzExNg==&mid=2652691110&idx=1&sn=a21361e29cfd24ebbd0050bf8bc33850#rd
+    # 这么多年过去了，它依然是上海地产史上第一奇葩
+    http://mp.weixin.qq.com/s?__biz=MzA4MzA3MzExNg==&mid=2652691045&idx=1&sn=227e10184742f6cca4b3830764f3b141#rd
+    # 深夜，一个地产人走进方丈的禅房
+    http://mp.weixin.qq.com/s?__biz=MzA4MzA3MzExNg==&mid=2652690966&idx=1&sn=a5b384dce9f040405c1e3be37beef581#rd
+    # 疯了
+    http://mp.weixin.qq.com/s?__biz=MzA4MzA3MzExNg==&mid=2652690948&idx=1&sn=8bfb9cba2915b34d9873eea746bf5448#rd
+    # 这可能是当下三观最正的买房建议了
+    http://mp.weixin.qq.com/s?__biz=MzA4MzA3MzExNg==&mid=2652690955&idx=1&sn=d105d46dcc2f22495b6416dc4b293da3#rd
+    # 高低配让开发商赚了钱，却让我们忘了别墅真正的模样
+    http://mp.weixin.qq.com/s?__biz=MzA4MzA3MzExNg==&mid=2652690955&idx=2&sn=9f8a8c23ca60ac68d1b8647f8d80dd8f#rd
+    # 易居合并，哪有无缘无故的爱
+    http://mp.weixin.qq.com/s?__biz=MzA4MzA3MzExNg==&mid=2652690930&idx=1&sn=845fc27ea2e2521074ca4a01dd2198b4#rd
+    # 从这两个撩妹的故事，学会如何送客户礼物
+    http://mp.weixin.qq.com/s?__biz=MzA4MzA3MzExNg==&mid=2652690930&idx=2&sn=d485a48e795182175f04b8c105701adb#rd
+    # 地产人的小目标都在这里
+    http://mp.weixin.qq.com/s?__biz=MzA4MzA3MzExNg==&mid=2652690928&idx=1&sn=69c273ebc040b9622d24e57fffcef7a0#rd
+    # 生意最好的时候，我却关闭了购房咨询服务
+    http://mp.weixin.qq.com/s?__biz=MzA4MzA3MzExNg==&mid=2652690886&idx=1&sn=383d22499d8e5875fc89df755f8406f7#rd
+    # 此刻，房地产这口饭，没人能够下咽
+    http://mp.weixin.qq.com/s?__biz=MzA4MzA3MzExNg==&mid=2652690883&idx=1&sn=b1660e5c170a4e1ef00c231c713df387#rd
+    # 这可能是关于联合办公空间设计最棒的书
+    http://mp.weixin.qq.com/s?__biz=MzA4MzA3MzExNg==&mid=2652690883&idx=2&sn=a9550df4c15e28b0dc1a0071ca669343#rd
+    # 90+出了个从里到外真正的好三房
+    http://mp.weixin.qq.com/s?__biz=MzA4MzA3MzExNg==&mid=2652690845&idx=1&sn=ade8502a5d066dea1c54d297e2ccfd4e#rd
+    # 卖断货的真叫卢俊笔记本，又上架啦
+    http://mp.weixin.qq.com/s?__biz=MzA4MzA3MzExNg==&mid=2652690845&idx=2&sn=e51f3fb84274a978479db9ee7c932840#rd
+    # 令我不安的地产鸦片战争终归还是来了
+    http://mp.weixin.qq.com/s?__biz=MzA4MzA3MzExNg==&mid=2652690826&idx=1&sn=313e015789f514a3318b1de88524f6f8#rd
+    # 卢俊定制公交卡获奖名单公布！看看有你么~
+    http://mp.weixin.qq.com/s?__biz=MzA4MzA3MzExNg==&mid=2652690826&idx=2&sn=2e02761c1dc5a50ce07c80f261f388ec#rd
+    # 上海的2040，去年纲要和今年草案有几个微妙变化
+    http://mp.weixin.qq.com/s?__biz=MzA4MzA3MzExNg==&mid=2652690797&idx=1&sn=26e6ebddbcb0bb171c36f5bc193c34da#rd
+    # 从这两个撩妹的故事，学会如何送客户礼物
+    http://mp.weixin.qq.com/s?__biz=MzA4MzA3MzExNg==&mid=2652690797&idx=2&sn=258820d645eda2040585310e7f250dc5#rd
+    # 每个人心中都有一个猴子捞月的故事【LU的店】
+    http://mp.weixin.qq.com/s?__biz=MzA4MzA3MzExNg==&mid=2652690753&idx=2&sn=78d112528fe4922f3e72481943f9d1d0#rd
+    # 丢人啊，在奥运会上贴牛皮癣，还是做房地产的
+    http://mp.weixin.qq.com/s?__biz=MzA4MzA3MzExNg==&mid=2652690753&idx=1&sn=f13898a65d06589cf82a2efdea73c59e#rd
+    # 千年老二未必悲情，这是李宗伟即将开始的另一种身份
+    http://mp.weixin.qq.com/s?__biz=MzA4MzA3MzExNg==&mid=2652690733&idx=1&sn=95e30a0b611a44773dd2ffaf4daf7df7#rd
+    # 为这个盒子花的心思，比一个楼盘还多
+    http://mp.weixin.qq.com/s?__biz=MzA4MzA3MzExNg==&mid=2652690718&idx=1&sn=6b9eb5bfd633996babdc9d11f1fc95f1#rd
+    # 再重温下《美人鱼》里那场土拍狂欢吧
+    http://mp.weixin.qq.com/s?__biz=MzA4MzA3MzExNg==&mid=2652690714&idx=1&sn=19fb48f860a6c4ee287ec971d82f039d#rd
+    # 顾村地王要出，这一次值多少钱
+    http://mp.weixin.qq.com/s?__biz=MzA4MzA3MzExNg==&mid=2652690678&idx=2&sn=7ce9f73f5be0bb63c926928a8b7bd7cd#rd
+    # 一个只有女人看得懂的户型
+    http://mp.weixin.qq.com/s?__biz=MzA4MzA3MzExNg==&mid=2652690678&idx=1&sn=4362d9c90d67c3787470297f4d08a940#rd
+    # 说三个成功的故事，却是劝你别碰商业地产
+    http://mp.weixin.qq.com/s?__biz=MzA4MzA3MzExNg==&mid=2652690668&idx=1&sn=914c6163f8692f4c013d9d30f758145b#rd
+    # 这是首严肃的地产狗之歌
+    http://mp.weixin.qq.com/s?__biz=MzA4MzA3MzExNg==&mid=2652690645&idx=1&sn=7164effd38bdfa4f7fc9ebebd4183571#rd
+    # 联合办公们，你真的懂创业者的需求？
+    http://mp.weixin.qq.com/s?__biz=MzA4MzA3MzExNg==&mid=2652690646&idx=1&sn=b78f2800758b1c68d70aec0beace3509#rd
+    # 做地产这行，谁没碰到点极品事
+    http://mp.weixin.qq.com/s?__biz=MzA4MzA3MzExNg==&mid=2652690638&idx=1&sn=253cc878e53c3972b81edd8bb97ec158#rd
+    # 奥运画风都变了，房地产却高傲的没有一丝改变
+    http://mp.weixin.qq.com/s?__biz=MzA4MzA3MzExNg==&mid=2652690636&idx=1&sn=d7b516ea9cae72842afd2029b8ee53e9#rd
+    # 一个没人敢复制的项目
+    http://mp.weixin.qq.com/s?__biz=MzA4MzA3MzExNg==&mid=2652690628&idx=1&sn=26a87fc2b35d3c45c89246149b8dc083#rd
+    # 地产人，我们必须试着接受这些惨烈现实
+    http://mp.weixin.qq.com/s?__biz=MzA4MzA3MzExNg==&mid=2652690560&idx=1&sn=59cc3ffc26d03ba2e6d3c4f1995dbf7f#rd
+    # 我最关心的三个楼市问题，这次都有了答案
+    http://mp.weixin.qq.com/s?__biz=MzA4MzA3MzExNg==&mid=2652690547&idx=1&sn=bbb3b7023c621b58190f561021e7bdd1#rdok
+    # 恒大买万科，无非是拿回一个月前的头条而已
+    http://mp.weixin.qq.com/s?__biz=MzA4MzA3MzExNg==&mid=2652690540&idx=1&sn=b976bf014f1c36524e38db729c69f978#rd
+    # 地产这扇门已经对一些人关闭
+    http://mp.weixin.qq.com/s?__biz=MzA4MzA3MzExNg==&mid=2652690522&idx=1&sn=a4635c06a9eee3a612f97414872c4c1c#rd
+
+
+  '''
+  zhenjiaolujun = 'http://mp.weixin.qq.com/s?__biz=MzA4MzA3MzExNg==&mid=2652690646&idx=1&sn=b78f2800758b1c68d70aec0beace3509#rd'
+
+  for url in datalines(zhenjiaolujun):
     page = fetch_weixin_blog(url)
     path = format_weixin_filename(page['title'] + '.md')
-    print(page['content'], file=open('knew/' + path, 'w', encoding='utf-8'))
+    print(page['content'], file=open('zhen/' + path, 'w', encoding='utf-8'))
 
 
 
@@ -312,10 +424,10 @@ def test_knewleagewealth():
 
 
 
-def test_follow_iwgc_redirect():
+def test_follow_redirect():
   url = 'http://www.iwgc.cn/link/2655245'
   url = 'http://www.vccoo.com/v/f5b94c'
-  new_url = follow_iwgc_redirect(url)
+  new_url = follow_redirect(url)
   log(new_url)
   # => http://mp.weixin.qq.com/s?__biz=MzA4MzA3MzExNg==&mid=2652691331&idx=1&sn=8c0756fa629940953ac8e353d662bf8d&chksm=84147ab0b363f3a6460df0e4581c0853f31b68a0bb0d729a52374af38414cd44fb9596e56205&scene=0#rd
 
@@ -363,3 +475,140 @@ def test_fetch():
 
 
 
+
+
+
+def test_extract_from_feedly():
+  s = '''
+
+
+  '''
+  for m in re.findall(re.compile(r'http://www.iwgc.cn/link/\d+" title="Open in a tab"'), s):
+    log(m)
+
+
+  lujun = '''
+    http://www.iwgc.cn/link/2670235
+    http://www.iwgc.cn/link/2670236
+    http://www.iwgc.cn/link/2655245
+    http://www.iwgc.cn/link/2655246
+    http://www.iwgc.cn/link/2646045
+    http://www.iwgc.cn/link/2635896
+    http://www.iwgc.cn/link/2635897
+    http://www.iwgc.cn/link/2619649
+    http://www.iwgc.cn/link/2619650
+    http://www.iwgc.cn/link/2604910
+    http://www.iwgc.cn/link/2589555
+    http://www.iwgc.cn/link/2574680
+    http://www.iwgc.cn/link/2574681
+    http://www.iwgc.cn/link/2574682
+    http://www.iwgc.cn/link/2574683
+    http://www.iwgc.cn/link/2560099
+    http://www.iwgc.cn/link/2560100
+    http://www.iwgc.cn/link/2551255
+    http://www.iwgc.cn/link/2541138
+    http://www.iwgc.cn/link/2525326
+    http://www.iwgc.cn/link/2510911
+    http://www.iwgc.cn/link/2510912
+    http://www.iwgc.cn/link/2496765
+    http://www.iwgc.cn/link/2484168
+    http://www.iwgc.cn/link/2484169
+    http://www.iwgc.cn/link/2479068
+    http://www.iwgc.cn/link/2464949
+    http://www.iwgc.cn/link/2452090
+    http://www.iwgc.cn/link/2432996
+    http://www.iwgc.cn/link/2432997
+    http://www.iwgc.cn/link/2405024
+    http://www.iwgc.cn/link/2405026
+    http://www.iwgc.cn/link/2390655
+    http://www.iwgc.cn/link/2390656
+    http://www.iwgc.cn/link/2375201
+    http://www.iwgc.cn/link/2375202
+    http://www.iwgc.cn/link/2365437
+    http://www.iwgc.cn/link/2358060
+    http://www.iwgc.cn/link/2358061
+    http://www.iwgc.cn/link/2342950
+    http://www.iwgc.cn/link/2328750
+    http://www.iwgc.cn/link/2314370
+    http://www.iwgc.cn/link/2314371
+    http://www.iwgc.cn/link/2300987
+    http://www.iwgc.cn/link/2286410
+    http://www.iwgc.cn/link/2282945
+    http://www.iwgc.cn/link/2267813
+    http://www.iwgc.cn/link/2253591
+    http://www.iwgc.cn/link/2239724
+    http://www.iwgc.cn/link/2225524
+    http://www.iwgc.cn/link/2211918
+    http://www.iwgc.cn/link/2197250
+    http://www.iwgc.cn/link/2186136
+    http://www.iwgc.cn/link/2178762
+    http://www.iwgc.cn/link/2163341
+    http://www.iwgc.cn/link/2146572
+    http://www.iwgc.cn/link/2133531
+    http://www.iwgc.cn/link/2133532
+    http://www.iwgc.cn/link/2104149
+    http://www.iwgc.cn/link/2088232
+    http://www.iwgc.cn/link/2085611
+    http://www.iwgc.cn/link/2085612
+    http://www.iwgc.cn/link/2060372
+    http://www.iwgc.cn/link/2053396
+    http://www.iwgc.cn/link/2053397
+    http://www.iwgc.cn/link/2032724
+    http://www.iwgc.cn/link/2019454
+    http://www.iwgc.cn/link/1975169
+    http://www.iwgc.cn/link/1961362
+    http://www.iwgc.cn/link/1948955
+    http://www.iwgc.cn/link/1935489
+    http://www.iwgc.cn/link/1932479
+    http://www.iwgc.cn/link/1906131
+    http://www.iwgc.cn/link/1896068
+    http://www.iwgc.cn/link/1878990
+    http://www.iwgc.cn/link/1878991
+    http://www.iwgc.cn/link/1865523
+    http://www.iwgc.cn/link/1855315
+    http://www.iwgc.cn/link/1825157
+    http://www.iwgc.cn/link/1813284
+    http://www.iwgc.cn/link/1799826
+    http://www.iwgc.cn/link/1797474
+    http://www.iwgc.cn/link/1782863
+    http://www.iwgc.cn/link/1782864
+    http://www.iwgc.cn/link/1761694
+    http://www.iwgc.cn/link/1755062
+    http://www.iwgc.cn/link/1734276
+    http://www.iwgc.cn/link/1729074
+    http://www.iwgc.cn/link/1716920
+    http://www.iwgc.cn/link/1697153
+    http://www.iwgc.cn/link/1697155
+    http://www.iwgc.cn/link/1684030
+    http://www.iwgc.cn/link/1664936
+    http://www.iwgc.cn/link/1664939
+    http://www.iwgc.cn/link/1653583
+    http://www.iwgc.cn/link/1653584
+    http://www.iwgc.cn/link/1653585
+    http://www.iwgc.cn/link/1641499
+    http://www.iwgc.cn/link/1636158
+    http://www.iwgc.cn/link/1612030
+    http://www.iwgc.cn/link/1605039
+    http://www.iwgc.cn/link/1589824
+    http://www.iwgc.cn/link/1573083
+    http://www.iwgc.cn/link/1573087
+    http://www.iwgc.cn/link/1560570
+    http://www.iwgc.cn/link/1560571
+    http://www.iwgc.cn/link/1549146
+    http://www.iwgc.cn/link/1549147
+    http://www.iwgc.cn/link/1537436
+    http://www.iwgc.cn/link/1537437
+    http://www.iwgc.cn/link/1526917
+    http://www.iwgc.cn/link/1526918
+    http://www.iwgc.cn/link/1526919
+    http://www.iwgc.cn/link/1511471
+    http://www.iwgc.cn/link/1489468
+    http://www.iwgc.cn/link/1489469
+    http://www.iwgc.cn/link/1477584
+    http://www.iwgc.cn/link/1477585
+    http://www.iwgc.cn/link/1477586
+    http://www.iwgc.cn/link/1465988
+    http://www.iwgc.cn/link/1465989
+    http://www.iwgc.cn/link/1465990
+    http://www.iwgc.cn/link/1445356
+  '''

@@ -411,10 +411,10 @@ def test_knowledgewealth():
   '''
   zhenjiaolujun = 'http://mp.weixin.qq.com/s?__biz=MzA4MzA3MzExNg==&mid=2652690646&idx=1&sn=b78f2800758b1c68d70aec0beace3509#rd'
 
-  for url in datalines(zhenjiaolujun):
+  for url in datalines(s_finish):
     page = fetch_weixin_blog(url)
     path = format_weixin_filename(page['title'] + '.md')
-    print(page['content'], file=open('zhen/' + path, 'w', encoding='utf-8'))
+    print(page['content'], file=open('zhao/' + path, 'w', encoding='utf-8'))
 
 
 

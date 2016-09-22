@@ -188,7 +188,7 @@ class Task(Model):
       t = Task.is_watching(url)
       if t:
         existed_count += 1
-        log('already watching {} {}'.format(t.title, existed_count))
+        # log('already watching {} {}'.format(t.title, existed_count))
         if stop_at_existed and stop_at_existed <= existed_count:
           break
       else:
@@ -243,7 +243,7 @@ class Task(Model):
       t = Task.is_watching(url)
       if t:
         existed_count += 1
-        log('already watching {} {}'.format(t.title, existed_count))
+        # log('already watching {} {}'.format(t.title, existed_count))
         if stop_at_existed and stop_at_existed <= existed_count:
           break
       else:
@@ -605,6 +605,7 @@ def test_another_watch():
 
 def test_hot_answer():
   url = 'http://www.zhihu.com/question/39288165/answer/110207560'
+  url = 'https://www.zhihu.com/question/50763374/answer/122822226'
   task = Task.add(url=url)
   task.watch()
 
@@ -707,7 +708,8 @@ def test_add_task_by_author():
   Metaphox
   calon
 
-
+  ma-qian-zu
+  skiptomylou
   # talich
   # commando
   # fu-er
@@ -724,7 +726,7 @@ def test_add_task_by_author():
     #   log('<{}> {}'.format(count, url))
     #   Task.add(url=url)
     log(author_id)
-    Task.add_by_author(author_id, limit=3000, min_voteup=50,
+    Task.add_by_author(author_id, limit=2000, min_voteup=10,
                        stop_at_existed=5,
                        force_start=False)
 
@@ -749,6 +751,8 @@ def test_add_articles__2():
     Mrfox
     laodaoxx
     startup
+    intelligentunit
+    musicgossip
   '''
   for column_id in datalines(column_ids):
     Task.add_articles(column_id=column_id, limit=3000, min_voteup=1,
@@ -772,8 +776,10 @@ def test_banned_modes():
 
 def test_query_task():
   s = 'https://www.zhihu.com/question/48737226/answer/113036453'
+  s = 'https://www.zhihu.com/question/47220155/answer/118154455'
   t = Task.select().where(Task.url == s)
   t = t.get()
+  log(t.title)
   log(t.id)
 
 def test_explore():
@@ -801,7 +807,9 @@ def test_explore_watching_results_diff():
 # 为什么快速浏览一段内容的时候，很容易看到自己感兴趣的部分？ - 采铜的回答 : 3  task_id 742
 # 为什么拿广州恒大淘宝队与中国国家男子足球队做对比？ - 玄不救非氪不改命的回答 : 3  task_id 492
 # 如何看待里约奥运陈欣怡药检呈阳性反应？ - 玄不救非氪不改命的回答 : 3  task_id 2393
-为什么厌恶「国粉」的知乎用户远多于厌恶「毛粉」的？ - chenqin的 : 3  task_id 3313
+# 为什么厌恶「国粉」的知乎用户远多于厌恶「毛粉」的？ - chenqin的 : 3  task_id 3313
+2016 年中国的经济状况很差吗？真实状况是怎样的？ - 垒起善城堡的积木 : 3 task_id 2387
+
   '''
 
   for line in datalines(s):
@@ -818,7 +826,7 @@ def test_explore_watching_results_diff():
     #   log(meta)
 
 
-    c0 = contents[-2].split('\n')
+    c0 = contents[0].split('\n')
     c_1 = contents[-1].split('\n')
     # diff = difflib.ndiff(c0, c_1)
     # for line in diff:

@@ -611,6 +611,8 @@ def test_hot_answer():
 
 
 
+
+
 def test_watch_all():
   Task.multiple_watch(sleep_seconds=10, limit=4)
 
@@ -642,13 +644,14 @@ def test_to_local_file__2():
 
   query = (Page.select(Page, Task)
            .join(Task)
-           .where((Task.page_type == 'zhihu_article'))
+           .where((Task.page_type == 'zhihu_article') & (Page.title.contains('最前沿')))
            .group_by(Page.task)
            .having(Page.watch_date == fn.MAX(Page.watch_date))
-           .limit(8800))
+           .limit(9999))
   for page in query:
     log(page.title)
-    page.to_local_file(folder='zhuanlan', fetch_images=False)
+    log(page.task)
+    page.to_local_file(folder='zhi3', fetch_images=False)
 
 
 
@@ -710,6 +713,12 @@ def test_add_task_by_author():
 
   ma-qian-zu
   skiptomylou
+
+  sinsirius
+
+
+
+
   # talich
   # commando
   # fu-er
@@ -726,7 +735,7 @@ def test_add_task_by_author():
     #   log('<{}> {}'.format(count, url))
     #   Task.add(url=url)
     log(author_id)
-    Task.add_by_author(author_id, limit=2000, min_voteup=10,
+    Task.add_by_author(author_id, limit=2000, min_voteup=1,
                        stop_at_existed=5,
                        force_start=False)
 
@@ -752,7 +761,9 @@ def test_add_articles__2():
     laodaoxx
     startup
     intelligentunit
+
     musicgossip
+    baieji666
   '''
   for column_id in datalines(column_ids):
     Task.add_articles(column_id=column_id, limit=3000, min_voteup=1,

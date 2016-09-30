@@ -763,6 +763,8 @@ def zhihu_fix_markdown(text):
   # drop extra space in link syntax
   # eg. [ wikipage ](http://.....) => [wikipage](http://.....)
   # eg2 [http://www.  businessanalysis.cn/por  tal.php ](http://www.businessanalysis.cn/portal.php)
+  # TODO fix vedio link in markdown
+  # in https://zhuanlan.zhihu.com/p/22604627
   pattern_hyperlink = re.compile(r'\[(.+?)\](?=\(.+?\))')
 
   def hyperlink_replacer(mat):

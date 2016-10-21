@@ -27,6 +27,6 @@
 
 # from zhihu import ZhihuClient
 # client = ZhihuClient()
-# # client.login_in_terminal()
-# client.create_cookies('cookies.json')
+# # client.login_in_terminal(need_captcha=True)
+# client.create_cookies('cookies.json', need_captcha=True)
 

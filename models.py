@@ -625,6 +625,7 @@ def test_report():
   Task.report()
 
 
+
 def test_to_local_file():
   # page = Page.select().order_by(-Page.id).get()
 
@@ -644,24 +645,6 @@ def test_to_local_file():
     # page.to_local_file(folder='chen', fetch_images=False)
 # test_to_local_file()
 
-def test_to_local_file__2():
-
-  query = (Page.select(Page, Task)
-           .join(Task)
-           .where((Task.page_type == 'zhihu_article') & (Page.title.contains('最前沿')))
-           .group_by(Page.task)
-           .having(Page.watch_date == fn.MAX(Page.watch_date))
-           .limit(9999))
-  for page in query:
-    log(page.title)
-    log(page.task)
-    page.to_local_file(folder='zhi3', fetch_images=False)
-
-
-
-
-
-
 def test_tools():
   import pylon
   pylon.generate_figlet('task', fonts=['space_op'])
@@ -669,119 +652,10 @@ def test_tools():
   pylon.generate_figlet('test', fonts=['space_op'])
 
 
-
-
-def test_fetch_topic():
-  topic_id = 19551424 # 政治
-  # topic_id = 19556950 # 物理学
-  # topic_id = 19612637 # 科学
-  # topic_id = 19569034 # philosophy_of_science 科学哲学
-  # topic_id = 19555355 # 房地产
-  # topic_id = 19641972 # 货币政策
-  # topic_id = 19565985 # 中国经济
-  # topic_id = 19644231 # 古建筑
-  # topic_id = 19582176 # 建筑设计
-  # topic_id = 19573393 # 建筑史
-  topic_id = 19568972 # 建筑学
-  # topic_id = 19574449 # 冰与火之歌（小说）
-  # topic_id = 19551864 # 古典音乐
-  Task.add_by_topic_best_answers(topic_id, limit=3000, min_voteup=600,
-                                 stop_at_existed=100, force_start=False)
-# test_fetch_topic()
-
-
-
-def test_add_task_by_author():
-
-  ids = '''
-  # shi-yidian-ban-98
-  # xbjf
-  # zhao-hao-yang-1991
-  # mandelbrot-11
-  # chenqin
-  # leng-zhe
-  # spto
-  # xiepanda
-  # cogito
-  # xu-zhe-42
-  # huo-zhen-bu-lu-zi-lao-ye
-
-
-  # cai-tong
-  # shu-sheng-4-25
-  # BlackCloak
-  # ma-bo-yong
-  # hutianyi
-  # Metaphox
-  # calon
-
-  # ma-qian-zu
-  # skiptomylou
-
-  # sinsirius
-
-
-  shinianhanshuang
-
-
-
-  # talich
-  # commando
-  # fu-er
-  # tassandar
-  # zhou-xiao-nong
-  # yinshoufu
-  # tangsyau
-  # lianghai
-  '''
-  for author_id in datalines(ids):
-    # for answer in yield_author_answers(id, limit=3000, min_voteup=100):
-    #   url = zhihu_answer_url(answer)
-    #   count += 1
-    #   log('<{}> {}'.format(count, url))
-    #   Task.add(url=url)
-    log(author_id)
-    Task.add_by_author(author_id, limit=2000, min_voteup=1,
-                       stop_at_existed=5,
-                       force_start=False)
-
-# test_add_task_by_author()
-
-
-
-def test_add_articles():
-  author_id = 'chenqin'
-  author_id = 'chenqin'
-  Task.add_articles(author_id=author_id, limit=3000, min_voteup=10,
-                    stop_at_existed=30)
-
-def test_add_articles__2():
-  column_ids = '''
-    wontfallinyourlap
-    necromanov
-    smartdesigner
-    plant
-    jingjixue
-    # 天淡银河垂地
-    Mrfox
-    laodaoxx
-    startup
-    intelligentunit
-
-    musicgossip
-  '''
-  for column_id in datalines(column_ids):
-    Task.add_articles(column_id=column_id, limit=3000, min_voteup=1,
-                      stop_at_existed=5)
-
-
-
 def test_load_json():
   import json
 
   print(json.loads(open('mockup_topic_answers.json', encoding='utf-8').read()))
-
-
 
 
 def test_banned_modes():
@@ -799,6 +673,11 @@ def test_query_task():
   t = t.get()
   log(t.title)
   log(t.id)
+
+
+
+
+
 
 def test_explore():
   # Tweet.select(fn.COUNT(Tweet.id)).where(Tweet.user == User.id)

@@ -398,6 +398,11 @@ def blank_zhihu_answer():
           'url': '',
           }
 
+
+
+
+
+
 def parse_answer(answer):
   if isinstance(answer, str):
     if 'api.zhihu.com' in answer: # https://api.zhihu.com/answers/71917800
@@ -568,7 +573,14 @@ def parse_article(article):
 def fetch_zhihu_article(article):
   article = parse_article(article)
 
-  author = article.author
+  try:
+    author = article.author
+  except requests.exceptions.RetryError as e:
+    # 文章已被删除
+    blank_article = blank_zhihu_answer()
+    blank_article['title'] = '(本文章已删除)'
+    raise ZhihuParseError(msg='本文章已删除', value=blank_article)
+
   content = article.content
   column = article.column.title if article.column else '无专栏'
 

@@ -297,11 +297,18 @@ class Task(Model):
         log_error(e)
         raise
     elif self.page_type == 'zhihu_article':
-      zhihu_article = fetch_zhihu_article(self.url)
-      page = self.remember(zhihu_article)
-      return page
+      try:
+        zhihu_article = fetch_zhihu_article(self.url)
+        page = self.remember(zhihu_article)
+        return page
+      except ZhihuParseError as e:
+        blank_article = e.value
+        log_error('!! 文章已删除 {} {}'.format(self.url, blank_article['title']))
+        page = self.remember(blank_article)
+        return page
     else:
       raise
+
 
   @classmethod
   def multiple_watch(cls, sleep_seconds=10, limit=10):

@@ -5,6 +5,7 @@
 # import os
 
 from pylon import datalines
+from pylon import grep_before
 from pylon import create_logger
 
 log = create_logger(__file__)
@@ -40,14 +41,14 @@ def test_to_local_file():
   #   print(p)
   query = (Page.select(Page, Task)
            .join(Task)
-           .where(Page.author == 'chenqin')  # .where(Page.topic.contains('建筑'))
+           .where(Page.author == '十年寒霜')  # .where(Page.topic.contains('建筑'))
            .group_by(Page.task)
            .having(Page.watch_date == fn.MAX(Page.watch_date))
            .limit(8800))
   for page in query:
     log(page.title)
     # log(page.metadata)
-    # page.to_local_file(folder='chen', fetch_images=False)
+    page.to_local_file(folder='test', fetch_images=False)
 # test_to_local_file()
 
 def test_to_local_file__2():
@@ -105,7 +106,6 @@ def test_add_task_by_author():
   xu-zhe-42
   huo-zhen-bu-lu-zi-lao-ye
 
-
   cai-tong
   shu-sheng-4-25
   BlackCloak
@@ -117,11 +117,10 @@ def test_add_task_by_author():
   ma-qian-zu
   skiptomylou
 
-  sinsirius
-
-
-  shinianhanshuang
-
+  sinsirius 费寒冬
+  shinianhanshuang 十年寒霜
+  youhuiwu 程步一
+  xie-wei-54-24
 
 
   # talich
@@ -139,6 +138,8 @@ def test_add_task_by_author():
     #   count += 1
     #   log('<{}> {}'.format(count, url))
     #   Task.add(url=url)
+    if ' ' in author_id:
+      author_id = author_id | grep_before(' ')
     log(author_id)
     Task.add_by_author(author_id, limit=2000, min_voteup=1,
                        stop_at_existed=5,
@@ -150,26 +151,32 @@ def test_add_task_by_author():
 
 def test_add_articles():
   author_id = 'chenqin'
-  author_id = 'chenqin'
-  Task.add_articles(author_id=author_id, limit=3000, min_voteup=10,
-                    stop_at_existed=30)
+  author_id = 'du-ke'
+  author_id = 'flood-sung'
+  author_id = 'hmonkey'
+  Task.add_articles(author_id=author_id, limit=3000, min_voteup=1,
+                    stop_at_existed=300)
+
+
 
 def test_add_articles_by_zhuanlan_title():
   column_ids = '''
-    # wontfallinyourlap
-    # necromanov
-    # smartdesigner
-    # plant
-    # jingjixue
-    # # 天淡银河垂地
-    # Mrfox
-    # laodaoxx
-    # startup
-    # intelligentunit
-    # musicgossip
+    wontfallinyourlap
+    necromanov
+    smartdesigner
+    plant
+    jingjixue
+    # 天淡银河垂地
+    Mrfox
+    laodaoxx
+    startup
+    intelligentunit
+    musicgossip
 
 
     pianofanie
+    c-sharp-minor
+    # uqer2015
   '''
   for column_id in datalines(column_ids):
     Task.add_articles(column_id=column_id, limit=3000, min_voteup=1,
@@ -177,3 +184,19 @@ def test_add_articles_by_zhuanlan_title():
 
 
 
+
+
+def test_fetch_history():
+  url = 'https://www.zhihu.com/question/40103788/answer/124499334'
+  # query = (Page.select(Page, Task)
+  #          .join(Task)
+  #          .where((Task.page_type == 'zhihu_article') & (Page.title.contains('最前沿')))
+  #          .group_by(Page.task)
+  #          .having(Page.watch_date == fn.MAX(Page.watch_date))
+  #          .limit(9999))
+  t = Task.select().where(Task.url == url).get()
+  for page in t.pages:
+
+    log(page.version)
+    log(page.title)
+    log(page.content)

@@ -23,7 +23,11 @@ import sys
 if len(sys.argv) == 2 and sys.argv[1].isdigit:
   # cmd> python loop_watch.py 100
   limit = int(sys.argv[1])
-  Task.multiple_watch(sleep_seconds=11, limit=limit)
+  try:
+    Task.multiple_watch(sleep_seconds=11, limit=limit)
+  except Exception as e:
+    log_error(e)
+    raise e
   Task.report()
 
 else:
@@ -51,6 +55,9 @@ def test_to_local_file():
     page.to_local_file(folder='test', fetch_images=False)
 # test_to_local_file()
 
+
+
+
 def test_to_local_file__2():
 
   query = (Page.select(Page, Task)
@@ -62,10 +69,22 @@ def test_to_local_file__2():
   for page in query:
     log(page.title)
     log(page.task)
-    page.to_local_file(folder='zhi3', fetch_images=False)
+    page.to_local_file(folder='deep', fetch_images=False)
 
 
+def test_to_local_file_3():
 
+  query = (Page.select(Page, Task)
+           .join(Task)
+           .where(Page.topic.contains('矩阵'))
+           .group_by(Page.task)
+           .having(Page.watch_date == fn.MAX(Page.watch_date))
+           .limit(8800))
+  for page in query:
+    log(page.title)
+    # log(page.metadata)
+    page.to_local_file(folder='deep', fetch_images=False)
+# test_to_local_file()
 
 
 
@@ -82,10 +101,12 @@ def test_fetch_topic():
   # topic_id = 19644231 # 古建筑
   # topic_id = 19582176 # 建筑设计
   # topic_id = 19573393 # 建筑史
-  topic_id = 19568972 # 建筑学
+  # topic_id = 19568972 # 建筑学
   # topic_id = 19574449 # 冰与火之歌（小说）
   # topic_id = 19551864 # 古典音乐
-  Task.add_by_topic_best_answers(topic_id, limit=3000, min_voteup=600,
+  topic_id = 19577698 # 线性代数
+  topic_id = 19650614 # 矩阵
+  Task.add_by_topic_best_answers(topic_id, limit=3000, min_voteup=50,
                                  stop_at_existed=100, force_start=False)
 # test_fetch_topic()
 
@@ -176,6 +197,8 @@ def test_add_articles_by_zhuanlan_title():
 
     pianofanie
     c-sharp-minor
+    xiaoleimlnote
+    hsmyy
     # uqer2015
   '''
   for column_id in datalines(column_ids):
@@ -183,6 +206,11 @@ def test_add_articles_by_zhuanlan_title():
                       stop_at_existed=5)
 
 
+def test_add_articles_by_author():
+  # TODO 机构帐号不能识别
+  Task.add_articles(author_id='di-ping-xian-ji-qi-ren-ji-shu/posts',
+                    limit=3000, min_voteup=1,
+                    stop_at_existed=40)
 
 
 
@@ -200,3 +228,26 @@ def test_fetch_history():
     log(page.version)
     log(page.title)
     log(page.content)
+
+
+def test_add_new_task():
+
+  url = 'https://www.zhihu.com/question/51936651/answer/130915660'
+  # url = 'https://zhuanlan.zhihu.com/p/23149710'
+  # url = 'http://www.zhihu.com/question/51331837/answer/130295341'
+
+  task = Task.add(url=url)
+  print(task)
+
+
+def test_save_zhuanlan():
+  query = (Page.select(Page, Task)
+           .join(Task)
+           .where((Task.page_type == 'zhihu_article') & (Page.title.contains('无痛的机器学习')))
+           .group_by(Page.task)
+           .having(Page.watch_date == fn.MAX(Page.watch_date))
+           .limit(9999))
+  for page in query:
+    log(page.title)
+    log(page.task)
+    page.to_local_file(folder='deep', fetch_images=False)

@@ -5,11 +5,12 @@
 
 # client = ZhihuClient()
 
-# # name = 'p....1@g'
-# # pw = 'p...'
-# name = input('name:')
-# pw = input('pw:')
+# name = 'p....1@g'
+# pw = 'p...'
+# # name = input('name:')
+# # pw = input('pw:')
 # try:
+#     # client.login(name, pw)
 #     client.login(name, pw)
 # except NeedCaptchaException:
 #     # 保存验证码并提示输入，重新登录
@@ -21,6 +22,25 @@
 
 # print(client)
 # client.save_token('token.pkl')
+
+
+
+
+
+
+# oauth in terminal
+import os
+from zhihu_oauth import ZhihuClient
+TOKEN_FILE = 'token.pkl'
+client = ZhihuClient()
+if os.path.isfile(TOKEN_FILE):
+    client.load_token(TOKEN_FILE)
+else:
+    client.login_in_terminal()
+    client.save_token(TOKEN_FILE)
+
+
+
 
 
 # cookie

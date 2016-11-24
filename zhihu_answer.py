@@ -942,6 +942,17 @@ def yield_author_articles(author_id, limit=100, min_voteup=20):
     if count >= limit:
       break
 
+def test_yield_org_articles():
+  # author_id = 'di-ping-xian-ji-qi-ren-ji-shu'
+  url = 'https://www.zhihu.com/org/di-ping-xian-ji-qi-ren-ji-shu'
+  author = client.from_url(url)
+  print(author)
+  print(author.name)
+  ats = list(author.articles)
+  print(ats)
+
+
+
 def yield_column_articles(column_id, limit=100, min_voteup=20):
   column = client.column(column_id)
   count = 0

@@ -1,3 +1,6 @@
+# -*- coding: utf-8 -*-
+
+
 # oauth
 
 # from zhihu_oauth import ZhihuClient
@@ -5,10 +8,10 @@
 
 # client = ZhihuClient()
 
-# name = 'p....1@g'
-# pw = 'p...'
-# # name = input('name:')
-# # pw = input('pw:')
+# # name = 'p....1@g'
+# # pw = 'p...'
+# name = input('name:')
+# pw = input('pw:')
 # try:
 #     # client.login(name, pw)
 #     client.login(name, pw)
@@ -27,17 +30,15 @@
 
 
 
-
-# oauth in terminal
-import os
-from zhihu_oauth import ZhihuClient
-TOKEN_FILE = 'token.pkl'
-client = ZhihuClient()
-if os.path.isfile(TOKEN_FILE):
-    client.load_token(TOKEN_FILE)
-else:
-    client.login_in_terminal()
-    client.save_token(TOKEN_FILE)
+# import os
+# from zhihu_oauth import ZhihuClient
+# TOKEN_FILE = 'token.pkl'
+# client = ZhihuClient()
+# if os.path.isfile(TOKEN_FILE):
+#     client.load_token(TOKEN_FILE)
+# else:
+#     client.login_in_terminal(use_getpass=False)
+#     client.save_token(TOKEN_FILE)
 
 
 
@@ -47,6 +48,6 @@ else:
 
 # from zhihu import ZhihuClient
 # client = ZhihuClient()
-# # client.login_in_terminal(need_captcha=True)
-# client.create_cookies('cookies.json', need_captcha=True)
+# # client.login_in_terminal(need_captcha=False)
+# client.create_cookies('cookies.json', need_captcha=False)
 

@@ -24,7 +24,7 @@ if len(sys.argv) == 2 and sys.argv[1].isdigit:
   # cmd> python loop_watch.py 100
   limit = int(sys.argv[1])
   try:
-    Task.multiple_watch(sleep_seconds=11, limit=limit)
+    Task.multiple_watch(sleep_seconds=3, limit=limit)
   except Exception as e:
     log_error(e)
     raise e
@@ -207,8 +207,8 @@ def test_add_articles_by_zhuanlan_title():
 
 
 def test_add_articles_by_author():
-  # TODO 机构帐号不能识别
-  Task.add_articles(author_id='di-ping-xian-ji-qi-ren-ji-shu/posts',
+  # 大牛讲堂 | 第一期：深度学习 之 Sequence Learning
+  Task.add_articles(author_id='di-ping-xian-ji-qi-ren-ji-shu',
                     limit=3000, min_voteup=1,
                     stop_at_existed=40)
 

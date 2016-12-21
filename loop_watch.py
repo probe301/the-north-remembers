@@ -45,14 +45,14 @@ def test_to_local_file():
   #   print(p)
   query = (Page.select(Page, Task)
            .join(Task)
-           .where(Page.author == '十年寒霜')  # .where(Page.topic.contains('建筑'))
+           .where(Page.author == '地平线机器人技术')  # .where(Page.topic.contains('建筑'))
            .group_by(Page.task)
            .having(Page.watch_date == fn.MAX(Page.watch_date))
            .limit(8800))
   for page in query:
     log(page.title)
     # log(page.metadata)
-    page.to_local_file(folder='test', fetch_images=False)
+    page.to_local_file(folder='deep3', fetch_images=False)
 # test_to_local_file()
 
 
@@ -62,14 +62,14 @@ def test_to_local_file__2():
 
   query = (Page.select(Page, Task)
            .join(Task)
-           .where((Task.page_type == 'zhihu_article') & (Page.title.contains('最前沿')))
+           .where((Task.page_type == 'zhihu_article') & (Page.title.contains('深度学习大讲堂')))
            .group_by(Page.task)
            .having(Page.watch_date == fn.MAX(Page.watch_date))
            .limit(9999))
   for page in query:
     log(page.title)
     log(page.task)
-    page.to_local_file(folder='deep', fetch_images=False)
+    page.to_local_file(folder='deep3', fetch_images=False)
 
 
 def test_to_local_file_3():
@@ -115,33 +115,35 @@ def test_fetch_topic():
 def test_add_task_by_author():
 
   ids = '''
-  shi-yidian-ban-98
-  xbjf
-  zhao-hao-yang-1991
-  mandelbrot-11
-  chenqin
-  leng-zhe
-  spto
-  xiepanda
-  cogito
-  xu-zhe-42
-  huo-zhen-bu-lu-zi-lao-ye
+  # shi-yidian-ban-98
+  # xbjf
+  # zhao-hao-yang-1991
+  # mandelbrot-11
+  # chenqin
+  # leng-zhe
+  # spto
+  # xiepanda
+  # cogito
+  # xu-zhe-42
+  # huo-zhen-bu-lu-zi-lao-ye
 
-  cai-tong
-  shu-sheng-4-25
-  BlackCloak
-  ma-bo-yong
-  hutianyi
-  Metaphox
-  calon
+  # cai-tong
+  # shu-sheng-4-25
+  # BlackCloak
+  # ma-bo-yong
+  # hutianyi
+  # Metaphox
+  # calon
 
-  ma-qian-zu
-  skiptomylou
+  # ma-qian-zu
+  # skiptomylou
 
-  sinsirius 费寒冬
-  shinianhanshuang 十年寒霜
-  youhuiwu 程步一
-  xie-wei-54-24
+  di-ping-xian-ji-qi-ren-ji-shu
+
+  # sinsirius 费寒冬
+  # shinianhanshuang 十年寒霜
+  # youhuiwu 程步一
+  # xie-wei-54-24
 
 
   # talich
@@ -163,9 +165,9 @@ def test_add_task_by_author():
       author_id = author_id | grep_before(' ')
     log(author_id)
     Task.add_by_author(author_id, limit=2000, min_voteup=1,
-                       stop_at_existed=5,
-                       force_start=False)
-
+                       stop_at_existed=5, force_start=False)
+    Task.add_articles(author_id, limit=3000, min_voteup=1,
+                      stop_at_existed=5, force_start=False)
 # test_add_task_by_author()
 
 
@@ -193,12 +195,18 @@ def test_add_articles_by_zhuanlan_title():
     startup
     intelligentunit
     musicgossip
-
+    wx-math
+    # 那些年那些有趣的数学
+    symmetry
+    # 在物质世界的角落
 
     pianofanie
     c-sharp-minor
     xiaoleimlnote
     hsmyy
+    dlclass
+    # 深度学习大讲堂
+
     # uqer2015
   '''
   for column_id in datalines(column_ids):

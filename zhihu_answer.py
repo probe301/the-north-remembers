@@ -12,7 +12,7 @@ import datetime
 
 from zhihu_oauth import ZhihuClient
 from zhihu_oauth.zhcls.utils import remove_invalid_char
-
+from zhihu_oauth.exception import GetDataErrorException
 from urllib.parse import unquote
 
 
@@ -296,7 +296,7 @@ def fetch_zhihu_answer(answer):
 
   try:
     author = answer.author
-  except requests.exceptions.RetryError as e:
+  except (requests.exceptions.RetryError, GetDataErrorException) as e:
     # 回答已被删除? 目前分不清怎么判断 回答or问题 被删
     blank_answer = blank_zhihu_answer()
     blank_answer['title'] = '(本回答已删除)' # + answer.question.title
@@ -575,7 +575,7 @@ def fetch_zhihu_article(article):
 
   try:
     author = article.author
-  except requests.exceptions.RetryError as e:
+  except (requests.exceptions.RetryError, GetDataErrorException) as e:
     # 文章已被删除
     blank_article = blank_zhihu_answer()
     blank_article['title'] = '(本文章已删除)'

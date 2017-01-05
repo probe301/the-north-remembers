@@ -49,5 +49,5 @@
 # from zhihu import ZhihuClient
 # client = ZhihuClient()
 # # client.login_in_terminal(need_captcha=False)
-# client.create_cookies('cookies.json', need_captcha=False)
+# client.create_cookies('cookies.json', need_captcha=True)
 

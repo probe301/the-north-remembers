@@ -107,10 +107,11 @@ def comment_list_id(url):
   # client.create_cookies('cookies.json')
   """
 
-  # headers = {
-  #   'User-agent': 'Mozilla/5.0',
-  # }
-  r = old_client._session.get(url)
+  headers = {
+    'User-agent': 'Mozilla/5.0',
+  }
+  # print(url)
+  r = old_client._session.get(url, headers=headers)
   aid = PyQuery(r.content).find('div.zm-item-answer').attr('data-aid')
   if aid:
     return aid
@@ -305,13 +306,16 @@ def fetch_zhihu_answer(answer):
 
   try:
     question = answer.question
-    content = answer.content
     detail = question.detail
-    # log(question.title + ' ' + content[:50] + '...')
-  # except AttributeError:
-  #   msg = 'cannot parse answer.content: {} {}'
-  #   msg = msg.format(answer.question.title, zhihu_answer_url(answer))
-  #   raise ZhihuParseError(msg='不能解析回答', value=value)
+  except GetDataErrorException as e:
+    # zhihu_oauth.exception.GetDataErrorException:
+    # A error happened when get data: 问题不存在
+    blank_answer = blank_zhihu_answer()
+    blank_answer['title'] = '(问题已删除)' + answer.question.title
+    blank_answer['url'] = zhihu_answer_url(answer)
+    raise ZhihuParseError(msg='问题已删除', value=blank_answer)
+  try:
+    content = answer.content
   except requests.exceptions.RetryError as e:
     # 一般是问题已被删除
     blank_answer = blank_zhihu_answer()
@@ -346,10 +350,10 @@ def fetch_zhihu_answer(answer):
   edit_date = parse_json_date(answer.updated_time)
   fetch_date = time.strftime('%Y-%m-%d')
 
-  # conversations = get_valuable_conversations(answer.comments, limit=10)
 
   url = 'https://www.zhihu.com/question/{}/answer/{}'.format(question_id, answer_id)
-  conversations = get_valuable_conversations(get_old_fashion_comments(url), limit=10)
+  conversations = get_valuable_conversations(answer.comments, limit=10)
+  # conversations = get_valuable_conversations(get_old_fashion_comments(url), limit=10)
 
   metadata_tmpl = '''
     author: {{author.name}} {{motto}}

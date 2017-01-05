@@ -115,35 +115,35 @@ def test_fetch_topic():
 def test_add_task_by_author():
 
   ids = '''
-  # shi-yidian-ban-98
-  # xbjf
-  # zhao-hao-yang-1991
-  # mandelbrot-11
-  # chenqin
-  # leng-zhe
-  # spto
-  # xiepanda
-  # cogito
-  # xu-zhe-42
-  # huo-zhen-bu-lu-zi-lao-ye
+  shi-yidian-ban-98
+  xbjf
+  zhao-hao-yang-1991
+  mandelbrot-11
+  chenqin
+  leng-zhe
+  spto
+  xiepanda
+  cogito
+  xu-zhe-42
+  huo-zhen-bu-lu-zi-lao-ye
 
-  # cai-tong
-  # shu-sheng-4-25
-  # BlackCloak
-  # ma-bo-yong
-  # hutianyi
-  # Metaphox
-  # calon
+  cai-tong
+  shu-sheng-4-25
+  BlackCloak
+  ma-bo-yong
+  hutianyi
+  Metaphox
+  calon
 
-  # ma-qian-zu
-  # skiptomylou
+  ma-qian-zu
+  skiptomylou
 
   di-ping-xian-ji-qi-ren-ji-shu
 
-  # sinsirius 费寒冬
-  # shinianhanshuang 十年寒霜
-  # youhuiwu 程步一
-  # xie-wei-54-24
+  sinsirius 费寒冬
+  shinianhanshuang 十年寒霜
+  youhuiwu 程步一
+  xie-wei-54-24
 
 
   # talich
@@ -207,7 +207,7 @@ def test_add_articles_by_zhuanlan_title():
     dlclass
     # 深度学习大讲堂
 
-    # uqer2015
+    uqer2015
   '''
   for column_id in datalines(column_ids):
     Task.add_articles(column_id=column_id, limit=3000, min_voteup=1,
@@ -259,3 +259,14 @@ def test_save_zhuanlan():
     log(page.title)
     log(page.task)
     page.to_local_file(folder='deep', fetch_images=False)
+
+
+def test_get_comment_list_id():
+  # 似乎是改成 react 了, 然后有时无法获取 aid
+  # find('div.zm-item-answer').attr('data-aid')
+  from zhihu_answer import get_old_fashion_comments
+  url = 'https://www.zhihu.com/question/52284957/answer/130185745'
+  d = get_old_fashion_comments(url)
+  print(d)
+  for i in d:
+    print(i.content)

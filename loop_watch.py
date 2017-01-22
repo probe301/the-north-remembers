@@ -24,11 +24,11 @@ if len(sys.argv) == 2 and sys.argv[1].isdigit:
   # cmd> python loop_watch.py 100
   limit = int(sys.argv[1])
   try:
-    Task.multiple_watch(sleep_seconds=3, limit=limit)
+    Task.multiple_watch(sleep_seconds=5, limit=limit)
   except Exception as e:
     log_error(e)
     raise e
-  Task.report()
+  # Task.report()
 
 else:
   print('not enter loop watch', sys.argv)
@@ -149,11 +149,11 @@ def test_add_task_by_author():
   # talich
   # commando
   # fu-er
-  # tassandar
+  tassandar
   # zhou-xiao-nong
   # yinshoufu
   # tangsyau
-  # lianghai
+  lianghai
   '''
   for author_id in datalines(ids):
     # for answer in yield_author_answers(id, limit=3000, min_voteup=100):
@@ -208,6 +208,8 @@ def test_add_articles_by_zhuanlan_title():
     # 深度学习大讲堂
 
     uqer2015
+    c_29122335
+    # 混沌巡洋舰
   '''
   for column_id in datalines(column_ids):
     Task.add_articles(column_id=column_id, limit=3000, min_voteup=1,

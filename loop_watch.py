@@ -90,6 +90,7 @@ def test_to_local_file_3():
 
 
 
+
 def test_fetch_topic():
   topic_id = 19551424 # 政治
   # topic_id = 19556950 # 物理学
@@ -125,7 +126,8 @@ def test_add_task_by_author():
   xiepanda
   cogito
   xu-zhe-42
-  huo-zhen-bu-lu-zi-lao-ye
+
+  # huo-zhen-bu-lu-zi-lao-ye  用户没了 404 需要处理异常
 
   cai-tong
   shu-sheng-4-25
@@ -144,16 +146,16 @@ def test_add_task_by_author():
   shinianhanshuang 十年寒霜
   youhuiwu 程步一
   xie-wei-54-24
+  lianghai
 
 
   # talich
   # commando
   # fu-er
-  tassandar
+  # tassandar
   # zhou-xiao-nong
   # yinshoufu
   # tangsyau
-  lianghai
   '''
   for author_id in datalines(ids):
     # for answer in yield_author_answers(id, limit=3000, min_voteup=100):
@@ -208,8 +210,9 @@ def test_add_articles_by_zhuanlan_title():
     # 深度学习大讲堂
 
     uqer2015
-    c_29122335
+    # c_29122335
     # 混沌巡洋舰
+    learningtheory
   '''
   for column_id in datalines(column_ids):
     Task.add_articles(column_id=column_id, limit=3000, min_voteup=1,
@@ -220,7 +223,7 @@ def test_add_articles_by_author():
   # 大牛讲堂 | 第一期：深度学习 之 Sequence Learning
   Task.add_articles(author_id='di-ping-xian-ji-qi-ren-ji-shu',
                     limit=3000, min_voteup=1,
-                    stop_at_existed=40)
+                    stop_at_existed=5)
 
 
 
@@ -245,22 +248,22 @@ def test_add_new_task():
   url = 'https://www.zhihu.com/question/51936651/answer/130915660'
   # url = 'https://zhuanlan.zhihu.com/p/23149710'
   # url = 'http://www.zhihu.com/question/51331837/answer/130295341'
-
   task = Task.add(url=url)
   print(task)
+  print(task.title)
 
 
 def test_save_zhuanlan():
   query = (Page.select(Page, Task)
            .join(Task)
-           .where((Task.page_type == 'zhihu_article') & (Page.title.contains('无痛的机器学习')))
+           .where((Task.page_type == 'zhihu_article') & (Page.title.contains('战略航空军元帅的旗舰')))
            .group_by(Page.task)
            .having(Page.watch_date == fn.MAX(Page.watch_date))
            .limit(9999))
   for page in query:
     log(page.title)
     log(page.task)
-    page.to_local_file(folder='deep', fetch_images=False)
+    page.to_local_file(folder='test', fetch_images=False)
 
 
 def test_get_comment_list_id():

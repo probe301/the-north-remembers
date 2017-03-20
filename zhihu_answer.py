@@ -94,8 +94,8 @@ def zhihu_answer_title(answer):
 # 到 http://www.zhihu.com/node/AnswerCommentBoxV2?params= 取得评论对象
 # 比 API 方式快很多
 # 如果不登录获取 cookie, 则在返回结果中看不到具体的作者名字
-from zhihu import ZhihuClient as OldZhihuClient
-old_client = OldZhihuClient('cookies.json')
+# from zhihu import ZhihuClient as OldZhihuClient
+# old_client = OldZhihuClient('cookies.json')
 
 def comment_list_id(url):
   """返回 aid 用于拼接 url get 该回答的评论
@@ -173,6 +173,10 @@ def get_old_fashion_comments(answer_url):
   return comments
 
 
+class FakeAuthor:
+  def __init__(self):
+    self.name = '[匿名用户]'
+    self.headline = ''
 
 
 def get_valuable_conversations(comments, limit=10):
@@ -297,6 +301,9 @@ def fetch_zhihu_answer(answer):
 
   try:
     author = answer.author
+    if author is None:
+      # 如果匿名, 现在返回 None, 需要 fix 为一个 AuthorObject
+      author = FakeAuthor()
   except (requests.exceptions.RetryError, GetDataErrorException) as e:
     # 回答已被删除? 目前分不清怎么判断 回答or问题 被删
     blank_answer = blank_zhihu_answer()
@@ -423,8 +430,11 @@ def parse_answer(answer):
 
 def save_answer(answer, folder='test', overwrite=True):
   answer = parse_answer(answer)
-
-  title = answer.question.title + ' - ' + answer.author.name + '的回答'
+  author = answer.author
+  if author is None:
+    # 如果匿名, 现在返回 None, 需要 fix 为一个 AuthorObject
+    author = FakeAuthor()
+  title = answer.question.title + ' - ' + author.name + '的回答'
   save_path = folder + '/' + remove_invalid_char(title) + '.md'
   if not overwrite:
     if os.path.exists(save_path):
@@ -545,10 +555,10 @@ def zhihu_article_format(article):
     article = client.article(article)
   url = zhihu_article_url(article)
   title = article.title
-  author = article.author.name
+  author_name = article.author.name if article.author else FakeAuthor().name
   vote = article.voteup_count
   column = article.column.title if article.column else '无专栏'
-  return '<ZhihuArticle {title} ({column}) by {author} ({vote}赞)>\n{url}'.format(**locals())
+  return '<ZhihuArticle {title} ({column}) by {author_name} ({vote}赞)>\n{url}'.format(**locals())
 
 def zhihu_article_url(article):
   # https://zhuanlan.zhihu.com/p/22197924
@@ -558,9 +568,9 @@ def zhihu_article_url(article):
 
 def zhihu_article_title(article):
   title = article.title
-  author = article.author.name
+  author_name = article.author.name if article.author else FakeAuthor().name
   column = article.column.title if article.column else ''
-  return '{title} - {author}的专栏 {column}'.format(**locals()).strip()
+  return '{title} - {author_name}的专栏 {column}'.format(**locals()).strip()
 
 def parse_article(article):
   if isinstance(article, str):
@@ -1339,8 +1349,13 @@ def test_save_answer_drop_redirect_links():
 
 def test_save_anonymous():
   # 辜鸿铭的英语学习方法有效吗？为什么？
-  save_answer('http://www.zhihu.com/question/20087838/answer/25073924')
+  # save_answer('http://www.zhihu.com/question/20087838/answer/25073924')
   save_answer('http://www.zhihu.com/question/20087838/answer/25169641')
+  # url = 'https://www.zhihu.com/question/21082351/answer/126177114'
+  # url = 'https://www.zhihu.com/question/46343014/answer/101244285'
+  # save_answer(url)
+
+
 
 
 def test_save_should_trim_link_url_whitespace():
@@ -1383,7 +1398,9 @@ def test_yield_answers_by_author():
 
 
 
-def test_get_api_json(url='https://api.zhihu.com/answers/94150403'):
+def test_get_api_json():
+  url = 'https://api.zhihu.com/answers/94150403'
+  url = 'https://api.zhihu.com/answers/101244285'
   from pprint import pprint
   import json
   r = client.test_api('GET', url)

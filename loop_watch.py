@@ -24,7 +24,7 @@ if len(sys.argv) == 2 and sys.argv[1].isdigit:
   # cmd> python loop_watch.py 100
   limit = int(sys.argv[1])
   try:
-    Task.multiple_watch(sleep_seconds=5, limit=limit)
+    Task.multiple_watch(sleep_seconds=30, limit=limit)
   except Exception as e:
     log_error(e)
     raise e
@@ -184,6 +184,11 @@ def test_add_articles():
 
 
 
+def test_yield_colum():
+  Task.add_articles(column_id='wontfallinyourlap', limit=3000, min_voteup=1,
+                    stop_at_existed=5)
+
+
 def test_add_articles_by_zhuanlan_title():
   column_ids = '''
     wontfallinyourlap
@@ -213,9 +218,12 @@ def test_add_articles_by_zhuanlan_title():
     # c_29122335
     # 混沌巡洋舰
     learningtheory
+    c_78213311
+    # 彩虹尽头
   '''
   for column_id in datalines(column_ids):
-    Task.add_articles(column_id=column_id, limit=3000, min_voteup=1,
+    # 2017.04.18 现在 yield_articles 不能认出 voteup_count 了, 全是 0
+    Task.add_articles(column_id=column_id, limit=3000, min_voteup=0,
                       stop_at_existed=5)
 
 

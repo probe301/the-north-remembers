@@ -447,10 +447,10 @@ class Page(Model):
       return False
     if self.content != other.content:
       return False
-    if self.topic != other.topic:
-      return False
-    if self.question != other.question:
-      return False
+    # if self.topic != other.topic:
+    #   return False
+    # if self.question != other.question:
+    #   return False
     if self.author != other.author:
       return False
     return True
@@ -705,15 +705,70 @@ def test_explore():
 def test_explore_watching_results_diff():
 
   s = '''
-  美国是不是正在为瓦解中国做准备？ - 张俊麒的回答 : 16  task_id 46
-# 为什么很少看到患者砍莆田系医生的报道？ - 玄不救非氪不改命的回答 : 3  task_id 196
-# 为什么很难证伪马克思主义理论？ - 玄不救非氪不改命的回答 : 3  task_id 360
-# 为什么快速浏览一段内容的时候，很容易看到自己感兴趣的部分？ - 采铜的回答 : 3  task_id 742
-# 为什么拿广州恒大淘宝队与中国国家男子足球队做对比？ - 玄不救非氪不改命的回答 : 3  task_id 492
-# 如何看待里约奥运陈欣怡药检呈阳性反应？ - 玄不救非氪不改命的回答 : 3  task_id 2393
-# 为什么厌恶「国粉」的知乎用户远多于厌恶「毛粉」的？ - chenqin的 : 3  task_id 3313
-# 2016 年中国的经济状况很差吗？真实状况是怎样的？ - 垒起善城堡的积木 : 3 task_id 2387
-# 如何看待2016年7月人民币贷款增幅里9.8成为房贷？ - 匿名用户的回答 : 3 task_id 2386
+  # 美国是不是正在为瓦解中国做准备？ - 张俊麒的回答 : 16  task_id 46
+  # 为什么很少看到患者砍莆田系医生的报道？ - 玄不救非氪不改命的回答 : 3  task_id 196
+  # 为什么很难证伪马克思主义理论？ - 玄不救非氪不改命的回答 : 3  task_id 360
+  # 为什么快速浏览一段内容的时候，很容易看到自己感兴趣的部分？ - 采铜的回答 : 3  task_id 742
+  # 为什么拿广州恒大淘宝队与中国国家男子足球队做对比？ - 玄不救非氪不改命的回答 : 3  task_id 492
+  # 如何看待里约奥运陈欣怡药检呈阳性反应？ - 玄不救非氪不改命的回答 : 3  task_id 2393
+  # 为什么厌恶「国粉」的知乎用户远多于厌恶「毛粉」的？ - chenqin的 : 3  task_id 3313
+  # 2016 年中国的经济状况很差吗？真实状况是怎样的？ - 垒起善城堡的积木 : 3 task_id 2387
+  # 如何看待2016年7月人民币贷款增幅里9.8成为房贷？ - 匿名用户的回答 : 3 task_id 2386
+
+
+
+
+  # 怎样评价「游戏不汉化就差评」的行为？ - cOMMANDO的回答 : 9  task_id 4471
+  # 既然有报道说人类的基因片段只占DNA序列总长的不到10%，那么这几个问题怎么解答？ - Mandelbrot的回答 : 9  task_id 676
+  # 智商低的人真的不适合玩需要动脑子的游戏么？ - 匿名用户的回答 : 9  task_id 3461
+  # 暴雪，Valve，拳头，谁更厉害？ - cOMMANDO的回答 : 9  task_id 2597
+  # 有一个稀有的姓是一种怎样的体验？ - 冷哲的回答 : 9  task_id 1041
+  # 有什么影视作品是当时演员名气不大，现在看来是全明星阵容出演？ - 玄不救非氪不改命的回答 : 9  task_id 484
+  # 有关白龙尾岛的历史，哪些是有据可查的？ - 书生的回答 : 9  task_id 712
+  # 有哪些「智商税」？ - 谢熊猫君的回答 : 9  task_id 2406
+  # 有哪些令人拍案叫绝的临场反应？ - 大盗贼霍老爷的回答 : 9  task_id 4107
+  # 有哪些可怕的故事？ - 大盗贼霍老爷的回答 : 9  task_id 4137
+  # 有哪些长得比较逆天的动物？ - Mandelbrot的回答 : 9  task_id 648
+  # 有文化有多可怕？ - 寺主人的回答 : 9  task_id 5787
+  # 机器人教育这种不考试、以娱乐为主的教育对于中小学生及幼儿的意义何在？ - 冷哲的回答 : 9  task_id 1015
+  # 毛花三年打败蒋然后走三十年弯路的目的，都是为后三十年的改革开放走资、大国崛起做铺垫扫平道路的么？ - 书生的回答 : 9  task_id 99
+  # 水旱蝗汤中的汤指的到底是谁？ - 书生的回答 : 9  task_id 104
+  # 河南的地理位置那么好，为什么经济落后？ - 大盗贼霍老爷的回答 : 9  task_id 4105
+  # 為什麼蒋介石被称为运输大队长？求详? - 书生的回答 : 9  task_id 701
+  # 玩《狼人杀》时你有什么屡试不爽的秘技诀窍？ - 汪诩文的回答 : 9  task_id 3526
+
+  现在网络上很多人黑一些伟人，比如说周半期，黑鲁迅。他们是什么心态？ - 书生的回答 : 9  task_id 97
+  看美剧、英剧学英语有什么有效的方法吗？ - 采铜的回答 : 9  task_id 787
+  章鱼的智商到底有多高，为什么有人说它们的智商可以统治世界? - Mandelbrot的回答 : 9  task_id 588
+  类似 AlphaGo 的人工智能在游戏王、万智牌等卡牌游戏中胜率如何？ - 莫名的回答 : 9  task_id 3724
+  给 59 分强行不给过的老师是一种怎么样的存在？ - chenqin的回答 : 9  task_id 3317
+  网络上有哪些广为流传的「历史真相」其实是谣言？ - 马前卒的回答 : 9  task_id 5089
+  美国南北战争的真正原因是什么？ - talich的回答 : 9  task_id 2571
+  美国发动伊拉克战争的核心原因到底是什么？ - 冷哲的回答 : 9  task_id 1332
+  美国最高法院大法官 Scalia 的去世将会带来怎样的影响？ - talich的回答 : 9  task_id 4423
+  美国有人在开车在路上故意把川普的竞选宣传牌碾倒，如何评价这种因为不同政见而破坏对方财物的行为？ - talich的回答 : 9  task_id 4412
+  装逼成功是怎样一种体验？ - 大盗贼霍老爷的回答 : 9  task_id 4048
+  谁最应该被印在人民币上面？ - 蜂鸟的回答 : 9  task_id 2274
+  豆瓣的核心用户都有什么特点？ - 十一点半的回答 : 9  task_id 84
+  赌场有哪些看似不起眼，实则心机颇深的设计？ - 第一喵的回答 : 9  task_id 3158
+  赌场有哪些看似不起眼，实则心机颇深的设计？ - 肥肥猫的回答 : 9  task_id 3151
+  雷锋是个什么样的人，怎么客观评价雷锋？ - 书生的回答 : 9  task_id 96
+  鲁迅和秋瑾的关系好吗？ - 书生的回答 : 9  task_id 91
+  1927 年蒋介石为什么要清党？ - 冷哲的回答 : 8  task_id 1415
+  1949年以后的中国本土设计的建筑中，哪些能称得上是有思想的好建筑？ - Chilly的回答 : 8  task_id 3104
+  2015 年初，中国制造业形势有多严峻？ - 稻可道 稻子的稻的回答 : 8  task_id 2239
+  2016 年，中国房地产泡沫是否会在一两年内破灭，从而引发金融危机？ - Bee Mad的回答 : 8  task_id 2104
+  2016 年，中国房地产泡沫是否会在一两年内破灭，从而引发金融危机？ - 君临的回答 : 8  task_id 2205
+  2016 年，中国房地产泡沫是否会在一两年内破灭，从而引发金融危机？ - 小马的回答 : 8  task_id 5752
+  ISIS 是一个什么样的组织？它的资金是哪来的？ - 罗晓川的回答 : 8  task_id 39
+  Lambda 表达式有何用处？如何使用？ - 涛吴的回答 : 8  task_id 2008
+  Signal Weighting---基于因子IC的因子权重优化模型 - 陈颖的专栏 量化哥 : 8  task_id 6007
+  Smart Beta 投资方法 - 陈颖的专栏 量化哥 : 8  task_id 6017
+  ofo 获滴滴数千万美元C轮投资，然后呢？ - 曲凯的专栏 创投方法论 : 8  task_id 5656
+  《文明 6 》中的背景音乐都有什么来历？ - PenguinKing的回答 : 8  task_id 6250
+  《权力的游戏》你觉得最可怜的人是谁？ - 苏鲁的回答 : 8  task_id 4576
+  《蒋介石日记》和《毛泽东选集》差距有多大？ - 马前卒的回答 : 8  task_id 5355
+  「心灵鸡汤」式的文章错在哪？ - 赵皓阳的回答 : 8  task_id 584
   '''
 
   for line in datalines(s):
@@ -724,15 +779,14 @@ def test_explore_watching_results_diff():
     # log(task.pages)
     # log(task.last_page)
     contents = [fix_in_compare(p.content) for p in task.pages]
-    questions = [fix_in_compare(p.question) for p in task.pages]
+    # questions = [fix_in_compare(p.question) for p in task.pages]
     titles = [p.title for p in task.pages]
 
     # metas = [p.metadata for p in task.pages]
     # for meta in metas:
     #   log(meta)
-
-    compare_text_sequence(titles, label='titles')
-    compare_text_sequence(questions, label='questions')
+    # compare_text_sequence(titles, label='titles')
+    # compare_text_sequence(questions, label='questions')
     compare_text_sequence(contents, label='contents')
 
     log('\n\n\n')

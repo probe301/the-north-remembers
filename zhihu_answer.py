@@ -971,6 +971,7 @@ def yield_column_articles(column_id, limit=100, min_voteup=20):
   column = client.column(column_id)
   count = 0
   for article in column.articles:
+    # print(article.voteup_count)
     if article.voteup_count >= min_voteup:
       count += 1
       yield article
@@ -1457,6 +1458,13 @@ def test_yield_old_topic():
 
 
 
+def test_fetch_articles_by_column():
+  column_id = 'learningtheory'
+  column = client.column(column_id)
+  for a in column.articles:
+    log(a.title + ' - ' + a.column.title)
+
+
 
 def test_fetch_articles():
   # url = 'https://www.zhihu.com/people/chenqin'
@@ -1470,7 +1478,7 @@ def test_fetch_articles():
       log(a.title + ' - ' + a.column.title)
     else:
       log(a.title + ' - ' + 'None')
-    save_article(a)
+    # save_article(a)
 
   # log('------------')
   # for c in author.columns:

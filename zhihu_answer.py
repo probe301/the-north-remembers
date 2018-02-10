@@ -1,7 +1,7 @@
-
+# -*- coding:utf-8 -*-
 
 import time
-from pylon import datalines
+
 
 import os
 import shutil
@@ -9,7 +9,6 @@ import html2text
 # from pylon import enumrange
 # import time
 import datetime
-
 from zhihu_oauth import ZhihuClient
 from zhihu_oauth.zhcls.utils import remove_invalid_char
 from zhihu_oauth.exception import GetDataErrorException
@@ -23,16 +22,14 @@ import requests
 
 import urllib.request
 
-from pylon import create_logger
-log = create_logger(__file__)
-log_error = create_logger(__file__ + '.error')
+from sein import log
+from sein import SeinString as ss
 
 
 class ZhihuParseError(Exception):
   def __init__(self, msg=None, value=None):
     self.value = value
     self.msg = msg
-
 
 
 
@@ -459,6 +456,11 @@ def fill_full_content(data):
   url = data['url'] if isinstance(data, dict) else data.url
   if 'answer' in url:
     tmpl = '''
+---
+{{data.metadata}}
+
+---
+
 ### {{data.title}}
 
 话题: {{data.topic}}
@@ -467,8 +469,7 @@ def fill_full_content(data):
 
 {{data.question or '(无)'}}
 
-{{data.metadata}}
-
+#### 回答:
 
 {{data.content}}
 
@@ -487,9 +488,13 @@ from: [{{data.url}}]()
 '''
   elif 'zhuanlan' in url:
     tmpl = '''
+---
+{{data.metadata}}
+
+---
+
 ### {{data.title}}
 
-{{data.metadata}}
 
 
 {{data.content}}
@@ -1108,7 +1113,8 @@ def exec_save_from_authors():
   # url = 'https://www.zhihu.com/people/shu-sheng-4-25' # 书生
   # url = 'https://www.zhihu.com/people/cai-tong' # 采铜
   url = 'https://www.zhihu.com/people/chenqin'
-  smart_save(url, folder=None, limit=4000, min_voteup=500, overwrite=False)
+  url = 'https://www.zhihu.com/people/Huang-Lei-970106'
+  smart_save(url, folder=None, limit=4000, min_voteup=1, overwrite=False)
 # exec_save_from_authors()
 
 
@@ -1137,7 +1143,7 @@ def exec_save_answers():
     # https://www.zhihu.com/question/32210508/answer/57701501  蒋兆和《流民图》为何受到批判？
     # https://www.zhihu.com/question/27820755/answer/107267228 裸辞后怎样解释以获工作机会？
   '''
-  for url in datalines(urls):
+  for url in ss(urls).datalines():
     save_answer(url.split(' ')[0], folder='test')
 
 
@@ -1246,23 +1252,31 @@ def exec_massive_download():
   '''
 
   urls = '''
-    http://www.zhihu.com/people/sa-miu-47-86
-    http://www.zhihu.com/people/xubowen
+    # http://www.zhihu.com/people/sa-miu-47-86
+    # http://www.zhihu.com/people/xubowen
+    http://www.zhihu.com/people/Huang-Lei-970106
   '''
 
 
-  for url in datalines(urls):
-    save_from_author(url, folder='authors_explore', min_voteup=1000)
+  for url in ss(urls).datalines():
+    save_from_author(url, folder='authors_explore', min_voteup=30)
 
 
 
+def exec_download_zhuanlan():
+  url = 'https://zhuanlan.zhihu.com/chicken-life'
+  url = 'https://zhuanlan.zhihu.com/tonnie'
+
+  column = client.from_url(url)
+  for a in column.articles:
+    print(a)
+    save_article(a)
 
 
 
-
-
-
-
+def exec_save_sinple_answer():
+    url = 'https://www.zhihu.com/question/51936651/answer/130915660'
+    save_answer(url)
 
 
 
@@ -1321,6 +1335,10 @@ def test_save_answer_common():
 def test_save_answer_comments():
   # 如何看待许知远在青年领袖颁奖典礼上愤怒「砸场」？
   save_answer('https://www.zhihu.com/question/30595784/answer/49194862')
+
+
+def test_save_answer_comments():
+  save_answer('https://www.zhihu.com/question/30276520/answer/314587618')
 
 
 
@@ -1495,7 +1513,9 @@ def test_fetch_one_article():
   # article = client.article(19950456) # 警惕人工智能
   # article = client.article(19837940) # 二十四条逻辑谬误
   # article = client.article(20684541) # 俄罗斯 | 没人扎堆的博物馆
-  article = client.article(19964142) # 不同的调有什么区别？
+  # article = client.article(21586417) # 不同的调有什么区别？
+  article = client.article(29435406) # 浅析 Hinton 最近提出的 Capsule 计划
+  article = client.article(31809930) # 浅述：从 Minimax 到 AlphaZero，完全信息博弈之路（1）
   # article = client.article(20361844) # 对位法入门
 
   # article = client.article(19950456)

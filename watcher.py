@@ -56,7 +56,10 @@ class Task:
 
 
   抓取Page可以自定义的属性
+    pass
 
+
+  url - url处理干净作为 pk
 
   '''
 
@@ -68,6 +71,7 @@ class Task:
 
   @classmethod
   def create(cls, desc, option):
+    '''从 json description 创建 Task'''
     page_type = parse_type(desc['url'])
     if page_type == PageType.ZhihuColumnPage:
       return ZhihuColumnPageTask(desc, option)
@@ -237,8 +241,47 @@ class Task:
     return True
 
 
+  # def report(cls):
+  #   tasks = Task.select()
+  #   now = datetime.now()
+  #   tasks_todo = Task.select().where(Task.next_watch <= now)
+
+  #   log('Task total={} todo={}'.format(tasks.count(), tasks_todo.count()))
+  #   log('todo tasks:')
+  #   for task in tasks_todo.order_by(Task.next_watch):
+  #     log(task)
+  #   log('Task total={} todo={}'.format(tasks.count(), tasks_todo.count()))
+  #   return tasks_todo.count()
+
+  def remember(self):
+    # save to git
+    pass
 
 
+
+  # def to_local_file(self, folder, file_name=None,
+  #                   fetch_images=True, overwrite=False):
+  #   if not file_name:
+  #     file_name = self.title
+  #   if not os.path.exists(folder):
+  #     os.makedirs(folder)
+
+  #   save_path = folder + '/' + remove_invalid_char(file_name) + '.md'
+  #   if not overwrite:
+  #     if os.path.exists(save_path):
+  #       log('already exist {}'.format(save_path))
+  #       return save_path
+
+  #   rendered = self.full_content
+
+  #   with open(save_path, 'w', encoding='utf-8') as f:
+  #     f.write(rendered)
+  #     log('write {} done'.format(save_path))
+
+  #   if fetch_images:
+  #     # 本地存储, 需要抓取所有附图
+  #     fetch_images_for_markdown(save_path)
+  #   return save_path
 
 
 # ================= end of class Task =================
@@ -266,6 +309,32 @@ class ZhihuColumnPageTask(Task):
   # def save(self):
   #   super()
 
+  # def watch(self):
+  #   if self.page_type == 'zhihu_answer':
+  #     try:
+  #       zhihu_answer = fetch_zhihu_answer(self.url)
+  #       page = self.remember(zhihu_answer)
+  #       return page
+  #     except ZhihuParseError as e:
+  #       blank_answer = e.value
+  #       log_error('!! 问题已删除 {} {}'.format(self.url, blank_answer['title']))
+  #       page = self.remember(blank_answer)
+  #       return page
+  #     except RuntimeError as e:
+  #       log_error(e)
+  #       raise
+  #   elif self.page_type == 'zhihu_article':
+  #     try:
+  #       zhihu_article = fetch_zhihu_article(self.url)
+  #       page = self.remember(zhihu_article)
+  #       return page
+  #     except ZhihuParseError as e:
+  #       blank_article = e.value
+  #       log_error('!! 文章已删除 {} {}'.format(self.url, blank_article['title']))
+  #       page = self.remember(blank_article)
+  #       return page
+  #   else:
+  #     raise
 
 
 
@@ -300,6 +369,13 @@ class ZhihuColumnIndexTask(Task):
 
 # class ZhihuDetectNewAnswerTask(Task):
 #   pass
+
+
+
+
+
+
+
 
 
 
@@ -488,3 +564,29 @@ class Watcher:
   #                        title=title or '(has not fetched)',
   #                        next_watch=datetime.now())
   #     log('new Task added: {}'.format(task))
+
+
+  # @classmethod
+  # def multiple_watch(cls, sleep_seconds=10, limit=10):
+  #   count = Task.report()
+  #   if count == 0:
+  #     log('current no tasks')
+  #     return
+
+  #   limit = min(limit, count)
+  #   for i in range(1, limit+1):
+  #     now = datetime.now()
+  #     log('\nloop {}/{} current_time={}'.format(i, limit, convert_time(now)))
+  #     task = Task.select().order_by(Task.next_watch).get()
+  #     if not task:
+  #       log('can not find any task')
+  #       continue
+  #     elif task.next_watch <= now:
+  #       log('start: {}'.format(task))
+  #       page = task.watch()
+  #       next_time = convert_time(task.next_watch, humanize=True)
+  #       log('done!  {} (next watch: {})'.format(page, next_time))
+  #       time.sleep(sleep_seconds)
+  #     else:
+  #       log('not today... {}'.format(task))
+

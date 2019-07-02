@@ -1,7 +1,7 @@
 
 
 import time
-from pylon import datalines
+from tools import datalines
 
 import os
 import shutil
@@ -16,6 +16,7 @@ from zhihu_oauth.exception import GetDataErrorException
 from urllib.parse import unquote
 
 
+
 from jinja2 import Template
 import re
 from pyquery import PyQuery
@@ -23,7 +24,7 @@ import requests
 
 import urllib.request
 
-from pylon import create_logger
+from tools import create_logger
 log = create_logger(__file__)
 log_error = create_logger(__file__ + '.error')
 
@@ -449,7 +450,7 @@ def save_answer(answer, folder='test', overwrite=True):
     log('write {} done'.format(save_path))
 
   # 本地存储, 需要抓取所有附图
-  fetch_images_for_markdown(save_path)
+  # TODO fetch_images_for_markdown(save_path)
   return save_path
 
 
@@ -693,7 +694,7 @@ def save_article(article, folder='test', overwrite=True):
     log('write {} done'.format(save_path))
 
   # 本地存储, 需要抓取所有附图
-  fetch_images_for_markdown(save_path)
+  # TODO fetch_images_for_markdown(save_path)
   return save_path
 
 
@@ -1460,15 +1461,21 @@ def test_yield_old_topic():
 
 def test_fetch_articles_by_column():
   column_id = 'learningtheory'
+  column_id = 'qbitai'
+  column_id = 'leanreact'
   column = client.column(column_id)
   for a in column.articles:
     log(a.title + ' - ' + a.column.title)
+    save_article(a)
+
 
 
 
 def test_fetch_articles():
   # url = 'https://www.zhihu.com/people/chenqin'
   author_id = 'chenqin'
+  author_id = 'liang-zi-wei-48'
+  author_id = 'qbitai'
 
   author = client.people(author_id)
   log(author.name)
@@ -1478,7 +1485,7 @@ def test_fetch_articles():
       log(a.title + ' - ' + a.column.title)
     else:
       log(a.title + ' - ' + 'None')
-    # save_article(a)
+    save_article(a)
 
   # log('------------')
   # for c in author.columns:
@@ -1554,7 +1561,7 @@ def test_genenate_figlet():
 def test_file_fetch_images_zhuanlan():
   file = 'D:/TheNorthRemembers/more/我们在地球这颗小小的蓝星上都留下过怎样的痕迹 - More的专栏 Voicer.md'
   # file = 'D:/TheNorthRemembers/more/国家版戴维斯双杀 - 许哲的专栏 天上不会掉馅饼.md'
-  fetch_images_for_markdown(file)
+  # TODO fetch_images_for_markdown(file)
 
 
 def test_https_image():

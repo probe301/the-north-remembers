@@ -171,7 +171,7 @@ def all_subdirs(root, patterns='*', single_level=False):
 
   import fnmatch
   patterns = patterns.split(';')
-  for path, subdirs, files in os.walk(root):
+  for path, subdirs, __ in os.walk(root):
     subdirs.sort()
     for name in subdirs:
       for pattern in patterns:
@@ -276,7 +276,7 @@ def save_txt(path, data, encoding='utf-8'):
 
 
 from pprint import pprint
-import datetime
+from datetime import datetime
 # import inspect
 class create_logger:
   def __init__(self, file_path):
@@ -286,7 +286,7 @@ class create_logger:
   def custom_print(self, data, prefix='', filepath=None, pretty=False):
     out = open(filepath, 'a', encoding='utf-8') if filepath else sys.stdout
     if filepath:  # 在输出到文件时增加记录时间戳, 输出到 stdout 不记录时间戳
-      prefix = '[' + datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f") + ']' + prefix
+      prefix = '[' + datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f") + ']' + prefix
 
     if prefix:
       print(prefix, file=out, end=' ')
@@ -324,3 +324,101 @@ class create_logger:
 
 def purge_file_path(path):
   return path
+
+DEFAULT_INVALID_CHARS = {':', '*', '?', '"', '<', '>', '|', '\r', '\n'}
+EXTRA_CHAR_FOR_FILENAME = {'/', '\\'}
+
+def remove_invalid_char(dirty, invalid_chars=None, for_path=False):
+    if invalid_chars is None:
+        invalid_chars = set(DEFAULT_INVALID_CHARS)
+    else:
+        invalid_chars = set(invalid_chars)
+        invalid_chars.update(DEFAULT_INVALID_CHARS)
+    if not for_path:
+        invalid_chars.update(EXTRA_CHAR_FOR_FILENAME)
+
+    return ''.join([c for c in dirty if c not in invalid_chars]).strip()
+
+
+class Null:
+  def __init__(self, *args, **kwargs):
+    "忽略参数"
+    return None
+  def __call__(self, *args, **kwargs):
+    "忽略实例调用"
+    return self
+  def __getattr__(self, mname):
+    "忽略属性获得"
+    return self
+  def __setattr__(self, name, value):
+    "忽略设置属性操作"
+    return self
+  def __delattr__(self, name):
+    '''忽略删除属性操作'''
+    return self
+  def __repr__(self):
+    return "<Null>"
+  def __str__(self):
+    return "Null"
+
+
+
+
+
+
+# import time
+# # import sys
+# import os
+# # import shutil
+# # import re
+# from pylon import puts
+# from pylon import form
+# from pylon import datalines
+# from pylon import create_logger
+# log = create_logger(__file__)
+# log_error = create_logger(__file__ + '.error')
+
+# # from pylon import enumrange
+# from datetime import datetime
+
+# from datetime import timedelta
+
+# from peewee import SqliteDatabase
+# from peewee import CharField
+# # from peewee import DateField
+# from peewee import TextField
+# from peewee import IntegerField
+# from peewee import DateTimeField
+# from peewee import FloatField
+# from peewee import ForeignKeyField
+# from peewee import fn
+# # from peewee import BooleanField
+# from peewee import Model
+# # from peewee import fn
+# # from peewee import JOIN
+
+# from zhihu_answer import yield_topic_best_answers
+# from zhihu_answer import yield_author_answers
+# from zhihu_answer import yield_author_articles
+# from zhihu_answer import yield_column_articles
+# from zhihu_answer import fetch_zhihu_answer
+# from zhihu_answer import fetch_zhihu_article
+# from zhihu_answer import fill_full_content
+# from zhihu_answer import zhihu_answer_url
+# from zhihu_answer import zhihu_article_url
+# from zhihu_answer import fetch_images_for_markdown
+# from zhihu_answer import ZhihuParseError
+# # import requests
+# from zhihu_oauth.zhcls.utils import remove_invalid_char
+
+
+# # from jinja2 import Template
+# db = SqliteDatabase('zhihu.sqlite')
+
+# from tools import *
+
+# # def exec_create_db():
+# #   'regenate sqlite db' | puts()
+# #   db.connect()
+# #   db.create_tables([Task, Page])
+# #   db.close()

@@ -1,13 +1,15 @@
-# -*- coding:utf-8 -*-
+import sys, os
+sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
 import time
+import tools
 from tools import datalines
 
 import os
 import shutil
 import html2text
-# from pylon import enumrange
-# import time
+
+
 import datetime
 from zhihu_oauth import ZhihuClient
 from zhihu_oauth.zhcls.utils import remove_invalid_char
@@ -354,7 +356,7 @@ def fetch_zhihu_answer(answer):
   thanks_count = answer.thanks_count
   create_date = parse_json_date(answer.created_time)
   edit_date = parse_json_date(answer.updated_time)
-  fetch_date = time.strftime('%Y-%m-%d')
+  fetch_date = tools.time_now_str()
 
 
   url = 'https://www.zhihu.com/question/{}/answer/{}'.format(question_id, answer_id)
@@ -450,94 +452,6 @@ def save_answer(answer, folder='test', overwrite=True):
   # 本地存储, 需要抓取所有附图
   # TODO fetch_images_for_markdown(save_path)
   return save_path
-
-
-
-
-def fill_full_content(data):
-  url = data['url'] if isinstance(data, dict) else data.url
-  if 'answer' in url:
-    tmpl = '''
----
-{{data.metadata}}
-
----
-
-### {{data.title}}
-
-话题: {{data.topic}}
-
-#### 问题描述:
-
-{{data.question or '(无)'}}
-
-#### 回答:
-
-{{data.content}}
-
-
-
-　　
-
-#### 评论:
-
-{{data.comments}}
-
-------------------
-
-from: [{{data.url}}]()
-
-'''
-  elif 'zhuanlan' in url:
-    tmpl = '''
----
-{{data.metadata}}
-
----
-
-### {{data.title}}
-
-
-
-{{data.content}}
-
-
-
-　　
-
-#### 评论:
-
-{{data.comments}}
-
-------------------
-
-from: [{{data.url}}]()
-
-'''
-  else:
-    raise ValueError('cannot parse url {}'.format(data['url']))
-
-  rendered = Template(tmpl).render(data=data)
-  return rendered
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
@@ -643,7 +557,7 @@ def fetch_zhihu_article(article):
   count = len(article_body)
   voteup_count = article.voteup_count
   edit_date = parse_json_date(article.updated_time)
-  fetch_date = time.strftime('%Y-%m-%d')
+  fetch_date = tools.time_now_str()
   url = zhihu_article_url(article)
   # log(list(article.comments))
   conversations = get_valuable_conversations(article.comments, limit=10)
@@ -682,26 +596,39 @@ def fetch_zhihu_article(article):
           }
 
 
-def save_article(article, folder='test', overwrite=True):
-  article = parse_article(article)
 
-  title = zhihu_article_title(article)
-  save_path = folder + '/' + remove_invalid_char(title) + '.md'
-  if not overwrite:
-    if os.path.exists(save_path):
-      log('already exist {}'.format(save_path))
-      return save_path
+def yield_column_articles(column_id, limit=100, min_voteup=20):
+  column = client.column(column_id)
+  count = 0
+  for article in column.articles:
+    # print(article.voteup_count)
+    if article.voteup_count >= min_voteup:
+      count += 1
+      yield article
+    if count >= limit:
+      break
 
-  data = fetch_zhihu_article(article=article)
-  rendered = fill_full_content(data)
 
-  with open(save_path, 'w', encoding='utf-8') as f:
-    f.write(rendered)
-    log('write {} done'.format(save_path))
 
-  # 本地存储, 需要抓取所有附图
-  # TODO fetch_images_for_markdown(save_path)
-  return save_path
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -972,18 +899,6 @@ def test_yield_org_articles():
   ats = list(author.articles)
   print(ats)
 
-
-
-def yield_column_articles(column_id, limit=100, min_voteup=20):
-  column = client.column(column_id)
-  count = 0
-  for article in column.articles:
-    # print(article.voteup_count)
-    if article.voteup_count >= min_voteup:
-      count += 1
-      yield article
-    if count >= limit:
-      break
 
 
 

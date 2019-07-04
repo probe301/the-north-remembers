@@ -9,7 +9,7 @@ import html2text
 from jinja2 import Template
 
 import time
-from pylon import datalines
+from tools import datalines
 
 import shutil
 
@@ -18,7 +18,7 @@ from jinja2 import Template
 import re
 from pyquery import PyQuery
 import requests
-from pylon import create_logger
+from tools import create_logger
 log = create_logger(__file__)
 log_error = create_logger(__file__ + '.error')
 

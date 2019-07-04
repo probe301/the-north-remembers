@@ -1,8 +1,13 @@
 
 
 import os
+import random
+
+from collections import OrderedDict
+from collections import Counter
+
 import tools
-from tools import PageType
+from tools import UrlType
 from tools import parse_type
 from tools import create_logger
 from tools import time_to_str
@@ -11,19 +16,15 @@ from tools import time_now
 from tools import time_now_str
 from tools import time_from_str
 from tools import time_to_humanize
-
+from tools import remove_invalid_char
 
 log = create_logger(__file__)
 log_error = create_logger(__file__ + '.error')
 
 
-from fetcher.zhihu_answer import fetch_zhihu_answer
-from fetcher.zhihu_answer import zhihu_article_url
-from fetcher.zhihu_answer import yield_column_articles
-from fetcher.zhihu_answer import save_article
-
-from collections import OrderedDict
-from collections import Counter
+from page import Page
+# from lister import Lister
+from fetcher import Fetcher
 
 
 
@@ -33,62 +34,91 @@ from collections import Counter
 
 class Task:
   '''
-  任务, 分为发现新Page, 和抓取Page变化两种
+  任务, 分为Lister抓取任务 (发现新Page), 和 Page抓取任务
 
+  一个 .task.yaml 下所有Task的默认属性
 
-  一个 .task.yaml 下所有Task的公共属性
-    folder
-    enabled
-    min_cycle
-    max_cycle
-    weight
+      default_option:
+        lister:
+          enabled: true
+          max_cycle: 15day
+          min_cycle: 10minutes
+          upvote: '>=500'
+          weight: 0.5
+          limit: 15
+        page:
+          enabled: true
+          max_cycle: 1day
+          min_cycle: 10minutes
+          weight: 0.5
 
-  单独一个Task的属性 (可以覆盖掉公共属性)
-    url: http://xxxx
-    tip: xxxx
-    version: 12
-    watch_time: {task_add_time: xx, last_watch_time: xx, next_watch_time: xx}
-    filename: xxxx
+      lister_task:
+        - url: https://www.zhihu.com/xxxxxx
+          tip: author's all answer
+          timestamp: { task_add: "2019-07-04 21:12:16", last_watch: "2019-07-04 21:45:11", last_change: "2019-07-04 21:31:55", next_watch: "2019-07-04 21:58:27" }
+          version: 5
+          limit: 200
+      page_task:
+        - url: https://www.zhihu.com/xxxxxxx
+          tip: question? - author's answer
+          timestamp: { task_add: "2019-07-04 21:31:55", last_watch: "2019-07-04 21:45:13", last_change: "2019-07-04 21:32:00", next_watch: "2019-07-04 21:58:26" }
+          version: 2
 
-  发现新Page任务可以自定义的属性
+  Task 必须包含的属性
+    folder                 隐式由 .task.yaml 所在位置决定
+    enabled                (default True) 启用/禁用 Task
+    min_cycle max_cycle    (default '3minutes' '1day')  间隔时间区间         
+    weight                 (default 0.5)  优先级  
+
+    url:                   http://xxxx  处理干净作为 pk
+    tip:                   (default 'Tip') 对该页面的描述, 可以直接用网页 title, 不参与文件名
+    version:               (default 0) 未 fetch 时是 version0, 之后递增
+    time:                  { task_add: time1, 
+                             last_watch: time2, 
+                             last_change: time3, 
+                             next_watch: time4} 
+                           创建后必然会设置 task_add 和 next_watch为当前, 
+                           但允许没有设置 last_watch last_change
+
+  用于提供基础的列表, 当Task自身属性与默认属性一致时, 可以不再记录自身属性
+  单独一个Task的属性可以覆盖掉公共属性
+
+  Lister任务 可以自定义的属性
     title_contains: filter_keyword
-    zhihu_upvote: '>=500'
+    zhihu_voteup: '>=500'
+    zhihu_thanks: '>=100'
+    limit: 10, 从列表页最多返回10个页面就结束
 
+  可能会有多个Lister任务发现同一个页面
 
-  抓取Page可以自定义的属性
-    pass
-
-
-  url - url处理干净作为 pk
+  Page抓取任务 可以自定义的属性
+    title
+    filename
 
   '''
 
-  fields = ['url', 'folder', 'tip', 'enabled', 
-            'task_add_time', 'last_watch_time', 'last_change_time', 'next_watch_time',
-            'weight', 'version', 
-            'min_cycle', 'max_cycle']
-
-
   @classmethod
-  def create(cls, desc, option):
+  def create(cls, desc, default_option):
     '''从 json description 创建 Task'''
-    page_type = parse_type(desc['url'])
-    if page_type == PageType.ZhihuColumnPage:
-      return ZhihuColumnPageTask(desc, option)
-    elif page_type == PageType.ZhihuColumnIndex:
-      return ZhihuColumnIndexTask(desc, option)
+    folder = default_option['folder']
+    if str(parse_type(desc['url'])).endswith('Page'):
+      default_option = default_option['page']
+      default_option['folder'] = folder
+    elif str(parse_type(desc['url'])).endswith('Lister'):
+      default_option = default_option['lister']
+      default_option['folder'] = folder
     else:
-      log(page_type, '?')
-      raise ValueError(
-          'Task.create: cannot reg task type {}'.format(desc['url']))
-  
-  def __init__(self, desc, option):
-    self.option = option
-    # TODO merge desc + option
-    self.url = desc['url']
-    self.enabled = bool(desc.get('enabled') or True)
-    self.tip = str(desc.get('tip') or 'TIP')
+      raise NotImplementedError
 
+    return Task(desc, default_option)
+
+
+  def __init__(self, desc, default_option):
+    self.default_option = default_option
+    self.url = desc['url']
+    self.url_type = parse_type(self.url)
+    self.tip = str(desc.get('tip') or 'default tip')
+ 
     # 任务添加时间
     self.task_add_time = self.parse_time(desc, 'task_add')
     # 上次抓取的时间
@@ -98,48 +128,61 @@ class Task:
     # 安排的下次采集时间, 可以手动修改, 立即触发一次采集
     self.next_watch_time = self.parse_time(desc, 'next_watch') 
 
-    self.weight = float(desc.get('weight') or 0.5)
-    self.once = bool(desc.get('once') or False)
     self.version = int(desc.get('version') or 0)
-    self.min_cycle = str(desc.get('min_cycle') or self.option.get('min_cycle') or '3minutes')  # TODO parse cycle time
-    self.max_cycle = str(desc.get('max_cycle') or self.option.get('max_cycle') or '1day')
-    self.lazy_ratio = int(desc.get('lazy_ratio') or self.option.get('lazy_ratio') or 1)
+    option = self.default_option.copy()
+    option.update(desc)
+    self.option = option # option 合并了所有的设置项目, 并需要传入 fetcher
+
+  # 只读属性
+  @property
+  def min_cycle(self): return str(self.option.get('min_cycle') or '3minutes') 
+  @property
+  def max_cycle(self): return str(self.option.get('max_cycle') or '1day') 
+  @property
+  def lazy_ratio(self): return int(self.option.get('lazy_ratio') or 1)
+  @property
+  def weight(self): return float(self.option.get('weight') or 0.5)
+  @property
+  def enabled(self): return bool(self.option.get('enabled') or True)
+
+
+  def __str__(self):
+    s = '''<Task #{5}> {0.url} (ver. {0.version})
+    {0.tip}
+    task add: {1}, last watch: {2}, last change {3}, next watch: {4} '''
+    return s.format(self, 
+                    time_to_humanize(self.task_add_time),
+                    self.last_watch_time and time_to_humanize(self.last_watch_time),
+                    self.last_change_time and time_to_humanize(self.last_change_time),
+                    time_to_humanize(self.next_watch_time),
+                    id(self)
+                    )
+
+  def __repr__(self): return str(self)
 
   def parse_time(self, desc, time_label):
     # log('prepare parse time: {desc} {time_label}'.format(**locals()))
     # 从 desc['timestamp'] 里读配置, 整理到 arrow.time 类型
     if time_label in ('task_add', 'next_watch'):
       # 这两个如果缺省, 设为当前时间
-      if not desc.get('timestamp'): 
-        return time_now()
-      else: 
-        return time_from_str(desc.get('timestamp').get(time_label, time_now_str()))
+      if not desc.get('timestamp'): return time_now()
+      else: return time_from_str(desc.get('timestamp').get(time_label, time_now_str()))
     else:
       # 这两个 last_watch_time last_change_time 如果缺省, 不做设置
-      if not desc.get('timestamp'): 
-        return None
+      if not desc.get('timestamp'): return None
       timestr = desc.get('timestamp').get(time_label, None)
-      if timestr:
-        return time_from_str(timestr)
-      else:
-        return None
-#
+      if timestr: return time_from_str(timestr)
+      else: return None
 
-  def __str__(self):
-    s = '''<Task url={0.url}> (version {0.version})
-    {0.tip}
-    task add: ({1}) last watch: ({2}) last change ({3}) next watch: ({4}) '''
-    return s.format(self, 
-                    time_to_humanize(self.task_add_time),
-                    self.last_watch_time and time_to_humanize(self.last_watch_time),
-                    self.last_change_time and time_to_humanize(self.last_change_time),
-                    time_to_humanize(self.next_watch_time),
-                    )
-
+  def to_id(self):
+    return '<Task #{}>'.format(id(self))
 
   def to_yaml_text(self):
     ''' 将 task 存为 yaml 文本片段
-        因为需要节省行数, 自定义格式化方案'''
+        需要缩减行数, 因此自定义格式化方案, 把timestamp放在同一行
+        依次是 url, tip, timestamp x4, version, custom option
+        custom option 用于存放与default option 有区别的部分
+    '''
     result = []
     result.append('  - url: ' + getattr(self, 'url'))
     result.append('    tip: ' + getattr(self, 'tip'))
@@ -150,27 +193,45 @@ class Task:
         time_to_str(self.last_change_time) if self.last_change_time else None, 
         time_to_str(self.next_watch_time))
     result.append(timestamp)
+    result.append('    version: ' + str(getattr(self, 'version')))
 
-    for field in Task.fields:
-      if field in ('folder', 'url', 'tip'):
+    # 存放 option 中与 default option 不同的部分
+
+    for key, val in self.option.items():
+      if key in ('folder', 'url', 'tip', 'version', 'timestamp') or key.endswith('_time'):
         continue
-      if field in self.option and getattr(self, field) == self.option.get(field):
+      elif key in self.default_option and self.default_option[key] == val:
         continue
-      if field.endswith('_time'):
-        continue
-      result.append('    {}: {}'.format(field, str(getattr(self, field))))
+      else:
+        result.append('    {}: {}'.format(key, str(val)))
 
     return '\n'.join(result)
 
-  def update_timestamp(self, other):
-    self.next_watch_time = time_now()
 
+  @property
+  def is_page_type(self): return str(self.url_type).endswith('Page')
+  @property
+  def is_lister_type(self): return str(self.url_type).endswith('Lister')
 
-  def fetch(self):
-    log('will fetch: {}'.format(str(self)))
+  def run(self):
+    '''执行一次抓取'''
+    if self.is_page_type:
+      log('Task.run page request: {}'.format(str(self)))
+      fetcher = Fetcher.create(fetcher_option=self.option)
+      data_json = fetcher.request()
+      log('Task.run fetch page done')
+      return data_json
+    elif self.is_lister_type:
+      # 探测新的页面
+      log('Task.run lister request: {}'.format(str(self)))
+      fetcher = Fetcher.create(fetcher_option=self.option)
+      tasks_json = fetcher.request()
+      log('Task.run detect new tasks done: {} tasks'.format(len(tasks_json)))
+      return tasks_json
+    else:
+      raise ValueError('cannot parse {} {}'.format(self.to_id(), self.url))
 
-
-  def save(self, data=None, diff=None):
+  def schedule(self):
     ''' 如果成功存储, 则更新 version, last_watch_time, next_watch_time, tip
         根据上次是否变化, 安排下一次的抓取日程
 
@@ -179,13 +240,15 @@ class Task:
                     理想状态下, 文章内容不变, 每次抓取间隔就以指数增长
                     如果某次抓取后发现内容改变, 则恢复为 min_cycle 的时间
                     lazy_ratio 默认设为1, 意味着按照2的幂次延迟下一次的抓取时间
-                    当认为内容不会总变化时, lazy_ratio 可以乐观设置为 10, 每次延长10倍的时间, 更省资源
-                    当认为内容总变时, 比如Index型的任务, lazy_ratio 可以悲观设置可以为 0, 这样将采用 min_cycle
+                    当认为内容不会总变化时, lazy_ratio 可以乐观设置为 10, 
+                        每次采集将使下次采集延长至10倍时间之后, 更省资源
+                    当认为内容总变时, 比如lister型的任务, lazy_ratio 可以悲观设置可以为 0, 
+                        这样将永远用 min_cycle 做安排
 
         min_cycle 下次抓取至少需要间隔的时间 (3分钟)
         max_cycle 下次抓取最多可以间隔的时间 (60天)
         以lazy_ratio计算出的时间要限制到 {min_cycle, max_cycle} 范围内
-        
+
     '''
     # 更新 last_change_time, next_watch_time
     # 首先检测这次跟上次相比, 抓取到的内容是否已经改变
@@ -205,8 +268,20 @@ class Task:
     # 更新 last_watch_time, version
     self.last_watch_time = time_now()
     self.version += 1
-    log('save task: {}'.format(str(self)))
+    # log('reschedule {} done'.format(self.to_id()))
 
+
+
+
+  def save(self, data_json=None, diff=None):
+    # 存储Page页
+    data_json['url'] = self.url
+    data_json['folder'] = self.option['folder']
+    data_json['watch_time'] = time_now()
+    data_json['version'] = self.version + 1
+    page = Page.create(data_json)
+    page.write()
+    # log('save {} done'.format(self.to_id()))
 
 
 
@@ -221,13 +296,6 @@ class Task:
       pass
     return 1
 
-  @property
-  def is_index_type(self):
-    return str(parse_type(self.url)).endswith('Index')
-
-  @property
-  def is_page_type(self):
-    return str(parse_type(self.url)).endswith('Page')
 
   @property
   def should_fetch(self):
@@ -238,7 +306,8 @@ class Task:
   @property
   def content_is_changed(self):
     # TODO IMPL
-    return True
+    return random.random() > 0.8
+    # return True
 
 
   # def report(cls):
@@ -253,38 +322,14 @@ class Task:
   #   log('Task total={} todo={}'.format(tasks.count(), tasks_todo.count()))
   #   return tasks_todo.count()
 
-  def remember(self):
-    # save to git
-    pass
 
 
 
-  # def to_local_file(self, folder, file_name=None,
-  #                   fetch_images=True, overwrite=False):
-  #   if not file_name:
-  #     file_name = self.title
-  #   if not os.path.exists(folder):
-  #     os.makedirs(folder)
-
-  #   save_path = folder + '/' + remove_invalid_char(file_name) + '.md'
-  #   if not overwrite:
-  #     if os.path.exists(save_path):
-  #       log('already exist {}'.format(save_path))
-  #       return save_path
-
-  #   rendered = self.full_content
-
-  #   with open(save_path, 'w', encoding='utf-8') as f:
-  #     f.write(rendered)
-  #     log('write {} done'.format(save_path))
-
-  #   if fetch_images:
-  #     # 本地存储, 需要抓取所有附图
-  #     fetch_images_for_markdown(save_path)
-  #   return save_path
 
 
-# ================= end of class Task =================
+# =========================================================
+# =================== end of class Task ===================
+# =========================================================
 
 
 
@@ -292,83 +337,37 @@ class Task:
 
 
 
-class ZhihuAnswerTask(Task):
-  pass
 
 
 
 
 
-class ZhihuColumnPageTask(Task):
-  '''抓取Zhihu专栏的一篇文章
-  自有属性:
-  '''
-  def fetch(self):
-    log('ZhihuColumnPageTask fetching...')
-    save_article(self.url, folder=self.option['folder'])
-  # def save(self):
-  #   super()
-
-  # def watch(self):
-  #   if self.page_type == 'zhihu_answer':
-  #     try:
-  #       zhihu_answer = fetch_zhihu_answer(self.url)
-  #       page = self.remember(zhihu_answer)
-  #       return page
-  #     except ZhihuParseError as e:
-  #       blank_answer = e.value
-  #       log_error('!! 问题已删除 {} {}'.format(self.url, blank_answer['title']))
-  #       page = self.remember(blank_answer)
-  #       return page
-  #     except RuntimeError as e:
-  #       log_error(e)
-  #       raise
-  #   elif self.page_type == 'zhihu_article':
-  #     try:
-  #       zhihu_article = fetch_zhihu_article(self.url)
-  #       page = self.remember(zhihu_article)
-  #       return page
-  #     except ZhihuParseError as e:
-  #       blank_article = e.value
-  #       log_error('!! 文章已删除 {} {}'.format(self.url, blank_article['title']))
-  #       page = self.remember(blank_article)
-  #       return page
-  #   else:
-  #     raise
-
-
-
-class ZhihuColumnIndexTask(Task):
-  ''' 以Zhihu专栏ID获取所有文章
-      option 继承自该 task 自身属性
-      
-      过滤属性
-      
-      limit: 最多返回 n 个 task
-      min_voteup: 赞同数超过 n'''
-  def fetch(self):
-    tasks = []
-    column_id = self.url.split('/')[-1]
-
-    # TODO reg limit
-    for article in yield_column_articles(column_id, limit=5, min_voteup=20):
-      desc = {'url': zhihu_article_url(article),
-              'tip': article.title + ' - ' + article.author.name, 
-              }
-      log('extract new task {}'.format(desc))
-      task = Task.create(desc, self.option)
-      tasks.append(task)
-    return tasks
-
-  # def save(self):
-  #   super()
 
 
 
 
 
-# class ZhihuDetectNewAnswerTask(Task):
-#   pass
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -416,7 +415,7 @@ class Watcher:
   当 watcher.watch() 时做这些:
       找出需要执行的 tasks, 对这些 tasks 按照优先级排序
       逐个执行 task
-        如果是 IndexTask, 追加新的 tasks, 并添加到优先级列表的头部
+        如果是 listerTask, 追加新的 tasks, 并添加到优先级列表的头部
         如果是 PageTask, 按需抓取
       每完成一个 batch (比如10个更新) 之后, 记录到文件 task.yaml
       git commit
@@ -425,16 +424,22 @@ class Watcher:
 
   def __init__(self, project_path):
     self.project_path = project_path
-    # task_option 该文件夹下公共属性
+    # task_option 该文件夹下默认属性 只读取不修改
     config_data = self.load_config_yaml()
-    self.task_option = config_data.get('default_option', {})
-    self.task_option.update({'folder': self.project_path})  # 将项目 folder 也放在公共属性
+    self.default_option = config_data.get('default_option', {})
+    self.default_option.update({'folder': self.project_path})  # 将项目 folder 也放在公共属性
 
     self.tasks = []
     self.url_set = set()
-    self.add_tasks(tasks=config_data.get('tasks', [])) # 从 .task.yaml 里载入 "tasks:" 的所有内容
+    self.add_tasks(tasks=config_data.get('lister_task', None) or []) # 从 .task.yaml 里载入 "tasks:" 的所有内容
+    self.add_tasks(tasks=config_data.get('page_task', None) or []) # 从 .task.yaml 里载入 "tasks:" 的所有内容
 
 
+  def __str__(self):
+    s = '''<Watcher #{}> from {}
+    have {} tasks
+    '''
+    return s.format(id(self), self.tasks_count, self.project_path)
 
 
   def load_config_yaml(self):
@@ -442,30 +447,40 @@ class Watcher:
     if not os.path.exists(config_yaml):
       raise ValueError('{config_yaml} not found'.format(**locals()))
     config_data = tools.yaml_load(config_yaml)
-    log('loaded config_data option: ')
-    log(dict(config_data.get('default_option')), pretty=True)
-    log('loaded config_data tasks {}'.format(len(config_data.get('tasks', []))))
+    log('loaded config_data option lister: ')
+    log(dict(config_data['default_option']['lister']), pretty=True)
+    log('loaded config_data option page: ')
+    log(dict(config_data['default_option']['page']), pretty=True)
+
+    lister_task = config_data.get('lister_task', None) or []
+    page_task = config_data.get('page_task', None) or []
+    log('loaded config_data lister tasks {}'.format(len(lister_task)))
+    log('loaded config_data page tasks {}'.format(len(page_task)))
     return config_data
 
 
 
   def add_task(self, task):
+    ''' 添加 Task, 以 url 判断是否为已存在的 Task
+        对于已有的task, 如果 nextwatch <= now() 保留不动 返回 scheduled
+                       如果 nextwatch > now()  保留不动 返回 dropped
+        对于没有的task, 返回 added
+        '''
     if isinstance(task, dict):
       # 将 dict 型转为 Task 实例
       # task_desc 单独一个 task 的配置, 只需要记录与公共属性不同的字段
       task_desc = task
-      task = Task.create(task_desc, self.task_option)
+      task = Task.create(task_desc, self.default_option)
     seen_task = self.find_task(task)
     if seen_task:
-      # TODO 需要处理时间顺序, nextwatch < now() 时, 应该保留不动, 提高权重, 不应该把时间更新到 now()
-      seen_task.update_timestamp(task)
-      return "updated"
-      # return "dropped"
+      if seen_task.next_watch_time <= time_now():
+        return "scheduled"
+      else:
+        return "dropped"
     else:
       self.tasks.append(task)
       self.url_set.add(task.url)
       return "added"
-    return
 
   def add_tasks(self, tasks):
     '''添加任务列表, 并输出报告'''
@@ -473,7 +488,7 @@ class Watcher:
     for task in tasks:
       result = self.add_task(task)
       results.append(result)
-    log('Watcher.add_tasks result: ', Counter(results))
+    log('Watcher.add_tasks result status ', Counter(results))
 
   def find_task(self, other_task):
     if other_task.url in self.url_set:
@@ -490,19 +505,24 @@ class Watcher:
     ''' 存盘 .task.yaml
         首先存公共 config
         其次存 NewPost 类 tasks
-        最后存普通 tasks'''
+        最后存普通 tasks
+
+    '''
     config_yaml = self.project_path + '/.task.yaml'
-    data = tools.yaml_load(config_yaml)
-    # data.option 不会改变
-    # 只有 data.tasks 被更新
-    temp = tools.yaml_saves({'default_option': dict(data['default_option'])})
-    temp += '\n\n\n'
-    temp += 'tasks:\n'
+    # data.option 不会改变 只有 data.tasks 被更新
+    temp = tools.load_txt(config_yaml).split('lister_task:')[0]  # 取得 default 部分
+    temp += 'lister_task:\n'
     for task in self.tasks:
-      temp += task.to_yaml_text()
-      temp += '\n'
+      if task.is_lister_type:
+        temp += task.to_yaml_text()
+        temp += '\n'
+    temp += '\n\n\npage_task:\n'
+    for task in self.tasks:
+      if task.is_page_type:
+        temp += task.to_yaml_text()
+        temp += '\n'
     tools.save_txt(path=config_yaml, data=temp)
-    log('save_config_yaml "{config_yaml}" done'.format(**locals()))
+    log('done, save_config_yaml "{config_yaml}" done'.format(**locals()))
 
 
   def status(self):
@@ -514,35 +534,42 @@ class Watcher:
         首先列出所有的NewPost任务, 都抓取一遍
         然后列出普通页面任务, 都抓取一遍
     '''
-    temp_queue = []
+    lister_tasks_queue = []
     for task in self.tasks:
-      if task.should_fetch and task.is_index_type:
-        temp_queue.append(task)
-    temp_queue.sort(key=lambda x: -x.priority)
-    for task in temp_queue:
-      log('Watcher.watch index task: {}'.format(task))
-      new_tasks = task.fetch()
-      self.add_tasks(new_tasks)
-      task.save()
-      log('Watcher.watch index task done: {}\n\n'.format(task))
+      if task.should_fetch and task.is_lister_type:
+        lister_tasks_queue.append(task)
+    lister_tasks_queue.sort(key=lambda x: -x.priority)
+    log('Watcher.watch should fetch {} lister_type tasks'.format(len(lister_tasks_queue)))
+    for task in lister_tasks_queue:
+      # log('Watcher.watch lister task.run: {}'.format(task))
+      new_tasks_json = task.run()
+      self.add_tasks(new_tasks_json)
+      task.schedule()
+      log('Watcher.watch lister task done: \n{}\n\n'.format(task))
+      tools.time_random_sleep(1, 5)
 
-    temp_queue = []
+    page_tasks_queue = []
     for task in self.tasks:
       if task.should_fetch and task.is_page_type:
-        temp_queue.append(task)
-    temp_queue.sort(key=lambda x: -x.priority)
-    for task in temp_queue:
-      log('Watcher.watch page task: {}'.format(task))
-      task.fetch()
-      task.save()
+        page_tasks_queue.append(task)
+    page_tasks_queue.sort(key=lambda x: -x.priority)
+    log('Watcher.watch should fetch {} page_type tasks'.format(len(page_tasks_queue)))
+    for task in page_tasks_queue:
+      # log('Watcher.watch page task: {}'.format(task))
+      page_json = task.run()
+      task.save(page_json)
+      task.schedule()
+      log('Watcher.watch page task done: \n{}\n\n'.format(task.to_id()))
       tools.time_random_sleep(1, 5)
-      log('Watcher.watch page task done: {}\n\n'.format(task))
 
     self.save_config_yaml()
 
 
-    
 
+    
+  def remember(self):
+    # save to git
+    pass
 
 
 
@@ -550,21 +577,6 @@ class Watcher:
 
   # TODO remix
   # 
-  # def fetch(self):
-  #   existed = self.select().where(self.url == url)
-  #   if existed:
-  #     task = existed.get()
-  #     log('Task.add has already existed: {}'.format(task))
-  #     task.next_watch = datetime.now()
-  #     # task.not_modified = 0
-  #     task.save()
-  #   else:
-  #     task = self.create(url=url,
-  #                        page_type=page_type,
-  #                        title=title or '(has not fetched)',
-  #                        next_watch=datetime.now())
-  #     log('new Task added: {}'.format(task))
-
 
   # @classmethod
   # def multiple_watch(cls, sleep_seconds=10, limit=10):

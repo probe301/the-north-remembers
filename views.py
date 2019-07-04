@@ -84,8 +84,6 @@ def list_zhihu_answers_by_author(author_id):
 
 
 
-from pylon import form
-
 @app.route('/topic/<int:topic_id>')
 def list_zhihu_answers_by_topic(topic_id):
   from zhihu_answer import yield_topic_best_answers

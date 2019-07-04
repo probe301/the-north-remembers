@@ -14,30 +14,35 @@ import random
 
 import sys
 
-PageType = Enum('PageType', 
+UrlType = Enum('UrlType', 
                 ('ZhihuAnswerPage', 
-                 'ZhihuAuthorAnswerIndex',   
-                 'ZhihuColumnPage',    # 专栏, 用于抓取
-                 'ZhihuColumnIndex',   # 专栏, 用于监视新文章
+                 'ZhihuAnswerLister',   
+                 'ZhihuColumnPage',     # 用于抓取专栏文章
+                 'ZhihuColumnLister',   # 用于监视专栏新文章
                  'ZhihuAuthor', 
-                 'ZhihuQuestion',      # 用于抓取问题描述
-                 'ZhihuQuestionIndex', # 问题页, 用于监视新增回答
-                 'WeixinAricle',)  
+                 'ZhihuQuestionPage',   # 用于抓取问题描述
+                 'ZhihuQuestionLister', # 问题页, 用于监视新增回答
+                 'WeixinAricle',
+                 'WeixinAricleLister')
                )
-
-TaskType = Enum('TaskType', ('FetchPage', 'FindNewPage'))
 
 
 
 
 
 def parse_type(url):
-  if re.search(r'https://zhuanlan.zhihu.com/p/\d+', url):
-    return PageType.ZhihuColumnPage
-  if re.search(r'https://zhuanlan.zhihu.com/\w+', url):
-    return PageType.ZhihuColumnIndex
+  if re.search(r'https?://zhuanlan.zhihu.com/p/\d+?', url):
+    return UrlType.ZhihuColumnPage
+  if re.search(r'https?://zhuanlan.zhihu.com/\w+?', url):
+    return UrlType.ZhihuColumnLister
+
+  if re.search(r'https?://www.zhihu.com/question/\d+?/answer/\d+?', url):
+    return UrlType.ZhihuAnswerPage
+  if re.search(r'https?://www.zhihu.com/people/\w+?/answers', url):
+    return UrlType.ZhihuAnswerLister
+
   if 'weixin' in url:
-    return PageType.WeixinAricle
+    return UrlType.WeixinAricle
 
   raise ValueError('cannot reg tasktype of url {}'.format(url))
 
@@ -45,11 +50,13 @@ def parse_type(url):
 
 def purge_url(url):
   url = url.strip()
-  if url.startswith('http://'):
-    url = 'https' + url[4:] # 全转为 https
-  if 'zhihu.com/' in url:
-    url = url.replace('www.zhihu.com/', 'zhihu.com/')
-    url = url.split('?')[0]  # 不需要?参数
+  if url.endswith('/'): 
+    url = url[:-1]
+  url = url.replace('//zhihu.com/', '//www.zhihu.com/')
+
+  if 'www.zhihu.com' in url:
+    url = url.split('?')[0]  # 不需要 query ? 参数
+
   return url
 
 
@@ -282,7 +289,6 @@ class create_logger:
   def __init__(self, file_path):
     self.filepath = file_path + '.log'
 
-
   def custom_print(self, data, prefix='', filepath=None, pretty=False):
     out = open(filepath, 'a', encoding='utf-8') if filepath else sys.stdout
     if filepath:  # 在输出到文件时增加记录时间戳, 输出到 stdout 不记录时间戳
@@ -362,6 +368,12 @@ class Null:
     return "Null"
 
 
+from difflib import unified_diff
+def compare_text(t1, t2, prefix=''):
+  changes = [l for l in unified_diff(t1.split('\n'), t2.split('\n'))]
+  for change in changes:
+    print(prefix + change)
+  return changes
 
 
 
@@ -379,23 +391,6 @@ class Null:
 # log_error = create_logger(__file__ + '.error')
 
 # # from pylon import enumrange
-# from datetime import datetime
-
-# from datetime import timedelta
-
-# from peewee import SqliteDatabase
-# from peewee import CharField
-# # from peewee import DateField
-# from peewee import TextField
-# from peewee import IntegerField
-# from peewee import DateTimeField
-# from peewee import FloatField
-# from peewee import ForeignKeyField
-# from peewee import fn
-# # from peewee import BooleanField
-# from peewee import Model
-# # from peewee import fn
-# # from peewee import JOIN
 
 # from zhihu_answer import yield_topic_best_answers
 # from zhihu_answer import yield_author_answers

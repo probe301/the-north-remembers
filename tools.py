@@ -31,15 +31,21 @@ UrlType = Enum('UrlType',
 
 
 def parse_type(url):
-  if re.search(r'https?://zhuanlan.zhihu.com/p/\d+?', url):
+  if re.search(r'https://zhuanlan.zhihu.com/p/\d+?', url):
     return UrlType.ZhihuColumnPage
-  if re.search(r'https?://zhuanlan.zhihu.com/\w+?', url):
+  if re.search(r'https://zhuanlan.zhihu.com/\w+?', url):
     return UrlType.ZhihuColumnLister
 
-  if re.search(r'https?://www.zhihu.com/question/\d+?/answer/\d+?', url):
+  if re.search(r'https://www.zhihu.com/question/\d+?/answer/\d+?', url):
     return UrlType.ZhihuAnswerPage
-  if re.search(r'https?://www.zhihu.com/people/\w+?/answers', url):
-    return UrlType.ZhihuAnswerLister
+  if re.search(r'https://www.zhihu.com/people/\w+?/answers', url):
+    return UrlType.ZhihuAnswerLister  # from author's answers
+  if re.search(r'https://www.zhihu.com/topic/\d+/(top\-answers|hot)', url):
+    return UrlType.ZhihuAnswerLister  # from topic's answers
+  if re.search(r'https://www.zhihu.com/collection/\d+', url):
+    return UrlType.ZhihuAnswerLister  # from collection's answers
+  if re.search(r'https://www.zhihu.com/question/\d+', url):
+    return UrlType.ZhihuAnswerLister  # from question's answers
 
   if 'weixin' in url:
     return UrlType.WeixinAricle
@@ -50,12 +56,13 @@ def parse_type(url):
 
 def purge_url(url):
   url = url.strip()
-  if url.endswith('/'): 
+  if url.endswith('/'):
     url = url[:-1]
   url = url.replace('//zhihu.com/', '//www.zhihu.com/')
 
   if 'www.zhihu.com' in url:
-    url = url.split('?')[0]  # 不需要 query ? 参数
+    url = url.split('?')[0]  # 不需要 query=? 参数
+    url = url.replace('http://', 'https://')
 
   return url
 
@@ -280,6 +287,25 @@ def save_txt(path, data, encoding='utf-8'):
   with open(path, 'w', encoding=encoding) as f:
     f.write(data)
   return True
+
+
+def sections(iterable, is_title=lambda line: line.startswith('#')):
+  ''' 通过小节的标题和之后文字生成 {标题: 内容} 的 order dict
+  '''
+  result = OrderedDict()
+  title_index = 0
+  title = (title_index, 'DEFAULT HEADER')
+  result.setdefault(title, [])
+  for line in iterable:
+    if is_title(line):
+      title_index += 1
+      title = (title_index, line)
+      result.setdefault(title, [])
+    else:
+      result[title].append(line)
+  return result
+
+
 
 
 from pprint import pprint

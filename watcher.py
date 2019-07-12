@@ -32,6 +32,8 @@ from fetcher import Fetcher
 
 
 
+
+
 class Task:
   '''
   任务, 分为Lister抓取任务 (发现新Page), 和 Page抓取任务
@@ -132,6 +134,7 @@ class Task:
     option = self.default_option.copy()
     option.update(desc)
     self.option = option # option 合并了所有的设置项目, 并需要传入 fetcher
+    self.last_page = None
 
   # 只读属性
   @property
@@ -231,7 +234,7 @@ class Task:
     else:
       raise ValueError('cannot parse {} {}'.format(self.to_id(), self.url))
 
-  def schedule(self):
+  def schedule(self, modified):
     ''' 如果成功存储, 则更新 version, last_watch_time, next_watch_time, tip
         根据上次是否变化, 安排下一次的抓取日程
 
@@ -252,7 +255,7 @@ class Task:
     '''
     # 更新 last_change_time, next_watch_time
     # 首先检测这次跟上次相比, 抓取到的内容是否已经改变
-    if not self.last_change_time or self.content_is_changed:  # 没有上次, 或者这次相比上次有改变
+    if not self.last_change_time or modified:  # 没有上次, 或者这次相比上次有改变
       self.last_change_time = time_now()
       shift_secs = duration_from_humanize(self.min_cycle)
       self.next_watch_time = time_now().shift(seconds=shift_secs)
@@ -281,8 +284,15 @@ class Task:
     data_json['version'] = self.version + 1
     page = Page.create(data_json)
     page.write()
-    # log('save {} done'.format(self.to_id()))
 
+    if self.last_page:
+      modified = page.is_changed(self.last_page)
+    else:
+      modified = True
+
+    self.last_page = page
+    # log('save {} done'.format(self.to_id()))
+    return modified
 
 
   @property
@@ -489,6 +499,7 @@ class Watcher:
       result = self.add_task(task)
       results.append(result)
     log('Watcher.add_tasks result status ', Counter(results))
+    return Counter(results)
 
   def find_task(self, other_task):
     if other_task.url in self.url_set:
@@ -509,7 +520,7 @@ class Watcher:
 
     '''
     config_yaml = self.project_path + '/.task.yaml'
-    # data.option 不会改变 只有 data.tasks 被更新
+    # data.option 不会改变 只有 ister_task 和 page_task 被更新
     temp = tools.load_txt(config_yaml).split('lister_task:')[0]  # 取得 default 部分
     temp += 'lister_task:\n'
     for task in self.tasks:
@@ -539,27 +550,28 @@ class Watcher:
       if task.should_fetch and task.is_lister_type:
         lister_tasks_queue.append(task)
     lister_tasks_queue.sort(key=lambda x: -x.priority)
-    log('Watcher.watch should fetch {} lister_type tasks'.format(len(lister_tasks_queue)))
+    log('Watcher.watch should fetch {} lister_type tasks\n'.format(len(lister_tasks_queue)))
     for task in lister_tasks_queue:
       # log('Watcher.watch lister task.run: {}'.format(task))
       new_tasks_json = task.run()
-      self.add_tasks(new_tasks_json)
-      task.schedule()
+      counter = self.add_tasks(new_tasks_json)
+      task.schedule(modified=counter['added'] > 0) # modified = add_tasks 出现新的 task
       log('Watcher.watch lister task done: \n{}\n\n'.format(task))
       tools.time_random_sleep(1, 5)
+
 
     page_tasks_queue = []
     for task in self.tasks:
       if task.should_fetch and task.is_page_type:
         page_tasks_queue.append(task)
     page_tasks_queue.sort(key=lambda x: -x.priority)
-    log('Watcher.watch should fetch {} page_type tasks'.format(len(page_tasks_queue)))
+    log('Watcher.watch should fetch {} page_type tasks\n'.format(len(page_tasks_queue)))
     for task in page_tasks_queue:
       # log('Watcher.watch page task: {}'.format(task))
       page_json = task.run()
-      task.save(page_json)
-      task.schedule()
-      log('Watcher.watch page task done: \n{}\n\n'.format(task.to_id()))
+      modified = task.save(page_json)
+      task.schedule(modified=modified)  # modified = 跟上次存储的页面有区别
+      log('Watcher.watch page task done: {}\n\n'.format(task.to_id()))
       tools.time_random_sleep(1, 5)
 
     self.save_config_yaml()

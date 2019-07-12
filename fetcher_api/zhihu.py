@@ -360,7 +360,8 @@ def fetch_zhihu_answer(answer):
 
 
   url = 'https://www.zhihu.com/question/{}/answer/{}'.format(question_id, answer_id)
-  conversations = get_valuable_conversations(answer.comments, limit=10)
+  # TODO redo comments 
+  # conversations = get_valuable_conversations(answer.comments, limit=10)
   # conversations = get_valuable_conversations(get_old_fashion_comments(url), limit=10)
 
   metadata_tmpl = '''
@@ -878,6 +879,20 @@ def yield_author_answers(author_id, limit=100, min_voteup=300):
       yield answer
     if count >= limit:
       break
+
+
+def yield_question_answers(question_id, limit=100, min_voteup=300):
+  # url = 'https://www.zhihu.com/people/shi-yidian-ban-98'
+  question = client.question(question_id)
+  count = 0
+  for answer in question.answers:
+    if answer.voteup_count >= min_voteup:
+      count += 1
+      yield answer
+    if count >= limit:
+      break
+
+
 
 
 def yield_author_articles(author_id, limit=100, min_voteup=20):

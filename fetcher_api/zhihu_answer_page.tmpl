@@ -1,20 +1,30 @@
 
+---
 
-## {{data.title}}
+title:       {{data.metadata.title}}
+url:         {{data.metadata.url}}
+author:      {{data.metadata.author_name}} ({{data.metadata.author_id}})
+voteup:      {{data.metadata.voteup_count}} 赞同
+thanks:      {{data.metadata.thanks_count}} 感谢
 
+create_date: {{data.metadata.create_date}}
+edit_date:   {{data.metadata.edit_date}}
+fetch_date:  {{data.metadata.fetch_date}}
+count:       {{data.metadata.count}} 字
+
+version:     {{data.version}}
 
 ---
 
-{{data.metadata}}
-
----
+# {{data.metadata.title}}
 
 
-话题: {{data.topic}}
+## 话题: 
+
+{{data.metadata.topics}}
 
 
-
-#### 问题描述:
+## 问题描述:
 
 {{data.question or '(无)'}}
 
@@ -22,18 +32,16 @@
 
 　　
 
-#### 回答:
+## 回答:
 
-{{data.content}}
+{{data.answer}}
 
 
 
 　　
 
-#### 评论:
+## 评论:
 
 {{data.comments}}
 
 ------------------
-
-from: [{{data.url}}]()

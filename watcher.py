@@ -1,5 +1,9 @@
 
 
+
+
+
+
 import os
 import random
 
@@ -45,7 +49,7 @@ class Task:
           enabled: true
           max_cycle: 15day
           min_cycle: 10minutes
-          upvote: '>=500'
+          zhihu_min_voteup: 1000
           weight: 0.5
           limit: 15
         page:
@@ -87,8 +91,8 @@ class Task:
 
   Lister任务 可以自定义的属性
     title_contains: filter_keyword
-    zhihu_voteup: '>=500'
-    zhihu_thanks: '>=100'
+    zhihu_min_voteup: 500
+    zhihu_min_thanks: 100
     limit: 10, 从列表页最多返回10个页面就结束
 
   可能会有多个Lister任务发现同一个页面
@@ -146,7 +150,12 @@ class Task:
   @property
   def weight(self): return float(self.option.get('weight') or 0.5)
   @property
-  def enabled(self): return bool(self.option.get('enabled') or True)
+  def enabled(self): 
+    enabled = self.option.get('enabled')
+    if enabled in ('false', 'False', 0, False):
+      return False
+    else:
+      return True
 
 
   def __str__(self):
@@ -309,7 +318,7 @@ class Task:
 
   @property
   def should_fetch(self):
-    return self.enabled and self.next_watch_time <= time_now().shift(seconds=1)
+    return self.enabled and (self.next_watch_time <= time_now().shift(seconds=1))
 
 
 

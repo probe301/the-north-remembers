@@ -361,20 +361,22 @@ def fetch_zhihu_answer(answer):
 
   url = 'https://www.zhihu.com/question/{}/answer/{}'.format(question_id, answer_id)
   # TODO redo comments 
-  # conversations = get_valuable_conversations(answer.comments, limit=10)
+  conversations = get_valuable_conversations(answer.comments, limit=10)
   # conversations = get_valuable_conversations(get_old_fashion_comments(url), limit=10)
 
-  metadata_tmpl = '''
-    author: {{author.name}} {{motto}}
-    voteup: {{voteup_count}} 赞同
-    thanks: {{thanks_count}} 感谢
-    create: {{create_date}}
-    edit:   {{edit_date}}
-    fetch:  {{fetch_date}}
-    count:  {{count}} 字
-    url:    {{url}}
-'''
-  metadata = Template(metadata_tmpl).render(**locals())
+  metadata = {
+    'title': title, 
+    'topics': topics, 
+    'author_name': author.name,
+    'author_id': author.__dict__['_cache']['url_token'],
+    'voteup_count': voteup_count,
+    'thanks_count': thanks_count,
+    'create_date': create_date,
+    'edit_date':   edit_date,
+    'fetch_date':  fetch_date,
+    'count':  count,
+    'url': url,
+  }
 
 
   comments_tmpl = '''
@@ -389,14 +391,10 @@ def fetch_zhihu_answer(answer):
 '''
   comments = Template(comments_tmpl).render(**locals())
 
-  return {'title': title,
-          'content': zhihu_fix_markdown(answer_body).strip(),
-          'comments': zhihu_fix_markdown(comments).strip(),
-          'author': author.name,
-          'topic': topics,
-          'question': zhihu_fix_markdown(question_details).strip(),
-          'metadata': metadata,
-          'url': url,
+  return { 'metadata': metadata,
+           'question': zhihu_fix_markdown(question_details).strip(),
+           'answer': zhihu_fix_markdown(answer_body).strip(),
+           'comments': zhihu_fix_markdown(comments).strip(),
           }
 
 
@@ -518,7 +516,6 @@ def fetch_zhihu_article(article):
     raise ZhihuParseError(msg='本文章已删除', value=blank_article)
 
   content = article.content
-  column = article.column.title if article.column else '无专栏'
 
   # try:  # 未观察到文章被删的情况, 暂时不适用 try except
   #   author = article.author
@@ -553,8 +550,7 @@ def fetch_zhihu_article(article):
 
   title = zhihu_article_title(article)
 
-  # TODO html fetch topic topics = ', '.join(t.name for t in question.topics)
-  topics = ''
+
   count = len(article_body)
   voteup_count = article.voteup_count
   edit_date = parse_json_date(article.updated_time)
@@ -563,16 +559,23 @@ def fetch_zhihu_article(article):
   # log(list(article.comments))
   conversations = get_valuable_conversations(article.comments, limit=10)
 
-  metadata_tmpl = '''
-    author: {{author.name}} {{motto}}
-    column: {{column}}
-    voteup: {{voteup_count}} 赞同
-    edit:   {{edit_date}}
-    fetch:  {{fetch_date}}
-    count:  {{count}} 字
-    url:    {{url}}
-'''
-  metadata = Template(metadata_tmpl).render(**locals())
+
+  topics = article._data['topics']   # zhihu_oauth API 没有这个属性, 通过 _data 取出
+
+  metadata = {
+    'title': title, 
+    'author_name': author.name,
+    'author_id': author.__dict__['_cache']['url_token'],
+    'column_name': article.column.title if article.column else '无专栏',
+    'column_id': article.column._id if article.column else '',
+    'voteup_count': voteup_count,
+    'edit_date':   edit_date,
+    'fetch_date':  fetch_date,
+    'count':  count,
+    'url': url,
+    'topics': ', '.join(t['name'] for t in topics),
+  }
+
 
   comments_tmpl = '''
 {% if conversations %}
@@ -586,15 +589,10 @@ def fetch_zhihu_article(article):
 '''
   comments = Template(comments_tmpl).render(**locals())
 
-  return {'title': title,
-          'content': zhihu_fix_markdown(article_body).strip(),
-          'comments': zhihu_fix_markdown(comments).strip(),
-          'author': author.name,
-          'topic': topics,
-          'question': '',
-          'metadata': metadata,
-          'url': url,
-          }
+  return { 'metadata': metadata,
+           'content': zhihu_fix_markdown(article_body).strip(),
+           'comments': zhihu_fix_markdown(comments).strip(),
+         }
 
 
 

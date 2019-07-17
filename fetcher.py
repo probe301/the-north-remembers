@@ -83,7 +83,7 @@ class Fetcher:
     '''
     tasks_desc = []
     limit = self.option['limit']
-    min_voteup = self.option.get('min_voteup', 0)
+    min_voteup = self.option.get('zhihu_min_voteup', 0)
     if '/question/' in self.url:
       question_id = int(self.url.split('/')[-1])
       log('request_ZhihuAnswerLister question_id', question_id)

@@ -1,16 +1,29 @@
 
+---
 
-## {{data.title}}
+title:      {{data.metadata.title}}
+url:        {{data.metadata.url}}
+author:     {{data.metadata.author_name}} ({{data.metadata.author_id}})
+column:     {{data.metadata.column_name}} ({{data.metadata.column_id}})
+voteup:     {{data.metadata.voteup_count}} 赞同
 
+edit_date:  {{data.metadata.edit_date}}
+fetch_date: {{data.metadata.fetch_date}}
+count:      {{data.metadata.count}} 字
+
+version:    {{data.version}}
 
 ---
 
-{{data.metadata}}
 
----
+# {{data.metadata.title}}
+
+## 话题: 
+
+{{data.metadata.topics}}
 
 
-
+## 正文:
 
 {{data.content}}
 
@@ -18,7 +31,7 @@
 
 　　
 
-#### 评论:
+## 评论:
 
 {{data.comments}}
 

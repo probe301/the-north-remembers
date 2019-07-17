@@ -50,28 +50,58 @@ class Page:
       thanks
 
     sections 如果包含 sections, 说明是从本地 md 加载得来, 需要还原内容和评论等
+
+    文本形式为 (参考 Jekyll markdown)
+
+        ---
+        title:  title
+        url:  url
+        metadatakey1: value1
+        metadatakey2: value2
+        metadatakey3: value3
+        ---
+
+        # 标题
+
+        ## 内容分段1 (如问题 / 引文)
+
+        ### 文章内部标题1
+        ### 文章内部标题2
+        ### 文章内部标题3
+        ### 文章内部标题4
+
+        ## 内容分段2 (如回答 / 正文)
+
+        ### 文章内部标题5
+        ### 文章内部标题6
+
+        ## 评论
+
+      抓取文章中自带标题尽量降级到 `三级 title (###)` 以下
+
+
   '''
   def __init__(self, data):
     self.url = data['url']
     self.folder = data['folder']
-    self.filename = remove_invalid_char(data.get('title')) + '.md'
-    self.watch_time = data.get('watch_time')
-    self.version = data.get('version')
-    self.title = data.get('title')
+    self.watch_time = data['watch_time']
+    self.version = data['version']
+    self.metadata = data['metadata']
+    self.filename = remove_invalid_char(self.metadata['title']) + '.md'
 
-    self.tmpl = ''
-    self.data = {}
+    self.tmpl = ''  # should override
+    self.data = {}  # should override
 
   def __str__(self):
-    return '<Page #{1}> {0.title} (ver. {0.version}, {0.watch_time}) '.format(self, id(self))
+    title = self.metadata['title']
+    return '<Page #{1}> {2} (ver. {0.version}, {0.watch_time}) '.format(self, id(self), title)
 
   def to_id(self):
     return '<Page #{}>'.format(id(self))
 
-
   @classmethod
   def create(cls, data):
-    url = data.get('url')
+    url = data['url']
     page_type = tools.parse_type(url)
     if page_type == tools.UrlType.ZhihuColumnPage:
       return ZhihuColumnPage(data)
@@ -100,7 +130,6 @@ class Page:
       raise ValueError('{} not found'.format(path))
     txt = tools.load_txt(path)
 
-    title = txt.split('---')[0].strip().lstrip('#').strip()
     folder = os.path.dirname(path)
     filename = os.path.basename(path)
 
@@ -110,7 +139,9 @@ class Page:
     url = metadata.get('url')
     sections = tools.sections(txt.readlines(), is_title=lambda line: line.startswith('#'))
 
-    data = {'title': title, 'folder': folder, 'filename': filename, 
+    data = {
+            'folder': folder, 
+            'filename': filename, 
             'metadata': metadata, 
             'watch_time': watch_time, 
             'version': version, 
@@ -120,7 +151,8 @@ class Page:
 
   def is_changed(self, other):
     ''' 比对一个page对象是否有变化 '''
-    return self.data['title'] == other.data['title'] and self.data['content'] == other.data['content']
+    raise NotImplementedError
+    # return self.metadata['title'] == other.metadata['title'] and self.data['content'] == other.data['content']
 
 
   def write(self):
@@ -129,7 +161,7 @@ class Page:
       raise ValueError('can not open folder {}'.format(self.folder))
     save_path = self.folder + '/' + self.filename
     if os.path.exists(save_path):
-      log('warning! already exist')
+      log('warning! already exist {}'.format(save_path))
     with open(save_path, 'w', encoding='utf-8') as f:
       f.write(self.render(type='localfile'))
       log('write {} done'.format(save_path))
@@ -179,6 +211,9 @@ class ZhihuColumnPage(Page):
     else:
       self.data = data
 
+  def is_changed(self, other):
+    ''' 比对一个ZhihuColumnPage对象是否有变化 '''
+    return self.metadata['title'] == other.metadata['title'] and self.data['content'] == other.data['content']
 
 
 
@@ -210,6 +245,9 @@ class ZhihuAnswerPage(Page):
     else:
       self.data = data
 
+  def is_changed(self, other):
+    ''' 比对一个ZhihuAnswerPage对象是否有变化 '''
+    return self.metadata['title'] == other.metadata['title'] and self.data['answer'] == other.data['answer']
 
 
 

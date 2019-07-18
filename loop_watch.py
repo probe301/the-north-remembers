@@ -1,37 +1,11 @@
-
-
-
-# import time
-# import os
-
-from pylon import datalines
-from pylon import grep_before
-from pylon import create_logger
+import sys
+import tools
+from tools import parse_type
+from tools import UrlType
+from tools import create_logger
 
 log = create_logger(__file__)
 log_error = create_logger(__file__ + '.error')
-
-from peewee import fn
-
-from models import Task
-from models import Page
-
-
-
-import sys
-
-if len(sys.argv) == 2 and sys.argv[1].isdigit:
-  # cmd> python loop_watch.py 100
-  limit = int(sys.argv[1])
-  try:
-    Task.multiple_watch(sleep_seconds=30, limit=limit)
-  except Exception as e:
-    log_error(e)
-    raise e
-  # Task.report()
-
-else:
-  print('not enter loop watch', sys.argv)
 
 
 
@@ -85,8 +59,6 @@ def test_to_local_file_3():
     # log(page.metadata)
     page.to_local_file(folder='deep', fetch_images=False)
 # test_to_local_file()
-
-
 
 
 
@@ -283,3 +255,19 @@ def test_get_comment_list_id():
   print(d)
   for i in d:
     print(i.content)
+
+
+
+from watcher import Watcher
+
+
+
+def test_run_watcher():
+  w = Watcher(r'D:\Coding\TheNorthRemembers\test\旗舰评论——战略航空军元帅的旗舰')
+  # w = Watcher(r'D:\Coding\TheNorthRemembers\test\知乎 - 温酒的回答')
+  # w = Watcher(r'D:\Coding\TheNorthRemembers\test\经济')
+  # w = Watcher(r'D:\Coding\TheNorthRemembers\test\HelloFlask')
+  w.watch()
+
+if __name__ == "__main__":
+    test_run_watcher()

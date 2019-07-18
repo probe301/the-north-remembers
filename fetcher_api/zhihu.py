@@ -831,14 +831,14 @@ def test_zhihu_fix_mistake_headerline_splitter():
    ##   ###### ####### ####### ######
 '''
 
-def yield_topic_best_answers(topic_id, limit=100, min_voteup=300):
+def yield_topic_best_answers(topic_id, limit=100, min_voteup=300, min_thanks=50):
   # id = 19641972 # '政治'
   topic = client.topic(topic_id)
   log(topic.name + str(topic_id))
   count = 0
   for answer in topic.best_answers:
     # log('yield_topic_best {} {} {}'.format(answer.question.title, answer.author.name, answer.voteup_count))
-    if answer.voteup_count >= min_voteup:
+    if answer.voteup_count >= min_voteup and answer.thanks_count >= min_thanks:
       count += 1
       yield answer
     if count >= limit:
@@ -867,24 +867,24 @@ def yield_old_fashion_topic_answers(topic_id, mode=('all', 'best')[0],
     if count >= limit:
       break
 
-def yield_author_answers(author_id, limit=100, min_voteup=300):
+def yield_author_answers(author_id, limit=100, min_voteup=300, min_thanks=50):
   # url = 'https://www.zhihu.com/people/shi-yidian-ban-98'
   author = client.people(author_id)
   count = 0
   for answer in author.answers:
-    if answer.voteup_count >= min_voteup:
+    if answer.voteup_count >= min_voteup and answer.thanks_count >= min_thanks:
       count += 1
       yield answer
     if count >= limit:
       break
 
 
-def yield_question_answers(question_id, limit=100, min_voteup=300):
+def yield_question_answers(question_id, limit=100, min_voteup=300, min_thanks=50):
   # url = 'https://www.zhihu.com/people/shi-yidian-ban-98'
   question = client.question(question_id)
   count = 0
   for answer in question.answers:
-    if answer.voteup_count >= min_voteup:
+    if answer.voteup_count >= min_voteup and answer.thanks_count >= min_thanks:
       count += 1
       yield answer
     if count >= limit:
@@ -897,7 +897,7 @@ def yield_author_articles(author_id, limit=100, min_voteup=20):
   author = client.people(author_id)
   count = 0
   for article in author.articles:
-    if article.voteup_count >= min_voteup:
+    if article.voteup_count >= min_voteup :
       count += 1
       yield article
     if count >= limit:
@@ -915,12 +915,12 @@ def test_yield_org_articles():
 
 
 
-def yield_collection_answers(collection_id, limit=100, min_voteup=300):
+def yield_collection_answers(collection_id, limit=100, min_voteup=300, min_thanks=50):
   # 'http://www.zhihu.com/collection/19845840' 我心中的知乎TOP100
   collection = client.collection(collection_id)
   count = 0
   for answer in collection.answers:
-    if answer.voteup_count >= min_voteup:
+    if answer.voteup_count >= min_voteup and answer.thanks_count >= min_thanks:
       count += 1
       yield answer
     if count >= limit:

@@ -123,7 +123,7 @@ class Task:
     self.default_option = default_option
     self.url = desc['url']
     self.url_type = parse_type(self.url)
-    self.tip = str(desc.get('tip') or 'default tip')
+    self.tip = str(desc.get('tip') or 'default tip').replace('\n', ' ')
  
     # 任务添加时间
     self.task_add_time = self.parse_time(desc, 'task_add')
@@ -560,12 +560,14 @@ class Watcher:
         lister_tasks_queue.append(task)
     lister_tasks_queue.sort(key=lambda x: -x.priority)
     log('Watcher.watch should fetch {} lister_type tasks\n'.format(len(lister_tasks_queue)))
-    for task in lister_tasks_queue:
+    for i, task in enumerate(lister_tasks_queue, 1):
       # log('Watcher.watch lister task.run: {}'.format(task))
       new_tasks_json = task.run()
       counter = self.add_tasks(new_tasks_json)
       task.schedule(modified=counter['added'] > 0) # modified = add_tasks 出现新的 task
       log('Watcher.watch lister task done: \n{}\n\n'.format(task))
+      self.save_config_yaml()
+      self.remember(commitlog='checked lister {}'.format(i))
       tools.time_random_sleep(1, 5)
 
 
@@ -575,24 +577,32 @@ class Watcher:
         page_tasks_queue.append(task)
     page_tasks_queue.sort(key=lambda x: -x.priority)
     log('Watcher.watch should fetch {} page_type tasks\n'.format(len(page_tasks_queue)))
-    for task in page_tasks_queue:
+    for i, task in enumerate(page_tasks_queue, 1):
       # log('Watcher.watch page task: {}'.format(task))
       page_json = task.run()
       modified = task.save(page_json)
       task.schedule(modified=modified)  # modified = 跟上次存储的页面有区别
       log('Watcher.watch page task done: {}\n\n'.format(task.to_id()))
+      self.save_config_yaml()
+      if i % 3 == 0:
+        self.remember(commitlog='save pages {}'.format(i))
       tools.time_random_sleep(1, 5)
+    else:
+      self.save_config_yaml()
+      self.remember(commitlog='save pages {}'.format(i))
 
-    self.save_config_yaml()
 
 
 
-    
-  def remember(self):
+  def remember(self, commitlog='update'):
     # save to git
-    pass
-
-
+    git_path = os.path.dirname(self.project_path)
+    # log(git_path)
+    git_path = self.project_path # temp
+    cmd = 'cd {} && git add . && git commit -m "{}"'.format(git_path, commitlog)
+    # log(cmd)
+    os.system(cmd)
+    log('Watcher.remember add and commit {}'.format(commitlog))
 
 
 

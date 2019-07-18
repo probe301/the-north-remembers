@@ -56,9 +56,11 @@ class Fetcher:
         min_voteup: 赞同数超过 n'''
     tasks_desc = []
     column_id = self.url.split('/')[-1]
-
+    limit = self.option['limit']
+    min_voteup = self.option.get('zhihu_min_voteup', 0)
+    # 专栏没有感谢 min_thanks = self.option.get('zhihu_min_thanks', 0)
     log('request_ZhihuColumnLister column_id', column_id)
-    for article in yield_column_articles(column_id, limit=self.option['limit'], min_voteup=20):
+    for article in yield_column_articles(column_id, limit=limit, min_voteup=min_voteup):
       desc = {'url': zhihu_article_url(article),
               'tip': article.title + ' - ' + article.author.name, 
               }
@@ -84,22 +86,23 @@ class Fetcher:
     tasks_desc = []
     limit = self.option['limit']
     min_voteup = self.option.get('zhihu_min_voteup', 0)
+    min_thanks = self.option.get('zhihu_min_thanks', 0)
     if '/question/' in self.url:
       question_id = int(self.url.split('/')[-1])
       log('request_ZhihuAnswerLister question_id', question_id)
-      iter_answers = yield_question_answers(question_id, limit=limit, min_voteup=min_voteup)
+      iter_answers = yield_question_answers(question_id, limit=limit, min_voteup=min_voteup, min_thanks=min_thanks)
     elif '/people/' in self.url:
       author_id = self.url.split('/')[-2]
       log('request_ZhihuAnswerLister author_id', author_id)
-      iter_answers = yield_author_answers(author_id, limit=limit, min_voteup=min_voteup)
+      iter_answers = yield_author_answers(author_id, limit=limit, min_voteup=min_voteup, min_thanks=min_thanks)
     elif '/topic/' in self.url:
       topic_id = int(self.url.split('/')[-2])
       log('request_ZhihuAnswerLister topic_id', topic_id)
-      iter_answers = yield_topic_best_answers(topic_id, limit=limit, min_voteup=min_voteup)
+      iter_answers = yield_topic_best_answers(topic_id, limit=limit, min_voteup=min_voteup, min_thanks=min_thanks)
     elif '/collection/' in self.url:
       collection_id = int(self.url.split('/')[-1])
       log('request_ZhihuAnswerLister collection_id', collection_id)
-      iter_answers = yield_collection_answers(collection_id, limit=limit, min_voteup=min_voteup)
+      iter_answers = yield_collection_answers(collection_id, limit=limit, min_voteup=min_voteup, min_thanks=min_thanks)
     else:
       raise NotImplementedError
 

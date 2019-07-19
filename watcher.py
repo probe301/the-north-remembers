@@ -243,7 +243,7 @@ class Task:
     else:
       raise ValueError('cannot parse {} {}'.format(self.to_id(), self.url))
 
-  def schedule(self, modified):
+  def schedule(self, is_modified):
     ''' 如果成功存储, 则更新 version, last_watch_time, next_watch_time, tip
         根据上次是否变化, 安排下一次的抓取日程
 
@@ -264,7 +264,7 @@ class Task:
     '''
     # 更新 last_change_time, next_watch_time
     # 首先检测这次跟上次相比, 抓取到的内容是否已经改变
-    if not self.last_change_time or modified:  # 没有上次, 或者这次相比上次有改变
+    if not self.last_change_time or is_modified:  # 没有上次, 或者这次相比上次有改变
       self.last_change_time = time_now()
       shift_secs = duration_from_humanize(self.min_cycle)
       self.next_watch_time = time_now().shift(seconds=shift_secs)
@@ -295,13 +295,13 @@ class Task:
     page.write()
 
     if self.last_page:
-      modified = page.is_changed(self.last_page)
+      is_modified = page.is_changed(self.last_page)
     else:
-      modified = True
+      is_modified = True
 
     self.last_page = page
     # log('save {} done'.format(self.to_id()))
-    return modified
+    return is_modified
 
 
   @property
@@ -564,7 +564,7 @@ class Watcher:
       # log('Watcher.watch lister task.run: {}'.format(task))
       new_tasks_json = task.run()
       counter = self.add_tasks(new_tasks_json)
-      task.schedule(modified=counter['added'] > 0) # modified = add_tasks 出现新的 task
+      task.schedule(is_modified=counter['added'] > 0) # is_modified = add_tasks 出现新的 task
       log('Watcher.watch lister task done: \n{}\n\n'.format(task))
       self.save_config_yaml()
       self.remember(commitlog='checked lister {}'.format(i))
@@ -580,8 +580,8 @@ class Watcher:
     for i, task in enumerate(page_tasks_queue, 1):
       # log('Watcher.watch page task: {}'.format(task))
       page_json = task.run()
-      modified = task.save(page_json)
-      task.schedule(modified=modified)  # modified = 跟上次存储的页面有区别
+      is_modified = task.save(page_json)
+      task.schedule(is_modified=is_modified)  # is_modified = 跟上次存储的页面有区别
       log('Watcher.watch page task done: {}\n\n'.format(task.to_id()))
       self.save_config_yaml()
       if i % 3 == 0:

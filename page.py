@@ -10,6 +10,7 @@ from urllib.parse import unquote
 from jinja2 import Template
 import re
 
+from cleaner import fix_md_title
 
 import tools
 from tools import create_logger
@@ -177,7 +178,14 @@ class Page:
         rendered = Template(tmpl).render(data=self.data)
         return rendered
 
+  def postprocess(self, data):
+    ''' 处理 # 标题降级, 
+        LATEX, 
+        图片视频链接修正,
+        代码判断语言种类和染色
+        等等'''
 
+    raise NotImplementedError
 
 
 # =========================================================
@@ -215,7 +223,10 @@ class ZhihuColumnPage(Page):
     ''' 比对一个ZhihuColumnPage对象是否有变化 '''
     return self.metadata['title'] == other.metadata['title'] and self.data['content'] == other.data['content']
 
-
+  def postprocess(self, data):
+    content = fix_md_title(data['content'])
+    data['content'] = content
+    return data
 
 
 
@@ -239,17 +250,21 @@ class ZhihuAnswerPage(Page):
     super().__init__(data)
     self.tmpl = 'fetcher_api/zhihu_answer_page.tmpl'
 
-    if 'sections' in data:
+    if 'sections' in data:  # from local load text
       data = data # TODO
       self.data = data
     else:
+      data = self.postprocess(data)
       self.data = data
 
   def is_changed(self, other):
     ''' 比对一个ZhihuAnswerPage对象是否有变化 '''
     return self.metadata['title'] == other.metadata['title'] and self.data['answer'] == other.data['answer']
 
-
+  def postprocess(self, data):
+    answer = fix_md_title(data['answer'])
+    data['answer'] = answer
+    return data
 
     # if self.page_type == 'zhihu_answer':
     #   try:

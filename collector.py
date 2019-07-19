@@ -394,3 +394,57 @@ if __file__ == 'main':
   # def save_answer(answer, folder='test', overwrite=True):
   # def save_article(article, folder='test', overwrite=True):
   # def fetch_images_for_markdown(markdown_file):
+
+# '''
+#  ######  #####  ##   ## #######
+# ##      ##   ## ##   ## ##
+#  #####  #######  ## ##  ######
+#      ## ##   ##  ## ##  ##
+# ######  ##   ##   ###   #######
+# '''
+
+# def smart_save(url, folder=None, limit=1000,
+#                min_voteup=500, max_voteup=500000000,
+#                overwrite=False):
+#   '''根据 url 推断 话题 或者 作者, 自动抓取此类回答'''
+#   if 'www.zhihu.com/topic/' in url:
+#     topic = client.from_url(url)
+#     log([topic.name, topic.id])
+#     folder = folder or topic.name
+#     answers = list(yield_topic_best_answers(int(topic.id), limit=limit, min_voteup=min_voteup))
+
+#   elif 'www.zhihu.com/people/' in url:
+#     author = client.from_url(url)
+#     log([author.name, author.headline, 'answers', author.answer_count])
+#     folder = folder or author.name
+#     answers = list(yield_author_answers(author.id, limit=limit, min_voteup=min_voteup))
+#   elif 'www.zhihu.com/collection/' in url:
+#     collection = client.from_url(url)
+#     log([collection.title, collection.creator.name, collection.description, collection.answer_count])
+#     folder = folder or collection.title
+#     answers = list(yield_collection_answers(collection.id, limit=limit, min_voteup=min_voteup))
+
+
+#   log('detected {} answers'.format(len(answers)))
+#   if not os.path.exists(folder):
+#     os.makedirs(folder)
+
+#   for i, answer in enumerate(answers, 1):
+#     url = zhihu_answer_url(answer)
+#     try:
+#       log('start fetching answer {}/{}'.format(i, len(answers)))
+#       log('{}'.format(zhihu_answer_format(answer)))
+#       save_answer(url, folder=folder, overwrite=overwrite)
+#       log('save done\n')
+#     except ZhihuParseError as e:
+#       log_error(e)
+#     except RuntimeError as e:
+#       log_error(e, answer.question.title)
+#     except requests.exceptions.RetryError as e:
+#       log_error([e, 'on {}'.format(url)])
+#     except AttributeError as e:
+#       print(answer.question.title, url, e)
+#       raise
+
+#   log('all done!')
+

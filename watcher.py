@@ -123,7 +123,7 @@ class Task:
     self.default_option = default_option
     self.url = desc['url']
     self.url_type = parse_type(self.url)
-    self.tip = str(desc.get('tip') or 'default tip').replace('\n', ' ')
+    self.tip = str(desc.get('tip') or 'default tip').replace('\n', ' ').replace(':', ' ')
  
     # 任务添加时间
     self.task_add_time = self.parse_time(desc, 'task_add')
@@ -183,7 +183,8 @@ class Task:
       # 这两个 last_watch_time last_change_time 如果缺省, 不做设置
       if not desc.get('timestamp'): return None
       timestr = desc.get('timestamp').get(time_label, None)
-      if timestr: return time_from_str(timestr)
+      if timestr in ('null', 'none', 'None'): return None
+      elif timestr: return time_from_str(timestr)
       else: return None
 
   def to_id(self):
@@ -311,6 +312,7 @@ class Task:
         如果 weight < 1, last_watch_time 为 None 的排在前面, 然后是
         如果 weight < 1, 且已经有了 last_watch_time, 按照 next_watch_time 排列
     '''
+    # TODO
     if self.weight >= 1:
       pass
     return 1

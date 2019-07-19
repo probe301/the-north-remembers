@@ -258,6 +258,229 @@ def test_get_comment_list_id():
 
 
 
+
+
+
+
+
+
+
+
+
+'''
+####### ##   ## ####### ######
+##       ## ##  ##     ###
+######    ###   ###### ##
+##       ## ##  ##     ###
+####### ##   ## ####### ######
+'''
+
+def exec_save_from_collections():
+  # 采铜 的收藏 我心中的知乎TOP100
+  url = 'http://www.zhihu.com/collection/19845840'
+  smart_save(url, limit=3000,
+             min_voteup=100, max_voteup=500000000,
+             overwrite=False)
+
+# exec_save_from_collections()
+
+def exec_save_from_authors():
+  # url = 'https://www.zhihu.com/people/xbjf/'  # 玄不救非氪不改命
+  # url = 'https://www.zhihu.com/people/zhao-hao-yang-1991'  # 赵皓阳
+  # url = 'https://www.zhihu.com/people/mandelbrot-11'  # Mandelbrot
+  # url = 'https://www.zhihu.com/people/shi-yidian-ban-98'  # shiyidianban
+  # url = 'https://www.zhihu.com/people/heismail' # 卡夫卡斯
+  # url = 'https://www.zhihu.com/people/shu-sheng-4-25' # 书生
+  # url = 'https://www.zhihu.com/people/cai-tong' # 采铜
+  url = 'https://www.zhihu.com/people/chenqin'
+  url = 'https://www.zhihu.com/people/Huang-Lei-970106'
+  smart_save(url, folder=None, limit=4000, min_voteup=1, overwrite=False)
+# exec_save_from_authors()
+
+
+def exec_save_answers():
+  urls = '''
+    # https://www.zhihu.com/question/40305228/answer/86179116
+    # https://www.zhihu.com/question/36466762/answer/85475145
+    # https://www.zhihu.com/question/33246348/answer/86919689
+
+    https://www.zhihu.com/question/31073228/answer/66187805
+    # https://www.zhihu.com/question/39906815/answer/88534869
+
+    # https://www.zhihu.com/question/40700155/answer/89002644
+    # https://www.zhihu.com/question/36380091/answer/84690117
+    # https://www.zhihu.com/question/33246348/answer/86919689
+    # https://www.zhihu.com/question/35254746/answer/90252213
+    # https://www.zhihu.com/question/23618517/answer/89823915
+
+    # https://www.zhihu.com/question/40677000/answer/87886574
+
+    # https://www.zhihu.com/question/41373242/answer/91417985
+    # https://www.zhihu.com/question/47275087/answer/106335325
+    # https://www.zhihu.com/question/47275087/answer/106335325 买不起房是房价太高还是工资太低？
+    # https://www.zhihu.com/question/36129534/answer/91921682  印度经济会在本世纪追上中国吗？
+    # https://www.zhihu.com/question/22513722/answer/21967185  火车票涨价是否能解决春运问题？
+    # https://www.zhihu.com/question/32210508/answer/57701501  蒋兆和《流民图》为何受到批判？
+    # https://www.zhihu.com/question/27820755/answer/107267228 裸辞后怎样解释以获工作机会？
+  '''
+  for url in ss(urls).datalines():
+    save_answer(url.split(' ')[0], folder='test')
+
+
+
+
+# def exec_save_from_question():
+#   urls = '''
+#     # graphic design
+#     # http://www.zhihu.com/question/19577036
+#     # http://www.zhihu.com/question/21578745
+#     # http://www.zhihu.com/question/22332149
+#     # http://www.zhihu.com/question/21274267
+#     # http://www.zhihu.com/question/22332149
+#     # http://www.zhihu.com/question/29594460
+#     # http://www.zhihu.com/question/27914845
+#     # http://www.zhihu.com/question/28529486
+#     # http://www.zhihu.com/question/20603867
+#     http://www.zhihu.com/question/23914832
+#   '''
+#   for url in datalines(urls):
+#     save_from_question(url)
+
+
+
+
+def exec_save_from_topic():
+
+  urls_str = '''
+    # https://www.zhihu.com/topic/19554091 math
+    # https://www.zhihu.com/topic/19556950 physics
+    # https://www.zhihu.com/topic/19574449 a song of ice and fire
+    # https://www.zhihu.com/topic/19556231 interactive design 1000
+    # https://www.zhihu.com/topic/19556382 2d design 1000
+    # https://www.zhihu.com/topic/19561709 ux design 1000
+    # https://www.zhihu.com/topic/19551016 fonts 200
+    # https://www.zhihu.com/topic/19553684 layout 100
+    # https://www.zhihu.com/topic/19647471 style 100
+    # https://www.zhihu.com/topic/19551077 history
+    # https://www.zhihu.com/topic/19615699 immanuel_kant
+    # https://www.zhihu.com/topic/19551864 classical music
+    # https://www.zhihu.com/topic/19552330 programmer
+    # https://www.zhihu.com/topic/19554298 programming
+    # https://www.zhihu.com/topic/19615699 immanuel_kant
+
+    # https://www.zhihu.com/topic/19563625 astronomy 天文
+    # https://www.zhihu.com/topic/19620787 universe 天文
+    # https://www.zhihu.com/topic/19569034 philosophy_of_science 科学哲学
+    # https://www.zhihu.com/topic/19558740 statistics 统计学 answer 更多
+    # https://www.zhihu.com/topic/19576422 statistics 统计
+    # https://www.zhihu.com/topic/19552981 economics 经济
+    # https://www.zhihu.com/topic/19553550 paradox 悖论
+    # https://www.zhihu.com/topic/19559450 machine_learning 机器学习
+    # https://www.zhihu.com/topic/19551275 artificial_intelligence 人工智能
+    # https://www.zhihu.com/topic/19553534 data_mining 数据挖掘
+    # https://www.zhihu.com/topic/19815465 quantitative_trading 量化交易
+    # https://www.zhihu.com/topic/19571159 freelancer 自由职业
+    # https://www.zhihu.com/topic/19555355 房地产
+    # https://www.zhihu.com/topic/19555407 桌面游戏
+  '''
+
+  url = 'https://www.zhihu.com/topic/19555407'
+  smart_save(url, folder=None, limit=3000, min_voteup=300, overwrite=False)
+# exec_save_from_topic()
+
+def exec_massive_download():
+
+  # save_author('http://www.zhihu.com/people/nordenbox')
+  urls = '''
+    # http://www.zhihu.com/people/leng-zhe
+    # http://www.zhihu.com/people/ji-xuan-yi-9
+    # http://www.zhihu.com/people/Ivony
+    # http://www.zhihu.com/people/BlackCloak
+
+    # http://www.zhihu.com/people/hecaitou
+    # http://www.zhihu.com/people/ma-bo-yong
+
+    # http://www.zhihu.com/people/hutianyi
+    # http://www.zhihu.com/people/lawrencelry
+    # http://www.zhihu.com/people/Metaphox
+
+    # http://www.zhihu.com/people/calon
+    # http://www.zhihu.com/people/yolfilm
+    # http://www.zhihu.com/people/superwyh
+    # http://www.zhihu.com/people/cai-tong
+    # http://www.zhihu.com/people/xiepanda
+
+
+
+
+    # http://www.zhihu.com/people/cogito
+    # http://www.zhihu.com/people/talich
+    # http://www.zhihu.com/people/commando
+    # http://www.zhihu.com/people/fu-er
+
+    # http://www.zhihu.com/people/tassandar
+    # http://www.zhihu.com/people/fei-niao-bing-he
+    # http://www.zhihu.com/people/zhou-xiao-nong
+    # http://www.zhihu.com/people/wang-lu-43-95
+    # http://www.zhihu.com/people/yinshoufu
+    # http://www.zhihu.com/people/tangsyau
+    # http://www.zhihu.com/people/lianghai
+    # http://www.zhihu.com/people/zhang-jia-wei
+    # http://www.zhihu.com/people/bo-cai-28-7
+
+    # all done
+  '''
+
+  urls = '''
+    # http://www.zhihu.com/people/sa-miu-47-86
+    # http://www.zhihu.com/people/xubowen
+    http://www.zhihu.com/people/Huang-Lei-970106
+  '''
+
+
+  for url in ss(urls).datalines():
+    save_from_author(url, folder='authors_explore', min_voteup=30)
+
+
+
+def exec_download_zhuanlan():
+  url = 'https://zhuanlan.zhihu.com/chicken-life'
+  url = 'https://zhuanlan.zhihu.com/tonnie'
+
+  column = client.from_url(url)
+  for a in column.articles:
+    print(a)
+    save_article(a)
+
+
+
+def exec_save_sinple_answer():
+    url = 'https://www.zhihu.com/question/51936651/answer/130915660'
+    save_answer(url)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 from watcher import Watcher
 
 
@@ -268,6 +491,7 @@ def test_run_watcher():
   # w = Watcher(r'D:\Coding\TheNorthRemembers\test\经济')
   # w = Watcher(r'D:\Coding\TheNorthRemembers\test\HelloFlask')
   w.watch()
+
 
 if __name__ == "__main__":
     test_run_watcher()

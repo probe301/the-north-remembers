@@ -11,6 +11,7 @@ from jinja2 import Template
 import re
 
 from cleaner import fix_md_title
+from cleaner import fix_svg_image
 
 import tools
 from tools import create_logger
@@ -225,6 +226,7 @@ class ZhihuColumnPage(Page):
 
   def postprocess(self, data):
     content = fix_md_title(data['content'])
+    content = fix_svg_image(content)
     data['content'] = content
     return data
 
@@ -263,6 +265,7 @@ class ZhihuAnswerPage(Page):
 
   def postprocess(self, data):
     answer = fix_md_title(data['answer'])
+    answer = fix_svg_image(answer)
     data['answer'] = answer
     return data
 

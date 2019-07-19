@@ -6,10 +6,6 @@ import re
 from datetime import datetime
 
 
-
-# from models import Task, Page
-# from models import convert_time
-
 from watcher import Watcher
 from fetcher import FetcherTask
 

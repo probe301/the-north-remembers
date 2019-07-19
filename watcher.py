@@ -591,7 +591,8 @@ class Watcher:
       tools.time_random_sleep(1, 5)
     else:
       self.save_config_yaml()
-      self.remember(commitlog='save pages {}'.format(i))
+      self.remember(commitlog='save pages {}'.format('remain'))
+
 
 
 

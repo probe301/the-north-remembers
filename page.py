@@ -12,6 +12,7 @@ import re
 
 from cleaner import fix_md_title
 from cleaner import fix_svg_image
+from cleaner import fix_video_link
 
 import tools
 from tools import create_logger
@@ -218,6 +219,7 @@ class ZhihuColumnPage(Page):
       data = data # TODO
       self.data = data
     else:
+      data = self.postprocess(data)
       self.data = data
 
   def is_changed(self, other):
@@ -226,6 +228,7 @@ class ZhihuColumnPage(Page):
 
   def postprocess(self, data):
     content = fix_md_title(data['content'])
+    content = fix_video_link(content)
     content = fix_svg_image(content)
     data['content'] = content
     return data
@@ -265,6 +268,7 @@ class ZhihuAnswerPage(Page):
 
   def postprocess(self, data):
     answer = fix_md_title(data['answer'])
+    answer = fix_video_link(answer)
     answer = fix_svg_image(answer)
     data['answer'] = answer
     return data

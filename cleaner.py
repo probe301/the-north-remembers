@@ -87,16 +87,19 @@ txt1
 
 
 
-
 def fix_svg_image(mdtxt):
   ''' 删除 svg 图片
 ![](https://pic1.zhimg.com/v2-de3db9a301472562573c48f2738e78ac_b.jpg)
 
-![](data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='1280' height='720'></svg>)
+![](data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='1280' height='720'></svg>)示意图
 
 '''
-  pat = r'\n\!\[\]\(data:image\/svg\+xml;utf8,<svg.+?<\/svg>\)\n'
-  mdtxt = re.sub(pat, '', mdtxt)
+
+  # 这里通常是图片的label, 需要改成浅灰色
+  pat = r'\!\[\]\(data:image\/svg\+xml;utf8,<svg.+?<\/svg>\)(.+?)\n'
+  mdtxt = re.sub(pat, r'<center style="color:gray;">\1</center>\n', mdtxt)
+  pat2 = r'\!\[\]\(data:image\/svg\+xml;utf8,<svg.+?<\/svg>\)\n'  # 没有 label
+  mdtxt = re.sub(pat2, r'\n', mdtxt)
   return mdtxt
 
 
@@ -104,17 +107,68 @@ def test_fix_svg_image():
   mdtxt = ''' 删除 svg 图片
 ![](https://pic1.zhimg.com/v2-de3db9a301472562573c48f2738e78ac_b.jpg)
 
-![](data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='1280' height='720'></svg>)
+![](data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='1280' height='720'></svg>)示意图
+
+![](https://pic1.zhimg.com/v2-de3db9a301472562573c48f2738e78ac_b.jpg)
+
+![](data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='1280' height='720'></svg>)示意图2
 
 '''
   result = ''' 删除 svg 图片
 ![](https://pic1.zhimg.com/v2-de3db9a301472562573c48f2738e78ac_b.jpg)
+
+<center style="color:gray;">示意图</center>
+
+![](https://pic1.zhimg.com/v2-de3db9a301472562573c48f2738e78ac_b.jpg)
+
+<center style="color:gray;">示意图2</center>
 
 '''
   assert result == fix_svg_image(mdtxt)
 
 
 
+
+
+def fix_video_link(mdtxt):
+  ''' 视频链接形如
+
+[
+
+![](https://pic1.zhimg.com/v2-6a815464926a29329b5e0e68f0a2a375.png)
+
+动物有语言吗 | 混乱博物馆https://www.zhihu.com/video/1125529815624884224](https://www.zhihu.com/video/1125529815624884224)
+
+暂时更新为
+
+![](https://pic1.zhimg.com/v2-6a815464926a29329b5e0e68f0a2a375.png)
+[视频: 动物有语言吗 | 混乱博物馆](https://www.zhihu.com/video/1125529815624884224)
+
+'''
+
+  pat = r'\[\n\n(\!\[\]\(https://pic.+?\))\n\n(.*?)(https://www.zhihu.com/video/\d+)\]\(\3\)'
+  mdtxt = re.sub(pat, r'\1\n[视频: \2](\3)', mdtxt)
+  return mdtxt
+
+
+def test_fix_video_link():
+  sample = ''' 形如
+
+[
+
+![](https://pic1.zhimg.com/v2-6a815464926a29329b5e0e68f0a2a375.png)
+
+动物有语言吗 | 混乱博物馆https://www.zhihu.com/video/1125529815624884224](https://www.zhihu.com/video/1125529815624884224)
+
+'''
+
+  result = ''' 形如
+
+![](https://pic1.zhimg.com/v2-6a815464926a29329b5e0e68f0a2a375.png)
+[视频: 动物有语言吗 | 混乱博物馆](https://www.zhihu.com/video/1125529815624884224)
+
+'''
+  assert result == fix_video_link(sample)
 
 
 
@@ -128,3 +182,4 @@ def test_fix_svg_image():
 if __name__ == "__main__":
   test_fix_md_title()
   test_fix_svg_image()
+  test_fix_video_link()

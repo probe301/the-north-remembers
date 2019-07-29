@@ -38,7 +38,7 @@ def parse_type(url):
 
   if re.search(r'https://www.zhihu.com/question/\d+?/answer/\d+?', url):
     return UrlType.ZhihuAnswerPage
-  if re.search(r'https://www.zhihu.com/people/\w+?/answers', url):
+  if re.search(r'https://www.zhihu.com/people/(\w|\-)+?/answers', url):
     return UrlType.ZhihuAnswerLister  # from author's answers
   if re.search(r'https://www.zhihu.com/topic/\d+/(top\-answers|hot)', url):
     return UrlType.ZhihuAnswerLister  # from topic's answers
@@ -257,10 +257,24 @@ def yaml_load(path, loader=IncludeOrderedLoader):
   return yaml.load(open(path, encoding='utf-8'), loader)
 
 
+# def yaml_save(data, path):
+#   '''需要支持中文'''
+#   with open(path, 'w', encoding='utf-8') as file:
+#     file.write(yaml.safe_dump(data, allow_unicode=True))
+#   return True
+
 def yaml_save(data, path):
-  '''需要支持中文'''
+  '''支持中文, 可以识别 OrderedDict'''
+  class OrderedDumper(yaml.SafeDumper):
+    pass
+  def _dict_representer(dumper, data):
+    return dumper.represent_mapping(
+              yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG,
+              data.items()
+            )
   with open(path, 'w', encoding='utf-8') as file:
-    file.write(yaml.safe_dump(data, allow_unicode=True))
+    OrderedDumper.add_representer(OrderedDict, _dict_representer)
+    yaml.dump(data, file, OrderedDumper, allow_unicode=True)
   return True
 
 def yaml_loads(text, loader=IncludeOrderedLoader):
@@ -354,10 +368,9 @@ class create_logger:
 
 
 
-def purge_file_path(path):
-  return path
 
-DEFAULT_INVALID_CHARS = {':', '*', '?', '"', '<', '>', '|', '\r', '\n'}
+
+DEFAULT_INVALID_CHARS = {':', '*', '?', '"', "'", '<', '>', '|', '\r', '\n', '\t'}
 EXTRA_CHAR_FOR_FILENAME = {'/', '\\'}
 
 def remove_invalid_char(dirty, invalid_chars=None, for_path=False):

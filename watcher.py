@@ -262,6 +262,7 @@ class Task:
         max_cycle 下次抓取最多可以间隔的时间 (60天)
         以lazy_ratio计算出的时间要限制到 {min_cycle, max_cycle} 范围内
 
+
     '''
     # 更新 last_change_time, next_watch_time
     # 首先检测这次跟上次相比, 抓取到的内容是否已经改变
@@ -312,7 +313,7 @@ class Task:
         如果 weight < 1, last_watch_time 为 None 的排在前面, 然后是
         如果 weight < 1, 且已经有了 last_watch_time, 按照 next_watch_time 排列
     '''
-    # TODO
+    # TODO priority
     if self.weight >= 1:
       pass
     return 1
@@ -601,11 +602,11 @@ class Watcher:
     # save to git
     git_path = os.path.dirname(self.project_path)
     # log(git_path)
-    git_path = self.project_path # temp
+    # git_path = self.project_path # temp
     cmd = 'cd {} && git add . && git commit -m "{}"'.format(git_path, commitlog)
     # log(cmd)
     os.system(cmd)
-    log('Watcher.remember add and commit {}'.format(commitlog))
+    log('Watcher.remember added, committed {}'.format(commitlog))
 
 
 

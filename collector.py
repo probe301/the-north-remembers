@@ -7,12 +7,11 @@ from datetime import datetime
 
 
 from watcher import Watcher
-from fetcher import FetcherTask
-
+from collections import OrderedDict as odict
 import tools
-from tools import PageType
-from tools import TaskType
 
+log = tools.create_logger(__file__)
+log_error = tools.create_logger(__file__ + '.error')
 
 
 class Collector:
@@ -23,7 +22,7 @@ class Collector:
     首先解析任务列表, 取出所涉及页面, 都安排一次抓取
     如果要求记录任务自身, 则额外记录 Collector 配置, 供之后定期rescan增加页面
 
-  collector = Collector.load(file=xxx.yaml)
+  collector = Collector(project_path=xxx)
   collector.add(url1)
   collector.add(weixin_page_url)
   collector.add(zhihu_column_url)
@@ -31,152 +30,178 @@ class Collector:
   collector.add(zhihu_author_id=xxx)
   collector.add(column_id=xxx)
 
-  collector.save(file=xxx)
-  ...
-  collector.rescan()
-  collector.save(file=xxx)
-  collector = Collector.load(file=xxx.yaml)
+  yaml_tmpl like:
+                  default_option:
+                    lister:
+                      enabled: true
+                      max_cycle: 15day
+                      min_cycle: 1hour
+                      zhihu_min_voteup: 1
+                      weight: 0.5
+                      limit: 200
+                    page:
+                      enabled: true
+                      max_cycle: 1day
+                      min_cycle: 1hour
+                      weight: 0.5
+
+                  lister_task:
+                    - url: xxxxx
+                      tip: xxx
+
   '''
 
 
-  def __init__(self, file=None):
-    '''后端可以是 yaml, json, sqlite'''
-    if file is None:
-      self.tasks = []
-    else:
-      assert file.endswith('.yaml')
-      assert os.path.exists(file)
-      data = tools.yaml_load(open(file))
-      self.tasks = data['tasks']
-
-  @classmethod
-  def load(cls, file):
-    return cls(file=file)
+  def __init__(self, project_path):
+    ''' 创建 Collector 
+        需要固定的项目路径, 
+        同时检测项目路径是否为 git 仓库
+    '''
+    self.project_path = project_path
+    # TODO check git repo
 
 
-  def all(self):
-    '''列出所有记录, 未来需要rescan'''
-    return self.tasks
-
-  def scan(self):
-    for task in self.tasks:
-      self.add(task['url'])
+  def __str__(self):
+    return f'<Collector #{id(self)} path={self.project_path}>'
 
 
 
-  def add(self, url, label=None, options=None):
-    '''安排一个抓取任务
-    url是主键
-    label用于提示标识, 可重复'''
+  def add(self, url, tip, lister_option=None, page_option=None):
+    ''' 添加一个 Watcher, 根据 url 决定何种类型 '''
+
+    lister_default_option = odict(
+      enabled=True,
+      max_cycle='15day',
+      min_cycle='1hour',
+      weight=0.5,
+      limit=200,
+    )
+    page_default_option = odict(
+      enabled=True,
+      max_cycle='1day',
+      min_cycle='1hour',
+      weight=0.5,
+    )
+
+    if lister_option:
+      lister_default_option.update(lister_option)
+    if page_option:
+      page_default_option.update(page_option)
+
     url = tools.purge_url(url)
-    page_type = tools.parse_type(url)
-    if page_type == PageType.ZhihuColumn:
-      self.and_zhihu_column_page(url, label=None, page_type=page_type)
-    elif page_type == PageType.ZhihuAnswer:
-      self.and_zhihu_answer_page(url, label=None, page_type=page_type)
-    elif page_type == PageType.ZhihuAuthor:
-      pass
+    # page_type = tools.parse_type(url)
+    folder = self.project_path + '/' + tools.remove_invalid_char(tip)
+
+    d = odict(
+      default_option=odict(
+        lister=lister_default_option,
+        page=page_default_option,
+      ), 
+      lister_task=[odict(url=url, tip=tip), odict(url=url, tip=tip),]
+    )
+    # 这样会让 lister_task[] 的缩进不正确
+    # 应该是 lister_task:
+    #          - url: xxx
+    #            tip: xxx
+    # 实际是 lister_task:
+    #        - url: xxx
+    #          tip: xxx 但是不影响识别
 
 
-  # def add_one_page(self, url, label=None, page_type=None, options=None):
-  #   print('Watcher add url={url} ({label})'.format(**locals()))
-
-  def and_zhihu_answer_page(self, url, label=None, page_type=None, options=None):
-    print('Watcher and_zhihu_answer_page url={url} ({label})'.format(**locals()))
-
-  def and_zhihu_column_page(self, url, label=None, page_type=None, options=None):
-    print('Watcher and_zhihu_column_page url={url} ({label})'.format(**locals()))
-    task = Task.create()
-    Watcher.push(task)
-
-
-
-  def add_by_answer(self, answer_id, title=None, force_start=False):
-    # log('add by answer')
-    url = zhihu_answer_url(answer_id)
-    # log('add by answer {}'.format(url))
-    task = self.add(url, title=title)
-    # log('add by answer {} {}'.format(url, task))
-    if force_start:
-      task.watch()
-    return task
-
-
-  def add_by_author(self, author_id, limit=3000, min_voteup=100,
-                    stop_at_existed=10, force_start=False):
-    existed_count = 0
-    added_count = 0
-    for answer in yield_author_answers(author_id, limit=limit, min_voteup=min_voteup):
-      url = zhihu_answer_url(answer)
-
-      t = Task.is_watching(url)
-      if t:
-        existed_count += 1
-        # log('already watching {} {}'.format(t.title, existed_count))
-        if stop_at_existed and stop_at_existed <= existed_count:
-          break
-      else:
-        task = Task.add(url, title=answer.question.title)
-        added_count += 1
-        log('add_by_author <{}>\n'.format(added_count))
-        if force_start:
-          task.watch()
-    log('add_by_author done, total added {} skipped {}'.format(added_count, existed_count))
-
-
-  def add_by_topic_best_answers(cls, topic_id, limit=3000, min_voteup=100,
-                                stop_at_existed=10, force_start=False):
-    existed_count = 0
-    added_count = 0
-    log(topic_id)
-    for answer in yield_topic_best_answers(topic_id, limit=limit, min_voteup=min_voteup):
-      url = zhihu_answer_url(answer)
-
-      t = Task.is_watching(url)
-      if t:
-        existed_count += 1
-        log('  already watching {} {}'.format(t.title, existed_count))
-        if stop_at_existed and stop_at_existed <= existed_count:
-          break
-      else:
-        task = Task.add(url, title=answer.question.title)
-        added_count += 1
-        log('add_by_topic_best_answers <{}>\n'.format(added_count))
-        if force_start:
-          task.watch()
-    log('add_by_topic_best_answers done, total added {} skipped {}'.format(added_count, existed_count))
-
-
-
-  def add_articles(cls, author_id=None, column_id=None,
-                   limit=3000, min_voteup=10,
-                   stop_at_existed=10, force_start=False):
-
-    if not author_id and not column_id:
-      raise ValueError('no author_id, no column_id')
-    if author_id:
-      yield_articles = yield_author_articles(author_id, limit=limit, min_voteup=min_voteup)
+    if os.path.exists(folder):
+      raise ValueError(f'folder already exists: {folder}')
     else:
-      yield_articles = yield_column_articles(column_id, limit=limit, min_voteup=min_voteup)
+      os.mkdir(folder)
+      tools.yaml_save(d, folder + '/' + '.task.yaml')
+      log(f'Watcher folder {folder} created')
 
-    existed_count = 0
-    added_count = 0
-    for article in yield_articles:
-      url = zhihu_article_url(article)
 
-      t = Task.is_watching(url)
-      if t:
-        existed_count += 1
-        # log('already watching {} {}'.format(t.title, existed_count))
-        if stop_at_existed and stop_at_existed <= existed_count:
-          break
-      else:
-        task = Task.add(url, title=article.title)
-        added_count += 1
-        log('add_articles <{}>\n'.format(added_count))
-        if force_start:
-          task.watch()
-    log('add_articles done, total added {} skipped {}'.format(added_count, existed_count))
+  # def add_by_answer(self, answer_id, title=None, force_start=False):
+  #   # log('add by answer')
+  #   url = zhihu_answer_url(answer_id)
+  #   # log('add by answer {}'.format(url))
+  #   task = self.add(url, title=title)
+  #   # log('add by answer {} {}'.format(url, task))
+  #   if force_start:
+  #     task.watch()
+  #   return task
+
+
+  # def add_by_author(self, author_id, limit=3000, min_voteup=100,
+  #                   stop_at_existed=10, force_start=False):
+  #   existed_count = 0
+  #   added_count = 0
+  #   for answer in yield_author_answers(author_id, limit=limit, min_voteup=min_voteup):
+  #     url = zhihu_answer_url(answer)
+
+  #     t = Task.is_watching(url)
+  #     if t:
+  #       existed_count += 1
+  #       # log('already watching {} {}'.format(t.title, existed_count))
+  #       if stop_at_existed and stop_at_existed <= existed_count:
+  #         break
+  #     else:
+  #       task = Task.add(url, title=answer.question.title)
+  #       added_count += 1
+  #       log('add_by_author <{}>\n'.format(added_count))
+  #       if force_start:
+  #         task.watch()
+  #   log('add_by_author done, total added {} skipped {}'.format(added_count, existed_count))
+
+
+  # def add_by_topic_best_answers(cls, topic_id, limit=3000, min_voteup=100,
+  #                               stop_at_existed=10, force_start=False):
+  #   existed_count = 0
+  #   added_count = 0
+  #   log(topic_id)
+  #   for answer in yield_topic_best_answers(topic_id, limit=limit, min_voteup=min_voteup):
+  #     url = zhihu_answer_url(answer)
+
+  #     t = Task.is_watching(url)
+  #     if t:
+  #       existed_count += 1
+  #       log('  already watching {} {}'.format(t.title, existed_count))
+  #       if stop_at_existed and stop_at_existed <= existed_count:
+  #         break
+  #     else:
+  #       task = Task.add(url, title=answer.question.title)
+  #       added_count += 1
+  #       log('add_by_topic_best_answers <{}>\n'.format(added_count))
+  #       if force_start:
+  #         task.watch()
+  #   log('add_by_topic_best_answers done, total added {} skipped {}'.format(added_count, existed_count))
+
+
+
+  # def add_articles(cls, author_id=None, column_id=None,
+  #                  limit=3000, min_voteup=10,
+  #                  stop_at_existed=10, force_start=False):
+
+  #   if not author_id and not column_id:
+  #     raise ValueError('no author_id, no column_id')
+  #   if author_id:
+  #     yield_articles = yield_author_articles(author_id, limit=limit, min_voteup=min_voteup)
+  #   else:
+  #     yield_articles = yield_column_articles(column_id, limit=limit, min_voteup=min_voteup)
+
+  #   existed_count = 0
+  #   added_count = 0
+  #   for article in yield_articles:
+  #     url = zhihu_article_url(article)
+
+  #     t = Task.is_watching(url)
+  #     if t:
+  #       existed_count += 1
+  #       # log('already watching {} {}'.format(t.title, existed_count))
+  #       if stop_at_existed and stop_at_existed <= existed_count:
+  #         break
+  #     else:
+  #       task = Task.add(url, title=article.title)
+  #       added_count += 1
+  #       log('add_articles <{}>\n'.format(added_count))
+  #       if force_start:
+  #         task.watch()
+  #   log('add_articles done, total added {} skipped {}'.format(added_count, existed_count))
 
 
 
@@ -334,56 +359,6 @@ class Collector:
 
 
 
-if __file__ == 'main':
-
-
-  from zhihu_answer import yield_topic_best_answers
-  from zhihu_answer import yield_author_answers
-  from zhihu_answer import yield_author_articles
-  from zhihu_answer import yield_column_articles
-  from zhihu_answer import save_answer
-  from zhihu_answer import save_article
-  # from zhihu_answer import fetch_zhihu_answer
-  # from zhihu_answer import fetch_zhihu_article
-  # from zhihu_answer import fill_full_content
-  # from zhihu_answer import zhihu_answer_url
-  # from zhihu_answer import zhihu_article_url
-  from zhihu_answer import fetch_images_for_markdown
-  from zhihu_answer import ZhihuParseError
-  # from zhihu_oauth.zhcls.utils import remove_invalid_char
-
-
-  import os
-  from zhihu_oauth import ZhihuClient
-  TOKEN_FILE = 'token.pkl'
-  client = ZhihuClient()
-  if os.path.isfile(TOKEN_FILE):
-      client.load_token(TOKEN_FILE)
-  else:
-      client.login_in_terminal(use_getpass=False)
-      client.save_token(TOKEN_FILE)
-
-
-  def test_fetch_articles():
-    # url = 'https://www.zhihu.com/people/chenqin'
-    author_id = 'chenqin'
-    # author_id = 'liang-zi-wei-48'
-    # author_id = 'qbitai'
-
-    author = client.people(author_id)
-    log(author.name)
-
-    for a in author.articles:
-      if a.column:
-        log(a.title + ' - ' + a.column.title)
-      else:
-        log(a.title + ' - ' + 'None')
-      save_article(a)
-
-    # log('------------')
-    # for c in author.columns:
-    #   log(c.title)
-    # smart_save(url, folder=None, limit=4000, min_voteup=500, overwrite=False)
 
 
   # def yield_topic_best_answers(topic_id, limit=100, min_voteup=300):
@@ -391,13 +366,6 @@ if __file__ == 'main':
   # def save_article(article, folder='test', overwrite=True):
   # def fetch_images_for_markdown(markdown_file):
 
-# '''
-#  ######  #####  ##   ## #######
-# ##      ##   ## ##   ## ##
-#  #####  #######  ## ##  ######
-#      ## ##   ##  ## ##  ##
-# ######  ##   ##   ###   #######
-# '''
 
 # def smart_save(url, folder=None, limit=1000,
 #                min_voteup=500, max_voteup=500000000,

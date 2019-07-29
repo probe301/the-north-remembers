@@ -64,10 +64,10 @@ class Fetcher:
       desc = {'url': zhihu_article_url(article),
               'tip': article.title + ' - ' + article.author.name, 
               }
-      log('extract new task {}'.format(desc))
+      log('extract new task {} {}'.format(desc['url'], desc['tip']))
       tasks_desc.append(desc)
     return tasks_desc
-  
+
 
   def request_ZhihuColumnPage(self):
     data = fetch_zhihu_article(self.url)

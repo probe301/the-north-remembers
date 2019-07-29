@@ -1317,3 +1317,25 @@ def test_https_image():
 
 def test_https_image_tls():
   pass
+
+
+def test_fetch_articles():
+  # url = 'https://www.zhihu.com/people/chenqin'
+  author_id = 'chenqin'
+  # author_id = 'liang-zi-wei-48'
+  # author_id = 'qbitai'
+
+  author = client.people(author_id)
+  log(author.name)
+
+  for a in author.articles:
+    if a.column:
+      log(a.title + ' - ' + a.column.title)
+    else:
+      log(a.title + ' - ' + 'None')
+    save_article(a)
+
+  # log('------------')
+  # for c in author.columns:
+  #   log(c.title)
+  # smart_save(url, folder=None, limit=4000, min_voteup=500, overwrite=False)

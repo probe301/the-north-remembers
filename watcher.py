@@ -309,14 +309,30 @@ class Task:
   @property
   def priority(self):
     ''' 优先级从 weight 和 task_add_time next_watch_time last_watch_time 综合得出
-        如果 weight == 1, task_add_time 最靠后的排在前面
-        如果 weight < 1, last_watch_time 为 None 的排在前面, 然后是
-        如果 weight < 1, 且已经有了 last_watch_time, 按照 next_watch_time 排列
+        优先级越大的 task 越先执行
+        weight 数值应该 >= 0, next_watch_time 应该已经落后于当前时间, 差距秒数称为 delta
+        weight > 1, 直接以 weight 作为优先级, 忽略 last_watch_time next_watch_time
+                    优先级相同时, task_add_time 最晚的优先级高
+                    (weight 设为 > 1 是特殊情况, 表示希望立即抓取最近添加的任务)
+        weight <= 1, 以 weight 作为基础的优先级, 以其他条件做调整
+                     - next_watch_time 越早先的, 优先级越大, 具体为在 weight 上减去 1/(next_watch_delta + 100)
+                     - 已经有了 last_watch_time, 则将最终的优先级 *=0.8
+
     '''
-    # TODO priority
-    if self.weight >= 1:
-      pass
-    return 1
+    weight = max(self.weight, 0)
+    if weight > 1:
+      s = tools.time_delta_from_now(self.task_add_time)
+      s = max(s, 0)
+      return weight + 1/(s + 100)
+    else:
+      s = tools.time_delta_from_now(self.next_watch_time)
+      s = max(s, 0)
+      weight = max(weight - 1/(s + 100), 0)
+      if self.last_watch_time:
+        return weight * 0.8 
+      else:
+        return weight
+
 
 
   @property
@@ -571,7 +587,8 @@ class Watcher:
       log('Watcher.watch lister task done: \n{}\n\n'.format(task))
       self.save_config_yaml()
       self.remember(commitlog='checked lister {}'.format(i))
-      tools.time_random_sleep(1, 5)
+      tools.time_random_sleep(3, 5)
+
 
 
     page_tasks_queue = []
@@ -589,7 +606,7 @@ class Watcher:
       self.save_config_yaml()
       if i % 3 == 0:
         self.remember(commitlog='save pages {}'.format(i))
-      tools.time_random_sleep(1, 5)
+      tools.time_random_sleep(5, 10)
     else:
       self.save_config_yaml()
       self.remember(commitlog='save pages {}'.format('remain'))

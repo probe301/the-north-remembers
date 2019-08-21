@@ -100,8 +100,11 @@ def time_to_str(t):
 def time_to_humanize(t):
   return t.humanize()
 
-
-
+def time_delta_from_now(t):
+  ''' t 落后于当前时间时, 返回秒数为正数 '''
+  delta = time_now() - t
+  seconds = delta.days * 24 * 3600 + delta.seconds
+  return seconds
 
 
 def time_shift_from_humanize(t, shift_expr):

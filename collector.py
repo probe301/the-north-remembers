@@ -7,6 +7,7 @@ from datetime import datetime
 
 
 from watcher import Watcher
+from fetcher import Fetcher
 from collections import OrderedDict as odict
 import tools
 
@@ -65,8 +66,7 @@ class Collector:
     return f'<Collector #{id(self)} path={self.project_path}>'
 
 
-
-  def add(self, url, tip, lister_option=None, page_option=None):
+  def add(self, url, tip=None, lister_option=None, page_option=None):
     ''' 添加一个 Watcher, 根据 url 决定何种类型 '''
 
     lister_default_option = odict(
@@ -89,6 +89,8 @@ class Collector:
       page_default_option.update(page_option)
 
     url = tools.purge_url(url)
+    if tip is None:
+      tip = Fetcher.generate_tip(url)
     # page_type = tools.parse_type(url)
     folder = self.project_path + '/' + tools.remove_invalid_char(tip)
 
@@ -97,7 +99,7 @@ class Collector:
         lister=lister_default_option,
         page=page_default_option,
       ), 
-      lister_task=[odict(url=url, tip=tip), odict(url=url, tip=tip),]
+      lister_task=[odict(url=url, tip=tip), ]
     )
     # 这样会让 lister_task[] 的缩进不正确
     # 应该是 lister_task:
@@ -114,6 +116,59 @@ class Collector:
       os.mkdir(folder)
       tools.yaml_save(d, folder + '/' + '.task.yaml')
       log(f'Watcher folder {folder} created')
+
+
+
+  def add_multiple(self, urls, tips=None, folder=None, lister_option=None, page_option=None):
+    ''' 添加一个 Watcher, 根据 urls 创建 folder, 
+        urls 需要属于同种类型, 目前未检测 '''
+
+    lister_default_option = odict(
+      enabled=True,
+      max_cycle='15day',
+      min_cycle='1hour',
+      weight=0.5,
+      limit=200,
+    )
+    page_default_option = odict(
+      enabled=True,
+      max_cycle='1day',
+      min_cycle='1hour',
+      weight=0.5,
+    )
+
+    if lister_option:
+      lister_default_option.update(lister_option)
+    if page_option:
+      page_default_option.update(page_option)
+    
+    urls = [tools.purge_url(u) for u in urls]
+
+    if tips is None:
+      tips = [Fetcher.generate_tip(u) for u in urls]
+    else:
+      if len(urls) != len(tips):
+        raise ValueError(f'count of {urls} should equal to count {tips}')
+
+    if folder is None:
+      folder = Fetcher.generate_folder(urls)
+    folder = self.project_path + '/' + tools.remove_invalid_char(folder)
+
+    d = odict(
+      default_option=odict(
+        lister=lister_default_option,
+        page=page_default_option,
+      ), 
+      lister_task=[odict(url=url, tip=tip) for url, tip in zip(urls, tips)]
+    )
+
+    if os.path.exists(folder):
+      raise ValueError(f'folder already exists: {folder}')
+    else:
+      os.mkdir(folder)
+      tools.yaml_save(d, folder + '/' + '.task.yaml')
+      log(f'Watcher folder {folder} created')
+
 
 
   # def add_by_answer(self, answer_id, title=None, force_start=False):

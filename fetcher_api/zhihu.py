@@ -80,9 +80,57 @@ def zhihu_answer_title(answer):
 
 
 
+def parse_answer(answer):
+  '''以 url, (str or int) id 转换为 answer 对象
+  url 可能是 www.zhihu.com 或 api.zhihu.com
+  '''
+  if isinstance(answer, str):
+    if 'api.zhihu.com' in answer: # https://api.zhihu.com/answers/71917800
+      answer = client.answer(int(answer.split('/')[-1]))
+    elif answer.isdigit():
+      answer = client.answer(int(answer))
+    else:
+      answer = client.from_url(answer)
+  elif isinstance(answer, int):
+    answer = client.answer(answer)
+  return answer
 
 
+def parse_article(article):
+  if isinstance(article, str):
+    if 'api.zhihu.com' in article:
+      article = client.article(int(article.split('/')[-1]))
+    elif article.isdigit():
+      article = client.article(int(article))
+    else:
+      article = client.from_url(article)
+  elif isinstance(article, int):
+    article = client.article(article)
+  return article
 
+def parse_topic(topic):
+      # https://www.zhihu.com/topic/19568972/questions
+      # https://www.zhihu.com/topic/19568972/hot
+      # https://www.zhihu.com/topic/19568972/top-answers
+      # https://api.zhihu.com/topic/19568972/top-answers
+
+  if isinstance(topic, str):
+    if topic.isdigit():
+      topic = client.topic(int(topic))
+    else:
+      for part in topic.split('/'):
+        if part.isdigit():
+          topic = client.topic(int(part))
+          break
+  elif isinstance(topic, int):
+    topic = client.topic(topic)
+  return topic
+
+
+def parse_author(url):
+  pass
+def parse_column(url):
+  pass
 
 
 
@@ -378,7 +426,7 @@ def fetch_zhihu_answer(answer):
     'title': title, 
     'topics': topics, 
     'author_name': author.name,
-    'author_id': author.__dict__['_cache']['url_token'],
+    'author_id': author.__dict__['_cache']['url_token'] if author.name != '匿名用户' else '-1',
     'voteup_count': voteup_count,
     'thanks_count': thanks_count,
     'create_date': create_date,
@@ -422,19 +470,6 @@ def blank_zhihu_answer():
 
 
 
-
-
-def parse_answer(answer):
-  if isinstance(answer, str):
-    if 'api.zhihu.com' in answer: # https://api.zhihu.com/answers/71917800
-      answer = client.answer(int(answer.split('/')[-1]))
-    elif answer.isdigit():
-      answer = client.answer(int(answer))
-    else:
-      answer = client.from_url(answer)
-  elif isinstance(answer, int):
-    answer = client.answer(answer)
-  return answer
 
 
 
@@ -502,17 +537,6 @@ def zhihu_article_title(article):
   column = article.column.title if article.column else ''
   return '{title} - {author_name}的专栏 {column}'.format(**locals()).strip()
 
-def parse_article(article):
-  if isinstance(article, str):
-    if 'api.zhihu.com' in article:
-      article = client.article(int(article.split('/')[-1]))
-    elif article.isdigit():
-      article = client.article(int(article))
-    else:
-      article = client.from_url(article)
-  elif isinstance(article, int):
-    article = client.article(article)
-  return article
 
 def fetch_zhihu_article(article):
   article = parse_article(article)

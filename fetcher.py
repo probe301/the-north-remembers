@@ -22,6 +22,11 @@ from fetcher_api.zhihu import yield_collection_answers
 from fetcher_api.zhihu import yield_question_answers
 
 
+from fetcher_api.zhihu import parse_topic
+from fetcher_api.zhihu import parse_author
+from fetcher_api.zhihu import parse_column
+
+
 
 import tools
 from tools import parse_type
@@ -37,6 +42,47 @@ class Fetcher:
   @classmethod
   def create(cls, fetcher_option={}):
     return cls(fetcher_option)
+
+  @classmethod
+  def generate_tip(cls, url):
+    ''' 从 url 生成 tip '''
+    if parse_type(url) == UrlType.ZhihuAnswerLister:
+      if '/topic/' in url:
+        topic = parse_topic(url)
+        log(f'generate_tip get {topic.name}')
+        return '知乎话题 - ' + topic.name
+      else:
+        raise NotImplementedError()
+    else:
+      raise ValueError(f'cannot parse url type except Lister {url}')
+
+  @classmethod
+  def generate_folder(cls, urls):
+    ''' 要求所有 urls 属于同一类
+        现在未检查 '''
+    if not urls:
+      raise ValueError('urls is not specified')
+    ''' 要求所有 urls 属于同一类
+        现在未检查 '''
+
+    if parse_type(urls[0]) == UrlType.ZhihuAnswerLister:
+      if '/topic/' in urls[0]:
+        topic_names = []
+        for url in urls:
+          topic = parse_topic(url)
+          log(f'generate_tip get {topic.name}')
+          topic_names.append(topic.name)
+        
+        return '知乎话题 - ' + ', '.join(topic_names)
+      else:
+        raise NotImplementedError()
+      
+    else:
+      raise ValueError(f'cannot parse url type {url}')
+
+
+
+
 
   def __init__(self, option):
     self.url = option['url']

@@ -30,7 +30,8 @@ from page import Page
 # from lister import Lister
 from fetcher import Fetcher
 
-
+from recorder import remember
+from recorder import generate_feed
 
 
 
@@ -435,37 +436,37 @@ class Watcher:
   '''
   任务调度, 维护任务队列, 执行抓取任务
   每个 Watcher 实例加载一个 ".task.yaml"
-  ".task.yaml" 分为 default_option 和 tasks 两部分设置
-  default_option 存放公用设置
-  tasks 部分是具体任务属性, 可以覆盖 default_option 的设置
-  tasks 里的任务按照优先度排序, 依次执行
-    如果是 FetchNewPost 任务, 会添加新的页面到 tasks 里
-    如果是普通任务, 会更新一次页面
+  ".task.yaml" 分为 default_option, lister_task, page_task 三部分设置
 
-  执行条件包括:
-      手动触发
-      达到特定时间
+  - default_option 存放任务的默认设置
+  - lister_task 是获取新页面的任务, 以 url 做为标识, 可以覆盖 default_option 的设置
+  - page_task 是逐个抓取页面的任务, 以 url 做为标识, 可以覆盖 default_option 的设置
 
-  当 watcher.init() 时做这些:
-      加载 task.yaml, 分析设置, 创建所有的 tasks
-      输出一个报告
+  Watcher 运行时, 
+    lister_task 里的任务首先运行, 获取这段时间新增的页面, 创建新的 page_task 
+    然后 page_task 里的任务运行, 挨个抓取具体的页面
 
-  当 watcher.watch() 时做这些:
-      找出需要执行的 tasks, 对这些 tasks 按照优先级排序
-      逐个执行 task
-        如果是 listerTask, 追加新的 tasks, 并添加到优先级列表的头部
-        如果是 PageTask, 按需抓取
-      每完成一个 batch (比如10个更新) 之后, 记录到文件 task.yaml
-      git commit
-      输出一个报告
+  当 watcher.init() 时:
+    加载 task.yaml, 分析设置, 创建所有的 tasks
+    输出一个报告
+
+  当 watcher.watch() 时:
+    找出需要执行的 tasks, 对这些 tasks 按照优先级排序
+    逐个执行 task
+      如果是 lister_task, 追加新的 tasks, 并添加到优先级列表的头部
+      如果是 page_task, 按需抓取
+    每完成一个 batch (比如 10 个更新) 之后, 记录到文件 task.yaml
+    git commit 到上一层的仓库
+    生成 RSS Feed
+    输出一个报告
   '''
 
-  def __init__(self, project_path):
-    self.project_path = project_path
+  def __init__(self, watcher_path):
+    self.watcher_path = watcher_path
     # task_option 该文件夹下默认属性 只读取不修改
     config_data = self.load_config_yaml()
     self.default_option = config_data.get('default_option', {})
-    self.default_option.update({'folder': self.project_path})  # 将项目 folder 也放在公共属性
+    self.default_option.update({'folder': self.watcher_path})  # 将项目 folder 也放在公共属性
 
     self.tasks = []
     self.url_set = set()
@@ -477,11 +478,11 @@ class Watcher:
     s = '''<Watcher #{}> from {}
     have {} tasks
     '''
-    return s.format(id(self), self.tasks_count, self.project_path)
+    return s.format(id(self), self.tasks_count, self.watcher_path)
 
 
   def load_config_yaml(self):
-    config_yaml = self.project_path + '/.task.yaml'
+    config_yaml = self.watcher_path + '/.task.yaml'
     if not os.path.exists(config_yaml):
       raise ValueError('{config_yaml} not found'.format(**locals()))
     config_data = tools.yaml_load(config_yaml)
@@ -547,8 +548,8 @@ class Watcher:
         最后存普通 tasks
 
     '''
-    config_yaml = self.project_path + '/.task.yaml'
-    # data.option 不会改变 只有 ister_task 和 page_task 被更新
+    config_yaml = self.watcher_path + '/.task.yaml'
+    # default_option 不会改变 只有 lister_task 和 page_task 被更新
     temp = tools.load_txt(config_yaml).split('lister_task:')[0]  # 取得 default 部分
     temp += 'lister_task:\n'
     for task in self.tasks:
@@ -572,6 +573,7 @@ class Watcher:
     ''' 爬取页面, 
         首先列出所有的NewPost任务, 都抓取一遍
         然后列出普通页面任务, 都抓取一遍
+        在成功抓取后更新 RSS
     '''
     lister_tasks_queue = []
     for task in self.tasks:
@@ -586,7 +588,7 @@ class Watcher:
       task.schedule(is_modified=counter['added'] > 0) # is_modified = add_tasks 出现新的 task
       log('Watcher.watch lister task done: \n{}\n\n'.format(task))
       self.save_config_yaml()
-      self.remember(commitlog='checked lister {}'.format(i))
+      remember(commit_log='checked lister {}'.format(i), watcher_path=self.watcher_path)
       tools.time_random_sleep(3, 5)
 
 
@@ -605,52 +607,11 @@ class Watcher:
       log('Watcher.watch page task done: {}\n\n'.format(task.to_id()))
       self.save_config_yaml()
       if i % 3 == 0:
-        self.remember(commitlog='save pages {}'.format(i))
+        remember(commit_log='save pages {}'.format(i), watcher_path=self.watcher_path)
+        generate_feed(self.watcher_path, save_xml=True)
       tools.time_random_sleep(5, 10)
     else:
       self.save_config_yaml()
-      self.remember(commitlog='save pages {}'.format('remain'))
-
-
-
-
-
-  def remember(self, commitlog='update'):
-    # save to git
-    git_path = os.path.dirname(self.project_path)
-    # log(git_path)
-    # git_path = self.project_path # temp
-    cmd = 'cd {} && git add . && git commit -m "{}"'.format(git_path, commitlog)
-    # log(cmd)
-    os.system(cmd)
-    log('Watcher.remember added, committed {}'.format(commitlog))
-
-
-
-  # TODO remix
-  # 
-
-  # @classmethod
-  # def multiple_watch(cls, sleep_seconds=10, limit=10):
-  #   count = Task.report()
-  #   if count == 0:
-  #     log('current no tasks')
-  #     return
-
-  #   limit = min(limit, count)
-  #   for i in range(1, limit+1):
-  #     now = datetime.now()
-  #     log('\nloop {}/{} current_time={}'.format(i, limit, convert_time(now)))
-  #     task = Task.select().order_by(Task.next_watch).get()
-  #     if not task:
-  #       log('can not find any task')
-  #       continue
-  #     elif task.next_watch <= now:
-  #       log('start: {}'.format(task))
-  #       page = task.watch()
-  #       next_time = convert_time(task.next_watch, humanize=True)
-  #       log('done!  {} (next watch: {})'.format(page, next_time))
-  #       time.sleep(sleep_seconds)
-  #     else:
-  #       log('not today... {}'.format(task))
-
+      remember(commit_log='save pages {}'.format('remain'), watcher_path=self.watcher_path)
+      generate_feed(self.watcher_path, save_xml=True)
+    

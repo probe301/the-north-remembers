@@ -30,7 +30,7 @@ log = create_logger(__file__)
 log_error = create_logger(__file__ + '.error')
 
 
-class ZhihuParseError(Exception):
+class ZhihuFetchError(Exception):
   def __init__(self, msg=None, value=None):
     self.value = value
     self.msg = msg
@@ -359,7 +359,7 @@ def fetch_zhihu_answer(answer):
     blank_answer = blank_zhihu_answer()
     blank_answer['title'] = '(本回答已删除)' # + answer.question.title
     # blank_answer['url'] = zhihu_answer_url(answer)
-    raise ZhihuParseError(msg='本回答已删除', value=blank_answer)
+    raise ZhihuFetchError(msg='本回答已删除', value=blank_answer)
 
   try:
     question = answer.question
@@ -370,7 +370,7 @@ def fetch_zhihu_answer(answer):
     blank_answer = blank_zhihu_answer()
     blank_answer['title'] = '(问题已删除)' + answer.question.title
     blank_answer['url'] = zhihu_answer_url(answer)
-    raise ZhihuParseError(msg='问题已删除', value=blank_answer)
+    raise ZhihuFetchError(msg='问题已删除', value=blank_answer)
   try:
     content = answer.content
   except requests.exceptions.RetryError as e:
@@ -378,7 +378,7 @@ def fetch_zhihu_answer(answer):
     blank_answer = blank_zhihu_answer()
     blank_answer['title'] = '(问题已删除)' + answer.question.title
     blank_answer['url'] = zhihu_answer_url(answer)
-    raise ZhihuParseError(msg='问题已删除', value=blank_answer)
+    raise ZhihuFetchError(msg='问题已删除', value=blank_answer)
 
 
   answer_body = zhihu_content_html2md(content).strip()
@@ -547,7 +547,7 @@ def fetch_zhihu_article(article):
     # 文章已被删除
     blank_article = blank_zhihu_answer()
     blank_article['title'] = '(本文章已删除)'
-    raise ZhihuParseError(msg='本文章已删除', value=blank_article)
+    raise ZhihuFetchError(msg='本文章已删除', value=blank_article)
 
   content = article.content
 
@@ -556,7 +556,7 @@ def fetch_zhihu_article(article):
   # except requests.exceptions.RetryError as e:
   #   blank_article = blank_zhihu_article()
   #   blank_article['title'] = '(本文章已删除)' # + article.question.title
-  #   raise ZhihuParseError(msg='本文章已删除', value=blank_article)
+  #   raise ZhihuFetchError(msg='本文章已删除', value=blank_article)
   # try:
   #   question = article.question
   #   content = article.content
@@ -565,7 +565,7 @@ def fetch_zhihu_article(article):
   #   blank_article = blank_zhihu_answer() # reuse blank answer
   #   blank_article['title'] = '(文章已删除)' + article.question.title
   #   blank_article['url'] = zhihu_article_url(article)
-  #   raise ZhihuParseError(msg='文章已删除', value=blank_article)
+  #   raise ZhihuFetchError(msg='文章已删除', value=blank_article)
 
   article_body = zhihu_content_html2md(content).strip()
   if article.suggest_edit.status:

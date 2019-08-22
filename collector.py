@@ -56,7 +56,20 @@ class Collector:
   def __init__(self, project_path):
     ''' 创建 Collector 
         需要固定的项目路径, 
-        同时检测项目路径是否为 git 仓库
+        同时检测项目路径是否为 git 仓库 TODO
+
+        结构是 project_path (git repo)
+                |
+                |-- watcher_path1
+                |     |-- .task.yaml
+                |     |-- lister_task (xN)
+                |     |-- page_task (xN)
+                |-- watcher_path2
+                |     |-- .task.yaml
+                |     |-- lister_task (xN)
+                |     |-- page_task (xN)
+                |-- watcher_path3
+                | ..........
     '''
     self.project_path = project_path
     # TODO check git repo

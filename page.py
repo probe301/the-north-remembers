@@ -87,6 +87,7 @@ class Page:
   def __init__(self, data):
     self.url = data['url']
     self.folder = data['folder']
+    # 仅把最重要的属性 watch_time, version 等放在 page.watch_time 里, 其他不重要的属性从 metadata 里取
     self.watch_time = data['watch_time']
     self.version = data['version']
     self.metadata = data['metadata']
@@ -101,6 +102,15 @@ class Page:
 
   def to_id(self):
     return '<Page #{}>'.format(id(self))
+
+  def to_html(self, cut=100):
+    ''' 转换为 html 用于输出 RSS 等
+        必须有 data['full_text'] 才能 to_html() '''
+    full_txt = self.data['full_text']
+    if cut:
+      return full_txt[:cut]
+    else:
+      return full_txt
 
   @classmethod
   def create(cls, data):
@@ -118,37 +128,34 @@ class Page:
   @staticmethod
   def convert_dict(metadata_txt):
     d = {}
-    for line in metadata_txt.readlines():
+    for line in metadata_txt.splitlines():
       if line.strip():
-        k, v = line.strip().split(':')
+        k, v = line.strip().split(':', 1)
         d[k.strip()] = v.strip()
     return d
 
   @classmethod
   def load(cls, path):
     ''' 从磁盘加载 Page
-        用于比对页面是否有变化
-        只需要加载 title content 等少数内容, 评论等可以不加载 '''
+        用于比对页面是否有变化, 以及生成 RSS 等
+        比对页面是否有变化时, 只需要加载 title content 等少数内容, 评论等可以不加载 '''
     if not os.path.exists(path):
       raise ValueError('{} not found'.format(path))
     txt = tools.load_txt(path)
 
     folder = os.path.dirname(path)
     filename = os.path.basename(path)
-
     metadata = Page.convert_dict(txt.split('---')[1].strip())
-    watch_time = metadata.get('watch_time')
-    version = metadata.get('version')
-    url = metadata.get('url')
-    sections = tools.sections(txt.readlines(), is_title=lambda line: line.startswith('#'))
+    sections = tools.sections(txt.splitlines(), is_title=lambda line: line.startswith('#'))
 
     data = {
             'folder': folder, 
             'filename': filename, 
             'metadata': metadata, 
-            'watch_time': watch_time, 
-            'version': version, 
-            'url': url, 
+            'url': metadata['url'], 
+            'watch_time': metadata['fetch_date'],
+            'version': metadata['version'],
+            'full_text': txt,
             'sections': sections}  # 从txt加载得到Page必须包含sections
     return cls.create(data)
 

@@ -110,7 +110,7 @@ class Fetcher:
       desc = {'url': zhihu_article_url(article),
               'tip': article.title + ' - ' + article.author.name, 
               }
-      log('extract new task {} {}'.format(desc['url'], desc['tip']))
+      log('detect {} {}'.format(desc['url'], desc['tip']))
       tasks_desc.append(desc)
     return tasks_desc
 
@@ -155,7 +155,7 @@ class Fetcher:
     for answer in iter_answers:
       desc = {'url': zhihu_answer_url(answer),
               'tip': zhihu_answer_title(answer), }
-      log('detect new task: {}\n                 {}'.format(desc['url'], desc['tip']))
+      log('detect {}\n                 {}'.format(desc['url'], desc['tip']))
       tasks_desc.append(desc)
 
     return tasks_desc

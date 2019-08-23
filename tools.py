@@ -8,7 +8,6 @@ from datetime import datetime
 import time
 import arrow
 import json
-import arrow
 import random
 # data = json.loads(open('mockup_topic_answers.json', encoding='utf-8').read())
 

@@ -37,10 +37,12 @@ def remember(commit_log, watcher_path):
 
 
 
-def generate_feed(watcher_path, save_xml=False):
+def generate_feed(watcher_path, limit=10, save_xml=False):
   ''' 生成 RSS, 内容为全部 page_task, 
       按照添加任务的顺序倒序排列 (按照更新时间排列? TODO)
       RSS Feed 文件名为 Watcher 文件夹名称
+
+      limit=-1 时迭代所有Page
       '''
   feed_name = os.path.basename(watcher_path)
   feed = AtomFeed(feed_name,
@@ -61,10 +63,10 @@ def generate_feed(watcher_path, save_xml=False):
   #     published: 2016-1-12
   # '''
   pages = []
-  count = 10
+
   for path in tools.all_files(watcher_path, patterns='*.md'):
-    if not count: break
-    count -= 1
+    if limit == 0: break
+    limit -= 1
     try:
       page = Page.load(path)
       pages.append(page)
@@ -78,14 +80,14 @@ def generate_feed(watcher_path, save_xml=False):
 
   for page in sorted(pages, key=lambda page: page.watch_time):
     feed.add(page.metadata['title'],
-             page.to_html(cut=500),
-             content_type='html',
+             page.to_html(cut=0),
+             content_type='xhtml',
              author="article.get('author_name')",
              url=page.metadata['url'],
              updated=tools.time_from_str(page.watch_time),
              published=tools.time_from_str(page.watch_time)
             )
-  return feed.get_response()
+  return feed.get_response().response
 
 
 

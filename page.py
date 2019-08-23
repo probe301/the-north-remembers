@@ -19,8 +19,8 @@ from tools import create_logger
 log = create_logger(__file__)
 log_error = create_logger(__file__ + '.error')
 
-
-
+from markdown import markdown
+from mdx_gfm import GithubFlavoredMarkdownExtension
 
 
 
@@ -103,14 +103,13 @@ class Page:
   def to_id(self):
     return '<Page #{}>'.format(id(self))
 
-  def to_html(self, cut=100):
-    ''' 转换为 html 用于输出 RSS 等
-        必须有 data['full_text'] 才能 to_html() '''
-    full_txt = self.data['full_text']
-    if cut:
-      return full_txt[:cut]
-    else:
-      return full_txt
+  @property
+  def full_text(self):
+    ''' 完整的 md 文本, 
+        从本地文件 load 回来的 Page 的 data 里面自带 full_text
+        新生成的 Page 对象需要 render 得到 full_text'''
+    return self.data.get('full_text') or self.render(type='localfile')
+
 
   @classmethod
   def create(cls, data):
@@ -148,8 +147,7 @@ class Page:
     metadata = Page.convert_dict(txt.split('---')[1].strip())
     sections = tools.sections(txt.splitlines(), is_title=lambda line: line.startswith('#'))
 
-    data = {
-            'folder': folder, 
+    data = {'folder': folder, 
             'filename': filename, 
             'metadata': metadata, 
             'url': metadata['url'], 
@@ -158,6 +156,7 @@ class Page:
             'full_text': txt,
             'sections': sections}  # 从txt加载得到Page必须包含sections
     return cls.create(data)
+
 
   def is_changed(self, other):
     ''' 比对一个page对象是否有变化 '''
@@ -183,9 +182,21 @@ class Page:
 
   def render(self, type='localfile'):
     if type == 'localfile':
-        tmpl = tools.load_txt(self.tmpl)
-        rendered = Template(tmpl).render(data=self.data)
-        return rendered
+      tmpl = tools.load_txt(self.tmpl)
+      rendered = Template(tmpl).render(data=self.data)
+      return rendered
+    else:
+      raise NotImplementedError
+
+  def to_html(self, cut=0):
+    ''' 转换为 html 用于输出 RSS 等
+        必须有 data['full_text'] 才能 to_html() '''
+    full_text = self.full_text
+    if cut and len(full_text) > cut:
+      full_text = full_text[:cut] + f' ... (共 {len(full_text)} 字)'
+
+    html = markdown(full_text, output_format='html5', extensions=[GithubFlavoredMarkdownExtension()])
+    return html
 
   def postprocess(self, data):
     ''' 处理 # 标题降级, 
@@ -200,6 +211,36 @@ class Page:
 # =========================================================
 # =================== end of class Page ===================
 # =========================================================
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

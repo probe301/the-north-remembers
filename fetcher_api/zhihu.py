@@ -7,6 +7,7 @@ from tools import datalines
 
 import os
 import shutil
+import json
 import html2text
 
 
@@ -70,7 +71,7 @@ class AnswerDeleteError(ZhihuFetchError):
           'create_date': None,
           'edit_date':   None,
           'fetch_date':  tools.time_now_str(),
-          'count':  0,
+          'count': 0,
           'url': url,
       },
       'question_detail': zhihu_fix_markdown(zhihu_content_html2md(question.detail)).strip(),
@@ -142,6 +143,11 @@ def zhihu_detect(url):
 
   session = requests.Session()
   return session.get(url, headers=headers)
+
+def zhihu_detect_with_client(url):
+  return client.test_api('GET', url)
+
+
 
 
 
@@ -240,107 +246,237 @@ def parse_column(url):
   pass
 
 
-
-# '''
-#  #####  ##      ######
-# ##   ## ##      ##   ##
-# ##   ## ##      ##   ##
-# ##   ## ##      ##   ##
-#  #####  ####### ######
-
-#  ###### #####  ##   ## ##   ## ####### ##   ## #######
-# ###    ##   ## ### ### ### ### ##      ###  ##    ##
-# ##     ##   ## ## # ## ## # ## ######  ## # ##    ##
-# ###    ##   ## ##   ## ##   ## ##      ##  ###    ##
-#  ###### #####  ##   ## ##   ## ####### ##   ##    ##
-# '''
-# # OldZhihuClient 用于 zhihu-py3 cookie 模拟登录
-# # 到 http://www.zhihu.com/node/AnswerCommentBoxV2?params= 取得评论对象
-# # 比 API 方式快很多
-# # 如果不登录获取 cookie, 则在返回结果中看不到具体的作者名字
-# # from zhihu import ZhihuClient as OldZhihuClient
-# # old_client = OldZhihuClient('cookies.json')
-
-# def comment_list_id(url):
-#   """返回 aid 用于拼接 url get 该回答的评论
-#   <div tabindex="-1" class="zm-item-answer" itemscope="" itemtype="http://schema.org/Answer" data-aid="14852408" data-atoken="48635152" data-collapsed="0" data-created="1432285826" data-deleted="0" data-helpful="1" data-isowner="0" data-score="34.1227812032">
-
-#   某些页面仅在登录后 才能取得 comment_list_id, 否则会进入 login 页面找不到该 id
-#   可能跟答主允许站外分享有关
-#   # client = ZhihuClient()
-#   # client.create_cookies('cookies.json')
-#   """
-
-#   headers = {
-#     'User-agent': 'Mozilla/5.0',
-#   }
-#   # print(url)
-#   r = old_client._session.get(url, headers=headers)
-#   aid = PyQuery(r.content).find('div.zm-item-answer').attr('data-aid')
-#   if aid:
-#     return aid
-#   else:
-#     log_error(url + ' can not find aid in\n')
-#     log_error(r.content)
-#     raise ValueError
-
-# class OldFashionAuthor:
-#   """配合 OldFashionComment 使用的 author"""
-#   def __init__(self, name):
-#     self.name = name
-#   def __str__(self):
-#     return '<OldFashionAuthor {}>'.format(self.name)
-
-
-# class OldFashionComment:
-#   """
-#   使用 http://www.zhihu.com/node/AnswerCommentBoxV2?params= 取得的评论对象
-#   速度比较快
-#   comment.author.name, reply_to_author, content, vote_count
-#   """
-#   def __init__(self, cid, vote_count, author, content, reply_to):
-#     self.cid = cid
-#     self.vote_count = vote_count
-#     self.content = content
-#     self.author = author
-#     self.reply_to = reply_to
-#   def __str__(self):
-#     s = '<OldFashionComment cid={} vote_count={}\n  author="{}" reply_to="{}">\n  {}'
-#     return s.format(self.cid, self.vote_count, self.author, self.reply_to, self.content)
-
-
-# def get_old_fashion_comments(answer_url):
-#   aid = comment_list_id(answer_url)
-#   comment_box_link = 'http://www.zhihu.com/node/AnswerCommentBoxV2?params=%7B%22answer_id%22%3A%22{}%22%2C%22load_all%22%3Atrue%7D'.format(aid)  # | log
-#   # log('comments: ' + comment_box_link)
-#   r = old_client._session.get(comment_box_link)
-#   # print(str(r.content))
-#   doc = PyQuery(str(r.content, encoding='utf-8'))
-#   comments = []
-#   for div in doc.find('div.zm-item-comment'):
-#     div = PyQuery(div)
-#     cid = div.attr('data-id')
-#     vote_count = int(div.find('span.like-num').find('em').text())
-#     content = div.find('div.zm-comment-content').html()
-#     author_text = div.find('div.zm-comment-hd').text().replace('\n', ' ')
-#     if ' 回复 ' in author_text:
-#       author, reply_to = author_text.split(' 回复 ')
-#     else:
-#       author, reply_to = author_text, None
-
-#     comment = OldFashionComment(cid=cid,
-#                                 vote_count=vote_count,
-#                                 content=content,
-#                                 author=OldFashionAuthor(author),
-#                                 reply_to=OldFashionAuthor(reply_to) if reply_to else None)
-#     comments.append(comment)
-#   return comments
-
-
 class FakeAuthor:
   def __init__(self):
     self.name = '[匿名用户]'
     self.headline = ''
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+'''
+ ###### #####  ##   ## ##   ## ####### ##   ## #######
+###    ##   ## ### ### ### ### ##      ###  ##    ##
+##     ##   ## ## # ## ## # ## ######  ## # ##    ##
+###    ##   ## ##   ## ##   ## ##      ##  ###    ##
+ ###### #####  ##   ## ##   ## ####### ##   ##    ##
+'''
+
+class CommentAuthor:
+  """ 配合 CommentText 使用的 author """
+  def __init__(self, aid, name, url_token, role):
+    self.aid = aid
+    self.name = name
+    self.url_token = url_token
+    self.role = role
+  def __str__(self):
+    return '<CommentAuthor {}>'.format(self.name)
+  @classmethod
+  def create(cls, author_json):
+    aid = author_json['member']['id']
+    name = author_json['member']['name']
+    url_token = author_json['member'].get('url_token')
+    role = author_json['role']
+    return cls(aid, name, url_token, role)
+
+
+class CommentBody:
+  """
+  从 get_comments_api_v4() 得到的评论对象, 构造成和 zhihu_oauth 获得的评论对象属性一致
+  comment.author.name, reply_to_author, content, vote_count
+  """
+  def __init__(self, cid, vote_count, author, content, reply_to):
+    self.cid = cid
+    self.vote_count = vote_count
+    self.content = content
+    self.author = author
+    self.reply_to = reply_to
+    self.child_comments = None
+  def __str__(self):
+    if self.reply_to:
+      s = '<Comment #{} vote {} "{}"=>"{}"> {}'
+      return s.format(self.cid, self.vote_count, self.author.name, self.reply_to.name, self.content[:20])
+    else:
+      s = '<Comment #{} vote {} "{}"> {}'
+      return s.format(self.cid, self.vote_count, self.author.name, self.content[:20])
+  @classmethod
+  def create(cls, comment_json):
+    cid = comment_json['id']
+    vote_count = comment_json['vote_count']
+    content = comment_json['content']
+    author = CommentAuthor.create(comment_json['author'])
+    if comment_json.get('reply_to_author'):
+      reply_to = CommentAuthor.create(comment_json['reply_to_author'])
+    else:
+      reply_to = None
+    return cls(cid, vote_count, author, content, reply_to)
+
+
+
+
+def get_comments_api_v4(answer_id, limit=2000):
+  ''' 获取评论, zhihu oauth 方式太慢, 换个直接拿到 api v4 json 的方式
+      使用 
+      https://www.zhihu.com/api/v4/answers/55911139/root_comments?order=normal&limit=20&offset=20
+      和
+      https://www.zhihu.com/api/v4/comments/52159684/child_comments?limit=20&offset=20
+      取得评论对象, 速度比较快
+      
+      结构是双层的, (root_comments 和 child_comments)
+      即评论可以有子级评论, 子级评论可以相互回复,
+      回复对象是用户 id, 不是评论 id
+      最开始还有5条精选评论, 但是脱离上下文了, 不管它
+      root_comments 取得结果中, 
+      每个 root_comment 带有最多两条 child_comments 预览, 
+      仍然要对每个 root_comment 追踪 get 才能得到全部 child_comments
+
+      例如
+        {'collapsed_counts': 0,
+        'common_counts': 38,
+        'data': [{'author': 'e4686e...',
+                  'child_comment_count': 3,
+                  'child_comments': [
+                                      {'author': '1e3553...',
+                                      'content': '已更新'},
+                                      {'author': 'd0090a...',
+                                      'content': '你好 可以转载吗 我会标明作者和出处'}
+                                    ],
+                  {'author': '16c1e1...',
+                  'child_comment_count': 0,
+                  'child_comments': [],
+                  'content': '非常棒的解答'},
+                  {
+                    ...
+                  },
+                  {
+                    ...
+                  },   
+        'featured_counts': 0,
+        'paging': { 'is_end': False,
+                    'is_start': True,
+                    'next': 'xxx',
+                    'previous': 'xxx',
+                    'totals': 30},
+        'reviewing_counts': 0
+        }
+  '''
+
+
+  tmpl = 'https://www.zhihu.com/api/v4/answers/{answer_id}/root_comments?order=normal&limit=20&offset={offset}'
+
+  comment_list = []
+
+  for offset in range(0, limit, 20):
+    comment_link = tmpl.format(answer_id=answer_id, offset=offset)
+    log(f'start fetching comment {comment_link} ...')
+    text = zhihu_detect_with_client(comment_link).text
+    comment_data = json.loads(text)
+    comment_list.extend(comment_data['data'])
+    if comment_data.get('paging'):
+      if comment_data['paging']['is_end']:
+        break
+    tools.time_random_sleep(0.1)
+  log(f'fetch {len(comment_list)} top level comments')
+  return comment_list
+
+
+
+def get_child_comments_api_v4(root_comment_id, limit=2000):
+  '''从 root comment id 获取 child comment'''
+  tmpl = 'https://www.zhihu.com/api/v4/comments/{root_comment_id}/child_comments'
+  # 这里可以不限制 limit offset
+  comment_list = []
+  # for offset in range(0, limit, 20):
+  comment_link = tmpl.format(root_comment_id=root_comment_id)
+  log(f'start fetching child comment {comment_link} ...')
+  text = zhihu_detect_with_client(comment_link).text
+  comment_data = json.loads(text)
+  comment_list.extend(comment_data['data'])
+  # if comment_data.get('paging'):
+  #   if comment_data['paging']['is_end']:
+  #     break
+  tools.time_random_sleep(0.1)
+  log(f'fetch {len(comment_list)} child level comments')
+  return comment_list
+
+
+def get_valuable_conversations_api_v4(comment_list, root_limit=10, child_limit=8):
+  '''
+  使用 url api v4
+  conversation 会话组, 是父级评论和下属子级评论的对话集合
+  在 url api v4 时已经用 json data 标记好了对话组
+  但是 root comment get 的结果, 只能得到不超过两条 child comment, 仍然需要追踪
+
+  root_limit : 选取会话组的上限
+  child_limit : 会话组中内部相互回复的上限
+
+  会话组选取规则是
+    0 去掉 featured 属性的内容 (这些评论之后会重复一遍)
+    1 计算每会话组的 score = rootcomment.voteup + len(childcomments), 选最大 10 个会话组
+    2 也保留答主参与了回复的会话组 TODO
+
+  在选中的会话组内, 评论的选取规则是
+    1 保留会话组的父级评论 (仅一条)
+    3 在该会话组的子级评论中, 选取 8 个最高 vote 的评论
+    4 在子级评论中保留答主的评论 TODO
+    5 保留这些评论的上文 TODO
+  '''
+
+  conversations = []
+  for root_comment in comment_list:  # comment_list 的元素可能带有子级评论
+                                  # root_comment = toplevel_comment
+    if root_comment.get('featured'): 
+      continue # 略过 featured 属性
+    root_comment['score'] = root_comment['vote_count'] + root_comment['child_comment_count']
+    # TODO root_comment['contain_page_author'] 
+    conversations.append(root_comment)
+  conversations = sorted(conversations, key=lambda c: -c['score'])[:root_limit]
+
+  result = []
+  for root_comment in conversations:
+    child_comments = get_child_comments_api_v4(root_comment['id'])
+    child_comments = sorted(child_comments, key=lambda c: -c['vote_count'])[:child_limit]
+    child_comments = [CommentBody.create(c) for c in child_comments]
+    father = CommentBody.create(root_comment)
+    father.child_comments = child_comments
+    result.append(father)
+  return result
+
+
+
+
+
 
 
 def get_valuable_conversations(comments, limit=10):
@@ -450,9 +586,6 @@ def comment_to_string(comment):
 
 
 
-
-
-
 def fetch_zhihu_answer(url):
   question = parse_question(url)
   answer = parse_answer(url)
@@ -514,7 +647,8 @@ def fetch_zhihu_answer(url):
   # TODO redo comments 
 
   try:
-    conversations = get_valuable_conversations(answer.comments, limit=10)
+    comments = get_comments_api_v4(answer, limit=2000)
+    conversations = get_valuable_conversations_api_v4(comments, root_limit=10, child_limit=8)
     # conversations = get_valuable_conversations(get_old_fashion_comments(url), limit=10)
   except (requests.exceptions.RetryError):
     resp_json = zhihu_detect(answer.comments._url).json()
@@ -522,6 +656,7 @@ def fetch_zhihu_answer(url):
       conversations = [ [
         '错误: {name} - {code} - {message}'.format(**resp_json['error'])
       ], ]
+    raise 
 
 
   metadata = {

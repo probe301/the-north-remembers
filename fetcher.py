@@ -27,6 +27,9 @@ from fetcher_api.zhihu import parse_author
 from fetcher_api.zhihu import parse_column
 
 
+from fetcher_api.zhihu import ZhihuFetchError
+
+
 
 import tools
 from tools import parse_type
@@ -165,7 +168,10 @@ class Fetcher:
 
 
   def request_ZhihuAnswerPage(self):
-    data = fetch_zhihu_answer(self.url)
+    try:
+      data = fetch_zhihu_answer(self.url)
+    except ZhihuFetchError as e:
+      data = e.fake_data
     return data
 
 

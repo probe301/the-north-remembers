@@ -73,10 +73,9 @@ def generate_feed(watcher_path, limit=10, save_xml=False):
     except:
       log(f'error Page.load({path})')
       raise
-    
 
-  for page in pages:
-    log(page)
+  # for page in pages:
+  #   log(page)
 
   for page in sorted(pages, key=lambda page: page.watch_time):
     feed.add(page.metadata['title'],

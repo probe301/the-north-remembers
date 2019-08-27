@@ -40,7 +40,9 @@ def parse_type(url):
   if re.search(r'https://www.zhihu.com/people/(\w|\-)+?/answers', url):
     return UrlType.ZhihuAnswerLister  # from author's answers
   if re.search(r'https://www.zhihu.com/topic/\d+/(top\-answers|hot)', url):
-    return UrlType.ZhihuAnswerLister  # from topic's answers
+    return UrlType.ZhihuAnswerLister  # from topic's answers 1
+  if re.search(r'https://www.zhihu.com/topic/\d+/?', url):
+    return UrlType.ZhihuAnswerLister  # from topic's answers 2
   if re.search(r'https://www.zhihu.com/collection/\d+', url):
     return UrlType.ZhihuAnswerLister  # from collection's answers
   if re.search(r'https://www.zhihu.com/question/\d+', url):

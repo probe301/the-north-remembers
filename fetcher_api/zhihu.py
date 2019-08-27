@@ -10,7 +10,7 @@ import shutil
 import json
 import html2text
 
-
+from pprint import pprint
 import datetime
 from zhihu_oauth import ZhihuClient
 from zhihu_oauth.zhcls.utils import remove_invalid_char
@@ -143,6 +143,13 @@ def zhihu_detect(url):
 
   session = requests.Session()
   return session.get(url, headers=headers)
+
+  # t = sess.get(url, headers=headers).text
+  # data = json.loads(bytes.decode(t, encoding='utf-8'))
+
+  # json = sess.get(url, headers=headers).json()
+
+
 
 def zhihu_detect_with_client(url):
   return client.test_api('GET', url)
@@ -414,14 +421,16 @@ def get_comments_api_v4(answer_id, limit=2000):
 
   for offset in range(0, limit, 20):
     comment_link = tmpl.format(answer_id=answer_id, offset=offset)
-    log(f'start fetching comment {comment_link} ...')
-    text = zhihu_detect_with_client(comment_link).text
-    comment_data = json.loads(text)
+    if offset == 0:
+      log(f'start fetching comment {comment_link} ...')
+
+    comment_data = zhihu_detect_with_client(comment_link).json()
+    # comment_data = json.loads(text, encoding='utf-8')
     comment_list.extend(comment_data['data'])
     if comment_data.get('paging'):
       if comment_data['paging']['is_end']:
         break
-    tools.time_random_sleep(0.1)
+    tools.time_random_sleep(0.2)
   log(f'fetch {len(comment_list)} top level comments')
   return comment_list
 
@@ -435,13 +444,13 @@ def get_child_comments_api_v4(root_comment_id, limit=2000):
   # for offset in range(0, limit, 20):
   comment_link = tmpl.format(root_comment_id=root_comment_id)
   log(f'start fetching child comment {comment_link} ...')
-  text = zhihu_detect_with_client(comment_link).text
-  comment_data = json.loads(text)
+  comment_data = zhihu_detect_with_client(comment_link).json()
+  # comment_data = json.loads(text, encoding='utf-8')
   comment_list.extend(comment_data['data'])
   # if comment_data.get('paging'):
   #   if comment_data['paging']['is_end']:
   #     break
-  tools.time_random_sleep(0.1)
+  tools.time_random_sleep(0.2)
   log(f'fetch {len(comment_list)} child level comments')
   return comment_list
 
@@ -487,6 +496,68 @@ def get_valuable_conversations_api_v4(comment_list, root_limit=10, child_limit=8
     father.child_comments = child_comments
     result.append(father)
   return result
+
+
+
+
+  
+def preview_comment_data(comment_data):
+  '''预览 comment 结构'''
+  from copy import deepcopy
+
+  def short_author(author):
+    name = author['member']['name']
+    id = author['member']['id']
+    url_token = author['member']['url_token']
+    role = author['role']
+    return role + ', ' + name + ', ' + id[:6] +  '..., ' + url_token
+
+  def short_comment(comment):
+    comment['author'] = short_author(comment['author'])
+
+    if comment.get('reply_to_author'):
+      comment['reply_to_author'] = short_author(comment['reply_to_author'])
+
+    delete_key_tmpl = {
+                      'allow_delete': False,
+                      'allow_like': True,
+                      'allow_reply': True,
+                      'allow_vote': True,
+                      'can_collapse': False,
+                      'can_recommend': False,
+                      'censor_status': 0,
+                      # 'child_comment_count': 0,
+                      # 'child_comments': [],
+                      'collapsed': False,
+                      # 'content': '非常棒的解答',
+                      # 'created_time': 1437720487,
+                      'disliked': False,
+                      # 'featured': False,
+                      # 'id': 123,
+                      # 'is_author': False,
+                      'is_delete': False,
+                      'resource_type': 'answer',
+                      'reviewing': False,
+                      'type': 'comment',
+                      'url': 'https://www.zhihu.com/comments/123',
+                      # 'vote_count': 6,
+                      # 'voting': False
+                      }
+
+    for key in delete_key_tmpl.keys():
+      del comment[key]
+
+  data = deepcopy(comment_data)
+  sum_parent = 0
+  sum_child = 0
+  for comment in data['data']:
+    sum_parent += 1
+    short_comment(comment)
+    for child in comment['child_comments']:
+      short_comment(child)
+      sum_child += 1
+  pprint(data)
+  print(sum_parent, sum_child)
 
 
 
@@ -662,7 +733,7 @@ def fetch_zhihu_answer(url):
   # TODO redo comments 
 
   try:
-    comments = get_comments_api_v4(answer, limit=2000)
+    comments = get_comments_api_v4(answer_id, limit=2000)
     conversations = get_valuable_conversations_api_v4(comments, root_limit=10, child_limit=8)
     # conversations = get_valuable_conversations(get_old_fashion_comments(url), limit=10)
   except (requests.exceptions.RetryError):

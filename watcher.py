@@ -589,7 +589,7 @@ class Watcher:
       log('Watcher.watch lister task done: \n{}\n\n'.format(task))
       self.save_config_yaml()
       remember(commit_log='checked lister {}'.format(i), watcher_path=self.watcher_path)
-      tools.time_random_sleep(3, 5)
+      tools.time_random_sleep(5, 10)
 
 
 

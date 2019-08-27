@@ -296,10 +296,12 @@ class FakeAuthor:
 class CommentAuthor:
   """ 配合 CommentText 使用的 author """
   def __init__(self, aid, name, url_token, role):
-    self.aid = aid
+    self.aid = aid  # bdf090...
     self.name = name
-    self.url_token = url_token
+    self.url_token = url_token # alphanum id with dash
     self.role = role
+  def __equal__(self, other):
+    return self.aid == other.aid
   def __str__(self):
     return '<CommentAuthor {}>'.format(self.name)
   @classmethod
@@ -329,12 +331,25 @@ class CommentBody:
       return s.format(self.cid, self.vote_count, self.author.name, self.reply_to.name, self.content[:20])
     else:
       s = '<Comment #{} vote {} "{}"> {}'
-      return s.format(self.cid, self.vote_count, self.author.name, self.content[:20])
+      return s.format(self.cid, self.vote_count, self.author.name, tools.truncate(self.content, 40))
+  @property
+  def author_info(self):
+    if self.reply_to:
+      return f'{self.author.name} 回复 {self.reply_to.name}'
+    else:
+      return f'{self.author.name}'
+  @property
+  def vote_info(self):
+    return f'({self.vote_count} 赞)' if self.vote_count > 0 else ''
+  @property
+  def content_indent(self):
+    return '\n'.join('　　' + line.strip() + '  ' for line in self.content.splitlines() if line.strip())
+
   @classmethod
   def create(cls, comment_json):
     cid = comment_json['id']
     vote_count = comment_json['vote_count']
-    content = comment_json['content']
+    content = zhihu_content_html2md(comment_json['content'])
     author = CommentAuthor.create(comment_json['author'])
     if comment_json.get('reply_to_author'):
       reply_to = CommentAuthor.create(comment_json['reply_to_author'])
@@ -348,14 +363,14 @@ class CommentBody:
 def get_comments_api_v4(answer_id, limit=2000):
   ''' 获取评论, zhihu oauth 方式太慢, 换个直接拿到 api v4 json 的方式
       使用 
-      https://www.zhihu.com/api/v4/answers/55911139/root_comments?order=normal&limit=20&offset=20
+      https://www.zhihu.com/api/v4/answers/<id>/root_comments?order=normal&limit=20&offset=20
       和
-      https://www.zhihu.com/api/v4/comments/52159684/child_comments?limit=20&offset=20
+      https://www.zhihu.com/api/v4/comments/<id>/child_comments?limit=20&offset=20
       取得评论对象, 速度比较快
       
       结构是双层的, (root_comments 和 child_comments)
       即评论可以有子级评论, 子级评论可以相互回复,
-      回复对象是用户 id, 不是评论 id
+      回复的对象是用户, 不是评论
       最开始还有5条精选评论, 但是脱离上下文了, 不管它
       root_comments 取得结果中, 
       每个 root_comment 带有最多两条 child_comments 预览, 
@@ -456,7 +471,7 @@ def get_valuable_conversations_api_v4(comment_list, root_limit=10, child_limit=8
   conversations = []
   for root_comment in comment_list:  # comment_list 的元素可能带有子级评论
                                   # root_comment = toplevel_comment
-    if root_comment.get('featured'): 
+    if root_comment.get('featured'):
       continue # 略过 featured 属性
     root_comment['score'] = root_comment['vote_count'] + root_comment['child_comment_count']
     # TODO root_comment['contain_page_author'] 
@@ -614,7 +629,7 @@ def fetch_zhihu_answer(url):
     # blank_answer = blank_zhihu_answer()
     # blank_answer['title'] = '(找不到 answer.content)' + answer.question.title
     # blank_answer['url'] = url
-    raise ZhihuFetchError(msg='找不到 answer.content', url=blank_answer['url'], fake_data=blank_answer)
+    raise ZhihuFetchError(msg='找不到 answer.content', url=url)
 
   answer_body = zhihu_content_html2md(content).strip()
 
@@ -673,23 +688,28 @@ def fetch_zhihu_answer(url):
     'url': url,
   }
 
-
+# "　　"
   comments_tmpl = '''
 {% if conversations %}
-{% for conversation in conversations %}
-{%- for comment in conversation %}
-{{comment}}
+{% for root_comment in conversations %}
+{{root_comment.author_info}}:  
+{{root_comment.content}} {{root_comment.vote_info}}
+{% for child in root_comment.child_comments %}
+　　{{child.author_info}}:  
+{{child.content_indent}} {{child.vote_info}}
 {% endfor %}
 　　
 {% endfor %}
 {% endif %}
 '''
-  comments = Template(comments_tmpl).render(**locals())
+
+
+  comments = Template(comments_tmpl).render(conversations=conversations)
 
   return { 'metadata': metadata,
            'question_detail': zhihu_fix_markdown(question_details).strip(),
            'answer': zhihu_fix_markdown(answer_body).strip(),
-           'comments': zhihu_fix_markdown(comments).strip(),
+           'comments': comments.strip(),
           }
 
 

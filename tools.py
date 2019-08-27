@@ -323,6 +323,25 @@ def sections(iterable, is_title=lambda line: line.startswith('#')):
 
 
 
+def truncate(text, limit=20, with_end=False, ellipsis='... ', encode=None):
+  ''' 截断字符串尾部, 保留指定长度
+      encode='gbk' 计算长度时, 中文字符视为长度2, 这样方便对齐
+      encode='utf8' 计算长度时, 中文字符视为长度3
+      encode=None 使用普通的 len(text) 计算长度
+      with_end=True 保留开头和结束, 省略中间的字符 TODO
+  '''
+  encode_len = lambda t: len(t.encode(encode) if encode else t)
+  limit = max(limit, encode_len(ellipsis))
+  len_text = encode_len(text)
+  if len_text <= limit:
+    return text
+  else:
+    while encode_len(text[:len_text]) > limit - encode_len(ellipsis):
+      len_text -= 1
+    return text[:len_text] + ellipsis
+
+
+
 
 from pprint import pprint
 from datetime import datetime

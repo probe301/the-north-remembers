@@ -438,21 +438,22 @@ def get_comments_api_v4(answer_id, limit=2000):
 
 def get_child_comments_api_v4(root_comment_id, limit=2000):
   '''从 root comment id 获取 child comment'''
-  tmpl = 'https://www.zhihu.com/api/v4/comments/{root_comment_id}/child_comments'
-  # 这里可以不限制 limit offset
-  comment_list = []
-  # for offset in range(0, limit, 20):
-  comment_link = tmpl.format(root_comment_id=root_comment_id)
-  log(f'start fetching child comment {comment_link} ...')
-  comment_data = zhihu_detect_with_client(comment_link).json()
-  # comment_data = json.loads(text, encoding='utf-8')
-  comment_list.extend(comment_data['data'])
-  # if comment_data.get('paging'):
-  #   if comment_data['paging']['is_end']:
-  #     break
-  tools.time_random_sleep(0.2)
-  log(f'fetch {len(comment_list)} child level comments')
-  return comment_list
+  tmpl = 'https://www.zhihu.com/api/v4/comments/{root_comment_id}/child_comments?limit=20&offset={offset}'
+
+  child_comment_list = []
+
+  for offset in range(0, limit, 20):
+    comment_link = tmpl.format(root_comment_id=root_comment_id, offset=offset)
+    # log(f'start fetching child comments {comment_link} ...')
+    comment_data = zhihu_detect_with_client(comment_link).json()
+    # comment_data = json.loads(text, encoding='utf-8')
+    child_comment_list.extend(comment_data['data'])
+    if comment_data.get('paging'):
+      if comment_data['paging']['is_end']:
+        break
+    tools.time_random_sleep(0.2)
+  log(f'fetch {len(child_comment_list)} child level comments')
+  return child_comment_list
 
 
 def get_valuable_conversations_api_v4(comment_list, root_limit=10, child_limit=8):
@@ -486,11 +487,15 @@ def get_valuable_conversations_api_v4(comment_list, root_limit=10, child_limit=8
     # TODO root_comment['contain_page_author'] 
     conversations.append(root_comment)
   conversations = sorted(conversations, key=lambda c: -c['score'])[:root_limit]
-
+  # conversations = sorted(conversations, key=lambda c: -c['created_time']) # 不需要调整时间顺序
   result = []
   for root_comment in conversations:
-    child_comments = get_child_comments_api_v4(root_comment['id'])
+    if root_comment['child_comment_count'] > len(root_comment['child_comments']):
+      child_comments = get_child_comments_api_v4(root_comment['id'])
+    else:
+      child_comments = root_comment['child_comments']
     child_comments = sorted(child_comments, key=lambda c: -c['vote_count'])[:child_limit]
+    child_comments = sorted(child_comments, key=lambda c: c['created_time'])  # 调整为时间先后顺序
     child_comments = [CommentBody.create(c) for c in child_comments]
     father = CommentBody.create(root_comment)
     father.child_comments = child_comments

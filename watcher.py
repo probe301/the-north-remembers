@@ -130,7 +130,7 @@ class Task:
     self.task_add_time = self.parse_time(desc, 'task_add')
     # 上次抓取的时间
     self.last_watch_time = self.parse_time(desc, 'last_watch')
-    # 上次内容变动的时间, 不同的页面有不同的判定标准, 比如评论和点赞数不算变动, 内容修改肯定算变动
+    # 上次内容变动的时间, 不同的页面有不同的判定标准, 比如评论和点赞数变化不算变动, 内容修改算变动
     self.last_change_time = self.parse_time(desc, 'last_change')
     # 安排的下次采集时间, 可以手动修改, 立即触发一次采集
     self.next_watch_time = self.parse_time(desc, 'next_watch') 
@@ -162,7 +162,7 @@ class Task:
   def __str__(self):
     s = '''<Task #{5}> {0.url} (ver. {0.version})
     {0.tip}
-    task add: {1}, last watch: {2}, last change {3}, next watch: {4} '''
+    taskadd: {1}, lastwatch: {2}, lastchange: {3}, nextwatch: {4}'''
     return s.format(self, 
                     time_to_humanize(self.task_add_time),
                     self.last_watch_time and time_to_humanize(self.last_watch_time),
@@ -470,8 +470,8 @@ class Watcher:
 
     self.tasks = []
     self.url_set = set()
-    self.add_tasks(tasks=config_data.get('lister_task', None) or []) # 从 .task.yaml 里载入 "tasks:" 的所有内容
-    self.add_tasks(tasks=config_data.get('page_task', None) or []) # 从 .task.yaml 里载入 "tasks:" 的所有内容
+    self.add_tasks(tasks=config_data.get('lister_task') or []) # 从 .task.yaml 里载入 "tasks:" 的所有内容
+    self.add_tasks(tasks=config_data.get('page_task') or []) # 从 .task.yaml 里载入 "tasks:" 的所有内容
 
 
   def __str__(self):
@@ -486,24 +486,37 @@ class Watcher:
     if not os.path.exists(config_yaml):
       raise ValueError('{config_yaml} not found'.format(**locals()))
     config_data = tools.yaml_load(config_yaml)
-    log('loaded config_data option lister: ')
-    log(dict(config_data['default_option']['lister']), pretty=True)
-    log('loaded config_data option page: ')
-    log(dict(config_data['default_option']['page']), pretty=True)
+    log(f'config `{config_yaml}` loaded: ')
+    lister_default_option = dict(config_data['default_option']['lister'])
+    page_default_option = dict(config_data['default_option']['page'])
+    log(f'  lister default option: {lister_default_option}')
+    log(f'  page default option: {page_default_option}')
 
-    lister_task = config_data.get('lister_task', None) or []
-    page_task = config_data.get('page_task', None) or []
-    log('loaded config_data lister tasks {}'.format(len(lister_task)))
-    log('loaded config_data page tasks {}'.format(len(page_task)))
+    lister_tasks = config_data.get('lister_task') or []
+    page_tasks = config_data.get('page_task') or []
+    log(f'  found {len(lister_tasks)} lister tasks in config:')
+    for task in lister_tasks:
+      tip = task['tip']
+      log(f'    lister_task: {tip}')
+    log(f'  found {len(page_tasks)} page tasks in config:')
+    for i, task in enumerate(page_tasks):
+      tip = task['tip']
+      log(f'    page_task: {tip}')
+      if i > 5:
+        log(f'    ......')
+        break
+    log()
     return config_data
 
 
 
   def add_task(self, task):
-    ''' 添加 Task, 以 url 判断是否为已存在的 Task
-        对于已有的task, 如果 nextwatch <= now() 保留不动 返回 scheduled
-                       如果 nextwatch > now()  保留不动 返回 dropped
-        对于没有的task, 返回 added
+    ''' 添加一个 Task, 以 url 判断是否为已存在的 Task
+        返回 task 属于四种情况的数量
+          new        当前未知的新任务, 
+          seen       当前任务列表中已存在的任务 (url 已知)
+          prepare    任务已到抓取时间, 等待抓取
+          wait       任务不到抓取时间
         '''
     if isinstance(task, dict):
       # 将 dict 型转为 Task 实例
@@ -513,21 +526,34 @@ class Watcher:
     seen_task = self.find_task(task)
     if seen_task:
       if seen_task.next_watch_time <= time_now():
-        return "scheduled"
+        return "seen+prepare"
       else:
-        return "dropped"
+        return "seen+wait"
     else:
       self.tasks.append(task)
       self.url_set.add(task.url)
-      return "added"
+      if task.next_watch_time <= time_now():
+        return "new+prepare"
+      else:
+        return "new+wait"
+
 
   def add_tasks(self, tasks):
-    '''添加任务列表, 并输出报告'''
+    ''' 添加任务列表, 并输出报告
+        在 watcher 加载 config yaml 时调用, 以及 lister 检测到 new page 时调用
+
+        输出报告 task 属于四种情况的数量
+          new        当前未知的新任务, 
+          seen       当前任务列表中已存在的任务 (url 已知)
+          prepare    任务已到抓取时间, 等待抓取
+          wait       任务不到抓取时间
+
+    '''
     results = []
     for task in tasks:
       result = self.add_task(task)
       results.append(result)
-    log('Watcher.add_tasks result status ', Counter(results))
+    log(f'watcher add {len(tasks)} tasks: {dict(Counter(results))}')
     return Counter(results)
 
   def find_task(self, other_task):
@@ -580,13 +606,14 @@ class Watcher:
       if task.should_fetch and task.is_lister_type:
         lister_tasks_queue.append(task)
     lister_tasks_queue.sort(key=lambda x: -x.priority)
-    log('Watcher.watch should fetch {} lister_type tasks\n'.format(len(lister_tasks_queue)))
+    log(f'start watching listers... \n should fetch {len(lister_tasks_queue)} lister tasks\n')
     for i, task in enumerate(lister_tasks_queue, 1):
       # log('Watcher.watch lister task.run: {}'.format(task))
       new_tasks_json = task.run()
       counter = self.add_tasks(new_tasks_json)
-      task.schedule(is_modified=counter['added'] > 0) # is_modified = add_tasks 出现新的 task
-      log('Watcher.watch lister task done: \n{}\n\n'.format(task))
+      is_modified = counter["new+prepare"] > 0 or counter["new+wait"] > 0
+      task.schedule(is_modified=is_modified) # is_modified = add_tasks 时出现了新的 task
+      log(f'lister task done ({i}/{len(lister_tasks_queue)}): \n{task}\n\n')
       self.save_config_yaml()
       remember(commit_log='checked lister {}'.format(i), watcher_path=self.watcher_path)
       tools.time_random_sleep(5, 10)
@@ -598,13 +625,13 @@ class Watcher:
       if task.should_fetch and task.is_page_type:
         page_tasks_queue.append(task)
     page_tasks_queue.sort(key=lambda x: -x.priority)
-    log('Watcher.watch should fetch {} page_type tasks\n'.format(len(page_tasks_queue)))
+    log('start watching pages... \n should fetch {} page tasks\n'.format(len(page_tasks_queue)))
     for i, task in enumerate(page_tasks_queue, 1):
       # log('Watcher.watch page task: {}'.format(task))
       page_json = task.run()
       is_modified = task.save(page_json)
       task.schedule(is_modified=is_modified)  # is_modified = 跟上次存储的页面有区别
-      log('Watcher.watch page task done: {}\n\n'.format(task.to_id()))
+      log(f'page task done ({i}/{len(page_tasks_queue)}): \n{task}\n\n')
       self.save_config_yaml()
       if i % 3 == 0:
         remember(commit_log='save pages {}'.format(i), watcher_path=self.watcher_path)

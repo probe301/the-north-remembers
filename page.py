@@ -169,11 +169,11 @@ class Page:
     if not os.path.exists(self.folder):
       raise ValueError('can not open folder {}'.format(self.folder))
     save_path = self.folder + '/' + self.filename
-    if os.path.exists(save_path):
-      log('warning! already exist {}'.format(save_path))
+    overwrite = 'update file' if os.path.exists(save_path) else 'create file'
+      # log('warning! already exist {}'.format(save_path))
     with open(save_path, 'w', encoding='utf-8') as f:
       f.write(self.render(type='localfile'))
-      log('write {} done'.format(save_path))
+      log('write {} done ({})'.format(save_path, overwrite))
 
     # if fetch_images:
     #   # 本地存储, 需要抓取所有附图

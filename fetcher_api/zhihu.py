@@ -17,11 +17,8 @@ from zhihu_oauth.zhcls.utils import remove_invalid_char
 from zhihu_oauth.exception import GetDataErrorException
 from urllib.parse import unquote
 
-
-
 from jinja2 import Template
 import re
-from pyquery import PyQuery
 import requests
 
 import urllib.request
@@ -125,7 +122,45 @@ class AnswerNoCommentError(ZhihuFetchError):
 
 
 
+class ArticleDeleteError(ZhihuFetchError):
+  ''' 专栏文章被删除 TODO'''
+  def __init__(self, msg, url):
+    self.msg = msg
+    self.url = url
+    blank_article = {
+      'metadata': {
+          'title': '404 专栏文章被删除', 
+          'topics': '', 
+          'author_name': '404 专栏文章被删除',
+          'author_id': '-1',
+          'voteup_count': -1,
+          'thanks_count': -1,
+          'create_date': None,
+          'edit_date':   None,
+          'fetch_date':  tools.time_now_str(),
+          'count':  -1,
+          'url': url,
+      },
+      'answer': '(专栏文章被删除)',
+      'comments': '',
+    }
+    self.fake_data = blank_article
 
+
+# "　　"
+COMMENTS_TMPL = '''
+{% if conversations %}
+{% for root_comment in conversations %}
+{{root_comment.author_info}}:  
+{{root_comment.content}} {{root_comment.vote_info}}
+{% for child in root_comment.child_comments %}
+　　{{child.author_info}}:  
+{{child.content_indent}} {{child.vote_info}}
+{% endfor %}
+　　
+{% endfor %}
+{% endif %}
+'''
 
 
 
@@ -134,9 +169,16 @@ TOKEN_FILE = 'token.pkl'
 client = ZhihuClient()
 client.load_token(TOKEN_FILE)
 
+# from zhihu_oauth import ZhihuClient
+# from zhihu_oauth import Article
+# from zhihu_oauth import Answer
+# article = client.article(123)
+# answer = client.answer(123)
+# answer.__class__ == Answer
 
 
 def zhihu_detect(url):
+  '''用来检测页面是否可用'''
   UA = "Mozilla/5.0 (Windows NT 6.3; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/49.0.2623.13 Safari/537.36"
   headers = { "User-Agent" : UA,
               "Referer": "https://zhuanlan.zhihu.com/"}
@@ -149,9 +191,8 @@ def zhihu_detect(url):
 
   # json = sess.get(url, headers=headers).json()
 
-
-
 def zhihu_detect_with_client(url):
+  '''带有登录后的 session'''
   return client.test_api('GET', url)
 
 
@@ -159,7 +200,7 @@ def zhihu_detect_with_client(url):
 
 
 def zhihu_answer_url(answer):
-  '''貌似答案被删也不报错'''
+  '''以 answer 对象拼接 url, 貌似答案被删也不报错'''
   # log('zhihu_answer_url answer' + str(answer))
   if isinstance(answer, int):
     answer = client.answer(answer)
@@ -175,9 +216,10 @@ def zhihu_answer_format(answer):
   author = answer.author.name
   vote = answer.voteup_count
   topic = '|'.join([t.name for t in answer.question.topics])
-  return '<ZhihuAnswer {title} by {author} ({vote}赞) {topic}>\n{url}'.format(**locals())
+  return f'<ZhihuAnswer {title} by {author} ({vote}赞) {topic}>\n{url}'
 
 def zhihu_answer_title(answer):
+  '''TODO 需要处理多个匿名用户回答同一个问题的情况'''
   return answer.question.title + ' - ' + answer.author.name + '的回答'
 
 
@@ -367,11 +409,12 @@ class CommentBody:
 
 
 
-def get_comments_api_v4(answer_id, limit=2000):
+def get_comments_api_v4(answer_article_object, limit=2000):
   ''' 获取评论, zhihu oauth 方式太慢, 换个直接拿到 api v4 json 的方式
-      使用 
+      使用 (for root_comments)
       https://www.zhihu.com/api/v4/answers/<id>/root_comments?order=normal&limit=20&offset=20
-      和
+      https://www.zhihu.com/api/v4/articles/<id>/root_comments?order=normal&limit=20&offset=20
+      和 (for child_comments)
       https://www.zhihu.com/api/v4/comments/<id>/child_comments?limit=20&offset=20
       取得评论对象, 速度比较快
       
@@ -413,16 +456,22 @@ def get_comments_api_v4(answer_id, limit=2000):
         'reviewing_counts': 0
         }
   '''
-
-
-  tmpl = 'https://www.zhihu.com/api/v4/answers/{answer_id}/root_comments?order=normal&limit=20&offset={offset}'
+  page_id = answer_article_object.id
+  page_klass = answer_article_object.__class__.__name__
+  if page_klass == 'Answer':
+    tmpl = 'https://www.zhihu.com/api/v4/answers/{page_id}/root_comments?order=normal&limit=20&offset={offset}'
+  elif page_klass == 'Article':
+    tmpl = 'https://www.zhihu.com/api/v4/articles/{page_id}/root_comments?order=normal&limit=20&offset={offset}'
+  else:
+    raise ValueError(f'get_comments_api_v4 cannot parse page_klass for {answer_article_object} {page_id}')
 
   comment_list = []
 
   for offset in range(0, limit, 20):
-    comment_link = tmpl.format(answer_id=answer_id, offset=offset)
+    comment_link = tmpl.format(page_id=page_id, offset=offset)
     if offset == 0:
-      log(f'start fetching comment {comment_link} ...')
+      # log(f'start fetching comment {comment_link} ...')
+      pass
 
     comment_data = zhihu_detect_with_client(comment_link).json()
     # comment_data = json.loads(text, encoding='utf-8')
@@ -431,7 +480,7 @@ def get_comments_api_v4(answer_id, limit=2000):
       if comment_data['paging']['is_end']:
         break
     tools.time_random_sleep(0.2)
-  log(f'fetch {len(comment_list)} top level comments')
+  # log(f'fetch {len(comment_list)} top level comments')
   return comment_list
 
 
@@ -452,7 +501,7 @@ def get_child_comments_api_v4(root_comment_id, limit=2000):
       if comment_data['paging']['is_end']:
         break
     tools.time_random_sleep(0.2)
-  log(f'fetch {len(child_comment_list)} child level comments')
+  # log(f'fetch {len(child_comment_list)} child level comments')
   return child_comment_list
 
 
@@ -674,7 +723,13 @@ def comment_to_string(comment):
 
 
 
-
+'''
+ #####  ##   ##  ###### ##   ## ####### ######
+##   ## ###  ## ##      ##   ## ##      ##   ##
+####### ## # ##  #####  ## # ## ######  ######
+##   ## ##  ###      ## ### ### ##      ##  ##
+##   ## ##   ## ######  ##   ## ####### ##   ##
+'''
 
 
 def fetch_zhihu_answer(url):
@@ -725,7 +780,6 @@ def fetch_zhihu_answer(url):
   title = question.title + ' - ' + author.name + '的回答'
   topics = ', '.join(t.name for t in question.topics)
   question_id = question.id
-  answer_id = answer.id
   count = len(answer_body)
   voteup_count = answer.voteup_count
   thanks_count = answer.thanks_count
@@ -738,7 +792,7 @@ def fetch_zhihu_answer(url):
   # TODO redo comments 
 
   try:
-    comments = get_comments_api_v4(answer_id, limit=2000)
+    comments = get_comments_api_v4(answer, limit=2000)
     conversations = get_valuable_conversations_api_v4(comments, root_limit=10, child_limit=8)
     # conversations = get_valuable_conversations(get_old_fashion_comments(url), limit=10)
   except (requests.exceptions.RetryError):
@@ -764,23 +818,10 @@ def fetch_zhihu_answer(url):
     'url': url,
   }
 
-# "　　"
-  comments_tmpl = '''
-{% if conversations %}
-{% for root_comment in conversations %}
-{{root_comment.author_info}}:  
-{{root_comment.content}} {{root_comment.vote_info}}
-{% for child in root_comment.child_comments %}
-　　{{child.author_info}}:  
-{{child.content_indent}} {{child.vote_info}}
-{% endfor %}
-　　
-{% endfor %}
-{% endif %}
-'''
 
 
-  comments = Template(comments_tmpl).render(conversations=conversations)
+
+  comments = Template(COMMENTS_TMPL).render(conversations=conversations)
 
   return { 'metadata': metadata,
            'question_detail': zhihu_fix_markdown(question_details).strip(),
@@ -830,6 +871,23 @@ def save_answer(answer, folder='test', overwrite=True):
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 '''
  #####  ###### ####### ###### ###### ##      #######
 ##   ## ##   ##   ##     ##  ###     ##      ##
@@ -838,58 +896,41 @@ def save_answer(answer, folder='test', overwrite=True):
 ##   ## ##   ##   ##   ###### ###### ####### #######
 '''
 
-
 def zhihu_article_format(article):
   if isinstance(article, int):
     article = client.article(article)
   url = zhihu_article_url(article)
   title = article.title
-  author_name = article.author.name if article.author else FakeAuthor().name
+  author_name = article.author.name # 应该没有专栏匿名作者 if article.author else FakeAuthor().name
   vote = article.voteup_count
   column = article.column.title if article.column else '无专栏'
-  return '<ZhihuArticle {title} ({column}) by {author_name} ({vote}赞)>\n{url}'.format(**locals())
+  return f'<ZhihuArticle {title} ({column}) by {author_name} ({vote}赞)>\n{url}'
+
 
 def zhihu_article_url(article):
   # https://zhuanlan.zhihu.com/p/22197924
   if isinstance(article, int):
     return 'https://zhuanlan.zhihu.com/p/{}'.format(article)
-  return 'https://zhuanlan.zhihu.com/p/{}'.format(article.id)
+  else:
+    return 'https://zhuanlan.zhihu.com/p/{}'.format(article.id)
+
 
 def zhihu_article_title(article):
   title = article.title
-  author_name = article.author.name if article.author else FakeAuthor().name
+  author_name = article.author.name # 应该没有专栏匿名作者 if article.author else FakeAuthor().name
   column = article.column.title if article.column else ''
-  return '{title} - {author_name}的专栏 {column}'.format(**locals()).strip()
+  return f'{title} - {author_name}的专栏 {column}'.strip()
 
 
-def fetch_zhihu_article(article):
-  article = parse_article(article)
-
+def fetch_zhihu_article(url):
+  article = parse_article(url)
   try:
     author = article.author
-  except (requests.exceptions.RetryError, GetDataErrorException) as e:
+  except (requests.exceptions.RetryError, GetDataErrorException):
     # 文章已被删除
-    # blank_article = blank_zhihu_answer()
-    # blank_article['title'] = '(本文章已删除)'
-    raise ZhihuFetchError(msg='本文章已删除', value=blank_article)
+    raise ArticleDeleteError(msg='本文章已删除', url=url)
 
   content = article.content
-
-  # try:  # 未观察到文章被删的情况, 暂时不适用 try except
-  #   author = article.author
-  # except requests.exceptions.RetryError as e:
-  #   blank_article = blank_zhihu_article()
-  #   blank_article['title'] = '(本文章已删除)' # + article.question.title
-  #   raise ZhihuFetchError(msg='本文章已删除', value=blank_article)
-  # try:
-  #   question = article.question
-  #   content = article.content
-  #   detail = question.detail
-  # except requests.exceptions.RetryError as e:
-  #   blank_article = blank_zhihu_answer() # reuse blank answer
-  #   blank_article['title'] = '(文章已删除)' + article.question.title
-  #   blank_article['url'] = zhihu_article_url(article)
-  #   raise ZhihuFetchError(msg='文章已删除', value=blank_article)
 
   article_body = zhihu_content_html2md(content).strip()
   if article.suggest_edit.status:
@@ -900,31 +941,30 @@ def fetch_zhihu_article(article):
     # 需要fix为
     # https://pic4.zhimg.com/d58be60ea916b5c231e72e790dc71b33_hd.jpg
     # 否则白色背景会显示为黑色背景
-    img_url = article.image_url.replace('.zhimg.com/50/', '.zhimg.com/')
-    article_body = '![]({})\n\n'.format(img_url) + article_body
+    bg_img_url = article.image_url.replace('.zhimg.com/50/', '.zhimg.com/')
+    article_body = '![]({})\n\n'.format(bg_img_url) + article_body
 
   motto = '({})'.format(author.headline) if author.headline else ''
   motto = motto.replace('\n', ' ')
 
   title = zhihu_article_title(article)
 
-
   count = len(article_body)
   voteup_count = article.voteup_count
   edit_date = parse_json_date(article.updated_time)
   fetch_date = tools.time_now_str()
-  url = zhihu_article_url(article)
   # log(list(article.comments))
 
   try:
-    conversations = get_valuable_conversations(article.comments, limit=10)
-    # conversations = get_valuable_conversations(get_old_fashion_comments(url), limit=10)
-  except (requests.exceptions.RetryError) as e:
+    comments = get_comments_api_v4(article, limit=2000)
+    conversations = get_valuable_conversations_api_v4(comments, root_limit=10, child_limit=8)
+  except (requests.exceptions.RetryError):
     resp_json = zhihu_detect(article.comments._url).json()
     if 'error' in resp_json:
       conversations = [ [
         '错误: {name} - {code} - {message}'.format(**resp_json['error'])
       ], ]
+    raise
 
   topics = article._data['topics']   # zhihu_oauth API 没有这个属性, 通过 _data 取出
 
@@ -943,35 +983,14 @@ def fetch_zhihu_article(article):
   }
 
 
-  comments_tmpl = '''
-{% if conversations %}
-{% for conversation in conversations %}
-{%- for comment in conversation %}
-{{comment}}
-{% endfor %}
-　　
-{% endfor %}
-{% endif %}
-'''
-  comments = Template(comments_tmpl).render(**locals())
+  comments = Template(COMMENTS_TMPL).render(conversations=conversations)
 
   return { 'metadata': metadata,
            'content': zhihu_fix_markdown(article_body).strip(),
-           'comments': zhihu_fix_markdown(comments).strip(),
+           'comments': comments.strip()
          }
 
 
-
-def yield_column_articles(column_id, limit=100, min_voteup=20):
-  column = client.column(column_id)
-  count = 0
-  for article in column.articles:
-    # print(article.voteup_count)
-    if article.voteup_count >= min_voteup:
-      count += 1
-      yield article
-    if count >= limit:
-      break
 
 
 
@@ -1189,11 +1208,11 @@ def test_zhihu_fix_mistake_headerline_splitter():
 
 
 '''
-##   ## ###### ####### ##      ######
-##   ##   ##   ##      ##      ##   ##
- #####    ##   ######  ##      ##   ##
-   ##     ##   ##      ##      ##   ##
-   ##   ###### ####### ####### ######
+##      ######  ###### ####### ####### ######
+##        ##   ##         ##   ##      ##   ##
+##        ##    #####     ##   ######  ######
+##        ##        ##    ##   ##      ##  ##
+####### ###### ######     ##   ####### ##   ##
 '''
 
 def yield_topic_best_answers(topic_id, limit=100, min_voteup=300, min_thanks=50):
@@ -1256,6 +1275,16 @@ def yield_question_answers(question_id, limit=100, min_voteup=300, min_thanks=50
       break
 
 
+def yield_column_articles(column_id, limit=100, min_voteup=20):
+  column = client.column(column_id)
+  count = 0
+  for article in column.articles:
+    # print(article.voteup_count)
+    if article.voteup_count >= min_voteup:
+      count += 1
+      yield article
+    if count >= limit:
+      break
 
 
 def yield_author_articles(author_id, limit=100, min_voteup=20):
@@ -1268,6 +1297,7 @@ def yield_author_articles(author_id, limit=100, min_voteup=20):
     if count >= limit:
       break
 
+
 def test_yield_org_articles():
   # author_id = 'di-ping-xian-ji-qi-ren-ji-shu'
   url = 'https://www.zhihu.com/org/di-ping-xian-ji-qi-ren-ji-shu'
@@ -1276,8 +1306,6 @@ def test_yield_org_articles():
   print(author.name)
   ats = list(author.articles)
   print(ats)
-
-
 
 
 def yield_collection_answers(collection_id, limit=100, min_voteup=300, min_thanks=50):

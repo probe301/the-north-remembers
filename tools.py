@@ -261,11 +261,6 @@ def yaml_load(path, loader=IncludeOrderedLoader):
   return yaml.load(open(path, encoding='utf-8'), loader)
 
 
-# def yaml_save(data, path):
-#   '''需要支持中文'''
-#   with open(path, 'w', encoding='utf-8') as file:
-#     file.write(yaml.safe_dump(data, allow_unicode=True))
-#   return True
 
 def yaml_save(data, path):
   '''支持中文, 可以识别 OrderedDict'''
@@ -469,6 +464,20 @@ def generate_ascii_title(text):
 # generate_ascii_title('common import')
 
 
+def enumer(iterable, first=None, skip=0):
+  ''' 迭代开头的 n 个元素, 顺便 yield 元素的索引
+      enumfirst('abcdefg')            => 0a 1b 2c 3d 4e 5f 6g
+      enumfirst('abcdefg', first=4)   => 0a 1b 2c 3d
+      enumfirst('abcdefg', skip=2)    => 2c 3d 4e 5f 6g
+      enumfirst('abcdefg', first=3, skip=2) => 2c 3d 4e
+  '''
+  for i, item in enumerate(iterable):
+    if skip != 0 and i < skip:
+      continue
+    if first is not None and i >= first+skip:
+      break
+    else:
+      yield i, item
 
 # import time
 # # import sys

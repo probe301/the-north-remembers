@@ -788,8 +788,7 @@ def fetch_zhihu_answer(url):
   fetch_date = tools.time_now_str()
 
 
-  url = 'https://www.zhihu.com/question/{}/answer/{}'.format(question_id, answer_id)
-  # TODO redo comments 
+
 
   try:
     comments = get_comments_api_v4(answer, limit=2000)

@@ -4,30 +4,30 @@
 
 
 
-from fetcher_api.zhihu import fetch_zhihu_article
-from fetcher_api.zhihu import zhihu_article_url
-from fetcher_api.zhihu import yield_column_articles
+from website.zhihu import fetch_zhihu_article
+from website.zhihu import zhihu_article_url
+from website.zhihu import yield_column_articles
 
 
 
-from fetcher_api.zhihu import fetch_zhihu_answer
-from fetcher_api.zhihu import zhihu_answer_url
-from fetcher_api.zhihu import yield_author_answers
-from fetcher_api.zhihu import zhihu_answer_title
+from website.zhihu import fetch_zhihu_answer
+from website.zhihu import zhihu_answer_url
+from website.zhihu import yield_author_answers
+from website.zhihu import zhihu_answer_title
 
 
-from fetcher_api.zhihu import yield_topic_best_answers
-from fetcher_api.zhihu import yield_author_articles
-from fetcher_api.zhihu import yield_collection_answers
-from fetcher_api.zhihu import yield_question_answers
+from website.zhihu import yield_topic_best_answers
+from website.zhihu import yield_author_articles
+from website.zhihu import yield_collection_answers
+from website.zhihu import yield_question_answers
 
 
-from fetcher_api.zhihu import parse_topic
-from fetcher_api.zhihu import parse_author
-from fetcher_api.zhihu import parse_column
+from website.zhihu import parse_topic
+from website.zhihu import parse_author
+from website.zhihu import parse_column
 
 
-from fetcher_api.zhihu import ZhihuFetchError
+from website.zhihu import ZhihuFetchError
 
 
 

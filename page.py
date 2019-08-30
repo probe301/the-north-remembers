@@ -262,7 +262,7 @@ class ZhihuColumnPage(Page):
   def __init__(self, data, from_local_file=False):
 
     super().__init__(data)
-    self.tmpl = 'fetcher_api/zhihu_column_page.tmpl'
+    self.tmpl = 'website/zhihu_column_page.tmpl'
     if 'sections' in data:
       data = data # TODO
       self.data = data
@@ -301,7 +301,7 @@ class ZhihuAnswerPage(Page):
 
   def __init__(self, data, from_local_file=False):
     super().__init__(data)
-    self.tmpl = 'fetcher_api/zhihu_answer_page.tmpl'
+    self.tmpl = 'website/zhihu_answer_page.tmpl'
 
     if 'sections' in data:  # from local load text
       data = data # TODO

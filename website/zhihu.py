@@ -152,12 +152,12 @@ COMMENTS_TMPL = '''
 {% if conversations %}
 {% for root_comment in conversations %}
 {{root_comment.author_info}}:  
-{{root_comment.content}} {{root_comment.vote_info}}
-{% for child in root_comment.child_comments %}
+{{root_comment.content}} {{root_comment.vote_info}}  
+　　{% for child in root_comment.child_comments %}
 　　{{child.author_info}}:  
-{{child.content_indent}} {{child.vote_info}}
-{% endfor %}
-　　
+　　{{child.content_indent}} {{child.vote_info}}  
+　　{% endfor %}
+  
 {% endfor %}
 {% endif %}
 '''
@@ -392,7 +392,8 @@ class CommentBody:
     return f'({self.vote_count} 赞)' if self.vote_count > 0 else ''
   @property
   def content_indent(self):
-    return '\n'.join('　　' + line.strip() + '  ' for line in self.content.splitlines() if line.strip())
+    lines = (line.strip() + '  ' for line in self.content.splitlines() if line.strip())
+    return '\n'.join('　　' + line for line in lines)[2:]  # [2:] 略过第一段开头的 '　　'
 
   @classmethod
   def create(cls, comment_json):

@@ -230,14 +230,14 @@ class Task:
   def run(self):
     '''执行一次抓取'''
     if self.is_page_type:
-      log('Task.run page request: {}'.format(str(self)))
+      # log('Task.run page request: {}'.format(str(self)))
       fetcher = Fetcher.create(fetcher_option=self.option)
       data_json = fetcher.request()
-      log('Task.run fetch page done')
+      # log('Task.run fetch page done')
       return data_json
     elif self.is_lister_type:
       # 探测新的页面
-      log('Task.run lister request: {}'.format(str(self)))
+      # log('Task.run lister request: {}'.format(str(self)))
       fetcher = Fetcher.create(fetcher_option=self.option)
       tasks_json = fetcher.request()
       log('Task.run detect new tasks done: {} tasks'.format(len(tasks_json)))
@@ -620,6 +620,7 @@ class Watcher:
 
 
 
+
     page_tasks_queue = []
     for task in self.tasks:
       if task.should_fetch and task.is_page_type:
@@ -635,10 +636,10 @@ class Watcher:
       self.save_config_yaml()
       if i % 3 == 0:
         remember(commit_log='save pages {}'.format(i), watcher_path=self.watcher_path)
-        generate_feed(self.watcher_path, save_xml=True)
+        generate_feed(self.watcher_path, )
       tools.time_random_sleep(5, 10)
     else:
       self.save_config_yaml()
       remember(commit_log='save pages {}'.format('remain'), watcher_path=self.watcher_path)
-      generate_feed(self.watcher_path, save_xml=True)
+      generate_feed(self.watcher_path, )
     

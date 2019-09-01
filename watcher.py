@@ -30,8 +30,6 @@ from page import Page
 # from lister import Lister
 from fetcher import Fetcher
 
-from recorder import remember
-# from recorder import generate_feed
 
 
 
@@ -615,7 +613,8 @@ class Watcher:
       task.schedule(is_modified=is_modified) # is_modified = add_tasks 时出现了新的 task
       log(f'lister task done ({i}/{len(lister_tasks_queue)}): \n{task}\n\n')
       self.save_config_yaml()
-      remember(commit_log='checked lister {}'.format(i), watcher_path=self.watcher_path)
+      yield {'commit_log': f'yield checked lister {i}'}
+      # remember(commit_log='checked lister {}'.format(i), watcher_path=self.watcher_path)
       tools.time_random_sleep(5, 10)
 
 
@@ -635,11 +634,13 @@ class Watcher:
       log(f'page task done ({i}/{len(page_tasks_queue)}): \n{task}\n\n')
       self.save_config_yaml()
       if i % 3 == 0:
-        remember(commit_log='save pages {}'.format(i), watcher_path=self.watcher_path)
+        yield {'commit_log': f'yield save pages {i}'}
+        # remember(commit_log='save pages {}'.format(i), watcher_path=self.watcher_path)
         # generate_feed(self.watcher_path, )
       tools.time_random_sleep(5, 10)
     else:
       self.save_config_yaml()
-      remember(commit_log='save pages {}'.format('remain'), watcher_path=self.watcher_path)
+      yield {'commit_log': f'yield save pages remain'}
+      # remember(commit_log='save pages {}'.format('remain'), watcher_path=self.watcher_path)
       # generate_feed(self.watcher_path, )
     

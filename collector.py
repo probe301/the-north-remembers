@@ -15,6 +15,12 @@ log = tools.create_logger(__file__)
 log_error = tools.create_logger(__file__ + '.error')
 
 
+
+
+
+
+
+
 class Collector:
   '''
   与用户对接提交抓取任务, 接受用户输入的条件和附加参数
@@ -181,6 +187,21 @@ class Collector:
       os.mkdir(folder)
       tools.yaml_save(d, folder + '/' + '.task.yaml')
       log(f'Watcher folder {folder} created')
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -391,44 +412,6 @@ class Collector:
 
 
 
-
-# @app.route('/user/<username>')
-# def show_user_profile(username):
-#   # show the user profile for that user
-#   return 'User %s' % username
-
-
-
-
-
-
-
-
-# @app.route('/post/<int:post_id>')
-# def show_post(post_id):
-#   # show the post with the given id, the id is an integer
-#   return 'Post %d' % post_id
-#   # return flask.jsonify(**f)
-#   # @app.route('/_get_current_user')
-#   # def get_current_user():
-#   #     return jsonify(username=g.user.username,
-#   #                    email=g.user.email,
-#   #                    id=g.user.id)
-#   # Returns:
-
-#     # {
-#     #     "username": "admin",
-#     #     "email": "admin@localhost",
-#     #     "id": 42
-#     # }
-
-
-
-
-
-
-
-
   # def yield_topic_best_answers(topic_id, limit=100, min_voteup=300):
   # def save_answer(answer, folder='test', overwrite=True):
   # def save_article(article, folder='test', overwrite=True):
@@ -480,3 +463,179 @@ class Collector:
 
 #   log('all done!')
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+'''
+####### ##       #####   ###### ##   ##  
+##      ##      ##   ## ##      ##  ##   
+######  ##      #######  #####  ######   
+##      ##      ##   ##      ## ##   ##  
+##      ####### ##   ## ######  ##   ##  
+
+
+
+
+route:
+
+
+
+常用的单页面 
+example: http://host/question/<123>/answer/<123>
+         (替换 https://www.zhihu.com => http://host)
+
+返回格式化后的页面, 初步只有 txt 即可
+
+RSS Feed
+  http://host/<folder>/feed/
+返回 project 下属这个 folder 里的 feed
+
+folder 是 rss feed 的基本单位, 
+如果需要过滤 folder 内的条目, 或者聚合多个 folder, 先用别的 feed 工具
+
+
+
+'''
+
+
+from flask import request
+from flask import jsonify
+from flask import Flask
+from flask import render_template
+from flask import Response
+app = Flask(__name__)
+
+
+
+
+
+
+
+
+@app.route('/')
+@app.route('/index')
+def index():
+  user = {'nickname': 'test'}  # fake user
+  return render_template("index.html", title='Home', user=user)
+
+
+@app.route('/hello')
+def hello():
+  return 'Hello World'
+
+
+
+@app.route('/answer/<answer_id>')
+def watch_zhihu_answer(answer_id):
+  # https://www.zhihu.com/question/33918585/answer/89678373
+  log('get /answer/<answer_id>' + str(answer_id))
+  task = Task.add_by_answer(answer_id=int(answer_id), force_start=True)
+  return jsonify(task.last_page.to_dict())
+
+
+
+
+@app.route('/author/<author_id>')
+def list_zhihu_answers_by_author(author_id):
+  from zhihu_answer import yield_author_answers
+  ret = []
+  limit = int(request.args.get('limit', 10))
+  min_voteup = int(request.args.get('min_voteup', 300))
+  for answer in yield_author_answers(author_id, limit=limit, min_voteup=min_voteup):
+    url = zhihu_answer_url(answer)
+    ret.append({'url': url,
+                'title': answer.question.title,
+                'voteup_count': answer.voteup_count,
+                'created_time': convert_time(answer.created_time),
+                'updated_time': convert_time(answer.updated_time),
+                'author_name': answer.author.name,
+               })
+  return jsonify(ret)
+
+
+
+@app.route('/topic/<int:topic_id>')
+def list_zhihu_answers_by_topic(topic_id):
+  # mockup
+  def yield_topic_best_answers(topic_id, limit=100, min_voteup=300):
+    import json
+    data = json.loads(open('mockup_topic_answers.json', encoding='utf-8').read())
+    return (elem for elem in data)
+
+  ret = list(yield_topic_best_answers(topic_id))
+  return render_template("topics.html",
+                         title='Topics', topic_answers=ret)
+
+  # real
+  ret = []
+  for answer in yield_topic_best_answers(topic_id, limit=100, min_voteup=300):
+    url = zhihu_answer_url(answer)
+    ret.append({'url': url,
+                'title': answer.question.title,
+                'vote': answer.voteup_count,
+                'topic': [t.name for t in answer.question.topics],
+               })
+  # return form(ret)
+  # return jsonify(ret)
+
+  return render_template("topics.html",
+                         title='Topics', topic_answers=ret)
+
+
+
+
+from recorder import generate_feed
+@app.route('/<folder_name>/feed')
+def get_feed(folder_name):
+  project_path = r'./project'
+  watcher_path = os.path.join(project_path, folder_name)
+  log(f'get_feed {watcher_path}')
+  feed_path = generate_feed(watcher_path, limit=3)
+  if feed_path:
+    return tools.load_txt(feed_path)
+  else:
+    raise RuntimeError(f'cannot generate_feed {folder_name}')
+
+
+
+
+# @app.route('/_get_current_user')
+# def get_current_user():
+#   return jsonify(username=g.user.username,
+#                  email=g.user.email,
+#                  id=g.user.id)
+
+
+
+
+
+if __name__ == '__main__':
+  app.run(debug=True, port=3123)

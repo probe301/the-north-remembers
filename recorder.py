@@ -75,6 +75,7 @@ def generate_feed(watcher_path, limit=10, ):
     fe.title(page.metadata['title'])
     fe.link(href=page.metadata['url'])
     fe.description('\n\n' + page.to_html(cut=0) + '\n')
-
-  fg.rss_file('feed.xml', pretty=True)
-  return True
+  feed_path = os.path.join(watcher_path, 'feed.xml')
+  fg.rss_file(feed_path, pretty=True)
+  # log(f'generate_feed `{feed_path}` done')
+  return feed_path

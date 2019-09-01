@@ -441,7 +441,6 @@ def display_compare_text(contents):
     # if i == 0: continue
     if (a!=b):
       print('a!=b on', i, i+1)
-      pat = re.compile('\S')
       for d in unified_diff(split_text(a), split_text(b), n=2, lineterm=''):
         print(d)
     print('\n\n\n\n\n\n')
@@ -452,9 +451,6 @@ def display_compare_text(contents):
 def generate_ascii_title(text):
   from pyfiglet import Figlet
   f = Figlet()
-  # o8.flf
-  # ogre.flf
-  # 6x10.flf
   fonts = ['ogre', '6x10', 'space_op', 'o8',]
   for font in fonts:
     f.setFont(font=font)

@@ -31,7 +31,7 @@ from page import Page
 from fetcher import Fetcher
 
 from recorder import remember
-from recorder import generate_feed
+# from recorder import generate_feed
 
 
 
@@ -636,10 +636,10 @@ class Watcher:
       self.save_config_yaml()
       if i % 3 == 0:
         remember(commit_log='save pages {}'.format(i), watcher_path=self.watcher_path)
-        generate_feed(self.watcher_path, )
+        # generate_feed(self.watcher_path, )
       tools.time_random_sleep(5, 10)
     else:
       self.save_config_yaml()
       remember(commit_log='save pages {}'.format('remain'), watcher_path=self.watcher_path)
-      generate_feed(self.watcher_path, )
+      # generate_feed(self.watcher_path, )
     

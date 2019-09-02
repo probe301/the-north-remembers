@@ -60,7 +60,7 @@ class Fetcher:
       raise ValueError(f'cannot parse url type except Lister {url}')
 
   @classmethod
-  def generate_folder(cls, urls):
+  def generate_folder_name(cls, urls):
     ''' 要求所有 urls 属于同一类
         现在未检查 '''
     if not urls:
@@ -78,7 +78,7 @@ class Fetcher:
         
         return '知乎话题 - ' + ', '.join(topic_names)
       else:
-        raise NotImplementedError()
+        raise NotImplementedError('generate_folder_name')
       
     else:
       raise ValueError(f'cannot parse url type {url}')

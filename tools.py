@@ -162,14 +162,18 @@ def convert_time(d, humanize=False):
     return d.strftime('%Y-%m-%d %H:%M:%S')
 
 
-def all_files(root, patterns='*', single_level=False, yield_folders=False):
+import fnmatch
+def all_files(root, patterns='*', 
+              blacklist=('.git', '__pycache__', '.ipynb_checkpoints'), 
+              single_level=False, yield_folders=False):
   ''' 取得文件夹下所有文件
   single_level 仅处理 root 中的文件(文件夹) 不处理下层文件夹
   yield_folders 也遍历文件夹'''
 
-  import fnmatch
   patterns = patterns.split(';')
-  for path, subdirs, files in os.walk(root):
+  for path, subdirs, files in os.walk(root, topdown=True):
+    subdirs[:] = [d for d in subdirs if d not in blacklist]
+    subdirs.sort()
     if yield_folders:
       files.extend(subdirs)
     files.sort()
@@ -181,13 +185,15 @@ def all_files(root, patterns='*', single_level=False, yield_folders=False):
     if single_level:
       break
 
+import fnmatch
+def all_subdirs(root, patterns='*', 
+                blacklist=('.git', '__pycache__', '.ipynb_checkpoints'), 
+                single_level=False):
+  ''' 取得文件夹下所有文件夹 '''
 
-def all_subdirs(root, patterns='*', single_level=False):
-  ''' 取得文件夹下所有文件夹'''
-
-  import fnmatch
   patterns = patterns.split(';')
-  for path, subdirs, __ in os.walk(root):
+  for path, subdirs, __ in os.walk(root, topdown=True):
+    subdirs[:] = [d for d in subdirs if d not in blacklist]
     subdirs.sort()
     for name in subdirs:
       for pattern in patterns:
@@ -196,6 +202,13 @@ def all_subdirs(root, patterns='*', single_level=False):
           break
     if single_level:
       break
+
+# When `topdown` is true, the caller can modify the dirnames 
+# list in-place and walk will only recurse into the subdirectories 
+# whose names remain in dirnames; can be used to prune the search...
+# `dirs[:] = value` modifies dirs in-place. It changes the contents 
+# of the list dirs without changing the container. 
+
 
 
 
@@ -472,6 +485,37 @@ def enumer(iterable, first=None, skip=0):
       break
     else:
       yield i, item
+
+
+from copy import deepcopy
+def dict_merge(a, b=None):
+  a = deepcopy(a)
+  if b is None:
+    b = {}
+  a.update(b)
+  return a
+
+
+
+def is_windows():
+  import sys
+  return sys.platform == 'win32'
+
+
+import subprocess
+def run_command(cmd, verbose=False):
+  if verbose: print('> running: ', cmd)
+  try:
+    output = subprocess.check_output(
+        cmd, stderr=subprocess.STDOUT, shell=True, timeout=3,
+        universal_newlines=True)
+  except subprocess.CalledProcessError as exc:
+    if verbose: print("status: FAIL", exc.returncode, exc.output)
+    raise RuntimeError(f'status: FAIL, {exc.returncode}, {exc.output}')
+  else:
+    if verbose: print("output: \n{}\n".format(output))
+    return output
+
 
 # import time
 # # import sys

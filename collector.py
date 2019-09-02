@@ -33,8 +33,20 @@ from feedgen.feed import FeedGenerator
 
 
 
-
-
+# 创建 Watcher 目录时的默认 lister task 和 page task 设置
+LISTER_DEFAULT_OPTION = odict(
+  enabled=True,
+  max_cycle='15days',
+  min_cycle='12hours',
+  weight=0.5,
+  limit=200,
+)
+PAGE_DEFAULT_OPTION = odict(
+  enabled=True,
+  max_cycle='90day',
+  min_cycle='18hours',
+  weight=0.5,
+)
 
 class Collector:
   '''
@@ -44,21 +56,20 @@ class Collector:
     首先解析任务列表, 取出所涉及页面, 都安排一次抓取
     如果要求记录任务自身, 则额外记录 Collector 配置, 供之后定期rescan增加页面
 
-  Collector.create(project_path=xxx) 创建项目, 将该目录设为 git 仓库
-  collector = Collector(project_path=xxx)
+  Collector.create_project(path=xxx) 创建项目, 将该目录设为 git 仓库
+  collector = Collector(project_path=xxx) 打开项目
+  collector.report 返回所有的 Watcher 状态, 带有多少 task 等等
 
-  Collector.watchers 返回项目中所有的 Watcher 目录
-  Collector.report 返回所有的 Watcher 状态, 带有多少 task 等等
-  Collector.find_watcher(folder=xxx) 返回 Watcher
+  collector.list_watchers 
+  collector.find_watcher(xxx)                      返回 Watcher
+  TODO collector.rename_watcher(a, b)                   返回 Watcher
 
-  Collector
+  collector.create_watcher(url)              通过 url 创建 Watcher
+  collector.create_watcher(url1, url2 ...)
 
-  collector.add(url1)
-  collector.add(weixin_page_url)
-  collector.add(zhihu_column_url)
-  collector.add(zhihu_anwser_id=xxx)
-  collector.add(zhihu_author_id=xxx)
-  collector.add(column_id=xxx)
+  # 向已有的 Watcher 更新条目
+  TODO collector.append_to_watcher(use watcher.add_task(task_dict))
+
 
 
 
@@ -91,40 +102,69 @@ class Collector:
     return f'<Collector #{id(self)} path={self.project_path}>'
 
 
-  def add(self, url, tip=None, lister_option=None, page_option=None):
-    ''' 添加一个 Watcher, 根据 url 决定何种类型 '''
+  @classmethod
+  def create_project(cls, path):
+    ''' 创建项目或打开已存在项目
+        新建时附带生成 git 仓库'''
+    if os.path.exists(path):
+      log(f'WARN: create_project `{path}` exists')
+    else:
+      os.mkdir(path)
+      ignore = "# project\n.ipynb_checkpoints\n__pycache__/\n*.py[cod]\ntodo.txt\n**/feed.xml"
+      tools.save_txt(os.path.join(path, '.gitignore'), ignore)
+      cmd = f'cd "{path}" && git init && git add . && git commit -m "init TNR project"'
+      # log(cmd)
+      tools.run_command(cmd)
+      log(f'create new project {path} and committed')
+    return cls(project_path=path)
 
-    lister_default_option = odict(
-      enabled=True,
-      max_cycle='15day',
-      min_cycle='1hour',
-      weight=0.5,
-      limit=200,
-    )
-    page_default_option = odict(
-      enabled=True,
-      max_cycle='1day',
-      min_cycle='1hour',
-      weight=0.5,
-    )
+  def report(self):
+    ''' 输出每个 Watcher folder 的摘要 '''
+    log(f'report {self} \n---------------------')
+    for directory in tools.all_subdirs(self.project_path):
+      # if directory == '.git':
+      task_yaml = os.path.join(directory, '.task.yaml')
+      if os.path.exists(task_yaml):
+        folder = os.path.basename(directory)
+        all_pages = tools.all_files(directory, patterns='*.md', single_level=True)
+        count = len(list(all_pages))
+        log(f'    Watcher: `{folder}` ({count} pages)')
+    output = tools.run_command(f'cd "{self.project_path}" && git log --oneline -n 5')
+    log('git log: ')
+    for line in output.splitlines():
+      log(f'    {line.strip()}')
+    log(f'---------------------')
 
-    if lister_option:
-      lister_default_option.update(lister_option)
-    if page_option:
-      page_default_option.update(page_option)
 
-    url = tools.purge_url(url)
-    if tip is None:
-      tip = Fetcher.generate_tip(url)
-    # page_type = tools.parse_type(url)
-    folder = self.project_path + '/' + tools.remove_invalid_char(tip)
+
+
+
+
+  def create_watcher(self, urls, tips=None, folder=None, lister_option=None, page_option=None):
+    ''' 添加一个 Watcher, 根据 urls 创建 folder, 
+        urls: 一个或多个网址, 多个需属于同种类型, 目前未检测 
+        tips: 与 urls 配套的描述字符串
+        folder: 指定 Watcher 文件夹名, 不指定就自动生成
+    '''
+    if isinstance(urls, str): urls = [urls, ]
+    if isinstance(tips, str): tips = [tips, ]
+    urls = [tools.purge_url(u) for u in urls]
+    if tips is None: tips = [Fetcher.generate_tip(u) for u in urls]
+    if len(urls) != len(tips):
+      raise ValueError(f'count of {urls} should equal to count {tips}')
+
+    if folder is None:
+      folder = Fetcher.generate_folder_name(urls)
+    folder = os.path.join(self.project_path, tools.remove_invalid_char(folder))
+    if os.path.exists(folder):
+      raise ValueError(f'folder already exists: {folder}')
 
     d = odict(
-      default_option=odict(
-        lister=lister_default_option,
-        page=page_default_option,
-      ), 
-      lister_task=[odict(url=url, tip=tip), ]
+        default_option=odict(
+            lister=tools.dict_merge(LISTER_DEFAULT_OPTION, lister_option),
+            page=tools.dict_merge(PAGE_DEFAULT_OPTION, page_option),
+        ), 
+        lister_task=[odict(url=url, tip=tip) for url, tip in zip(urls, tips)]
     )
     # 这样会让 lister_task[] 的缩进不正确
     # 应该是 lister_task:
@@ -134,88 +174,34 @@ class Collector:
     #        - url: xxx
     #          tip: xxx 但是不影响识别
 
-
-    if os.path.exists(folder):
-      raise ValueError(f'folder already exists: {folder}')
-    else:
-      os.mkdir(folder)
-      tools.yaml_save(d, folder + '/' + '.task.yaml')
-      log(f'Watcher folder {folder} created')
-
-
-
-  def add_multiple(self, urls, tips=None, folder=None, lister_option=None, page_option=None):
-    ''' 添加一个 Watcher, 根据 urls 创建 folder, 
-        urls 需要属于同种类型, 目前未检测 '''
-
-    lister_default_option = odict(
-      enabled=True,
-      max_cycle='15day',
-      min_cycle='1hour',
-      weight=0.5,
-      limit=200,
-    )
-    page_default_option = odict(
-      enabled=True,
-      max_cycle='1day',
-      min_cycle='1hour',
-      weight=0.5,
-    )
-
-    if lister_option:
-      lister_default_option.update(lister_option)
-    if page_option:
-      page_default_option.update(page_option)
-    
-    urls = [tools.purge_url(u) for u in urls]
-
-    if tips is None:
-      tips = [Fetcher.generate_tip(u) for u in urls]
-    else:
-      if len(urls) != len(tips):
-        raise ValueError(f'count of {urls} should equal to count {tips}')
-
-    if folder is None:
-      folder = Fetcher.generate_folder(urls)
-    folder = self.project_path + '/' + tools.remove_invalid_char(folder)
-
-    d = odict(
-      default_option=odict(
-        lister=lister_default_option,
-        page=page_default_option,
-      ), 
-      lister_task=[odict(url=url, tip=tip) for url, tip in zip(urls, tips)]
-    )
-
-    if os.path.exists(folder):
-      raise ValueError(f'folder already exists: {folder}')
-    else:
-      os.mkdir(folder)
-      tools.yaml_save(d, folder + '/' + '.task.yaml')
-      log(f'Watcher folder {folder} created')
+    os.mkdir(folder)
+    tools.yaml_save(d, folder + '/' + '.task.yaml')
+    log(f'Watcher folder {folder} created')
+    folder_name = os.path.basename(folder)
+    self.remember(f'create Watcher folder `{folder_name}`')
 
 
 
 
 
 
-
-  def remember(self, commit_log, watcher_path):
+  def remember(self, commit_log, verbose=False):
     ''' 将 watcher 抓取到的内容存储到 git 仓库
         git 仓库通常位于 watcher folder 的上一层
     '''
-    git_path = os.path.dirname(watcher_path) # watcher folder 上一层
-    cmd = 'cd {} && git add . && git commit -m "{}"'.format(git_path, commit_log)
+    # git_path = os.path.dirname(watcher_path) # watcher folder 上一层
+    cmd = f'cd "{self.project_path}" && git add . && git commit -m "{commit_log}"'
     # log(cmd)
-    os.system(cmd)
-    log('Watcher.remember added + committed {} {}'.format(watcher_path, commit_log))
+    tools.run_command(cmd, verbose=verbose)
+    log(f'Watcher.remember added + committed {commit_log}')
 
 
 
-  def generate_feed(watcher_path, limit=10, ):
+  def generate_feed(self, watcher_path, limit=10, ):
     ''' 生成 RSS, 内容为全部 page_task, 
         按照添加任务的顺序倒序排列 (按照更新时间排列? TODO)
-        RSS Feed 文件名为 Watcher 文件夹名称
+        watcher_path 如果是父级文件夹, 视为合并子文件夹里所有 page 生成 rss feed
+        RSS Feed 文件名为 watcher_path, alias? TODO
 
         limit=-1 时迭代所有Page
         '''
@@ -454,8 +440,6 @@ def list_zhihu_answers_by_topic(topic_id):
 
 
 
-
-from recorder import generate_feed
 @app.route('/<folder_name>/feed')
 def get_feed(folder_name):
   log(f'getting feed {folder_name}')
@@ -471,8 +455,8 @@ def get_feed(folder_name):
 
 
 
-# if __name__ == '__main__':
-#   col = Collector(project_path='/project')
 
 if __name__ == '__main__':
+  project_path = 'D:/DataStore/test' if tools.is_windows() else '/project'
+  col = Collector(project_path=project_path)
   app.run(debug=True, host='0.0.0.0', port=80)

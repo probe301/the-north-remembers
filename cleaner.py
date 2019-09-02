@@ -139,7 +139,7 @@ def fix_video_link(mdtxt):
 
 动物有语言吗 | 混乱博物馆https://www.zhihu.com/video/1125529815624884224](https://www.zhihu.com/video/1125529815624884224)
 
-暂时更新为
+暂时修正为
 
 ![](https://pic1.zhimg.com/v2-6a815464926a29329b5e0e68f0a2a375.png)
 [视频: 动物有语言吗 | 混乱博物馆](https://www.zhihu.com/video/1125529815624884224)
@@ -147,11 +147,19 @@ def fix_video_link(mdtxt):
 '''
 
   pat = r'\[\n\n(\!\[\]\(https://pic.+?\))\n\n(.*?)(https://www.zhihu.com/video/\d+)\]\(\3\)'
-  mdtxt = re.sub(pat, r'\1\n[视频: \2](\3)', mdtxt)
+  mdtxt = re.sub(pat, r'\1  \n[视频: \2](\3)', mdtxt)
   return mdtxt
 
 
 def test_fix_video_link():
+  # import tools
+  # for p in tools.all_files(r'D:\DataStore\test', '*.md'):
+  #   t = tools.load_txt(p)
+  #   for i, line in tools.enumer(t.splitlines()):
+  #     if line == '[':  # if 'https://www.zhihu.com/video/' in line:
+  #       print(f'found in {p}')
+  #       print(''.join(t.splitlines(1)[i-5:i+5]))
+  #       print()
   sample = ''' 形如
 
 [
@@ -160,12 +168,34 @@ def test_fix_video_link():
 
 动物有语言吗 | 混乱博物馆https://www.zhihu.com/video/1125529815624884224](https://www.zhihu.com/video/1125529815624884224)
 
+
+[
+
+![](https://pic1.zhimg.com/v2-923d0e1a87cace4ecef9e7cbb3622418.jpg)
+
+https://www.zhihu.com/video/1084268180037431296](https://www.zhihu.com/video/1084268180037431296)
+
+
+[
+
+![](https://pic2.zhimg.com/v2-28e3dd4489fd75514aca0bdb23492d61.jpg)
+
+https://www.zhihu.com/video/1111685179147534336](https://www.zhihu.com/video/1111685179147534336)
+
 '''
 
   result = ''' 形如
 
-![](https://pic1.zhimg.com/v2-6a815464926a29329b5e0e68f0a2a375.png)
+![](https://pic1.zhimg.com/v2-6a815464926a29329b5e0e68f0a2a375.png)  
 [视频: 动物有语言吗 | 混乱博物馆](https://www.zhihu.com/video/1125529815624884224)
+
+
+![](https://pic1.zhimg.com/v2-923d0e1a87cace4ecef9e7cbb3622418.jpg)  
+[视频: ](https://www.zhihu.com/video/1084268180037431296)
+
+
+![](https://pic2.zhimg.com/v2-28e3dd4489fd75514aca0bdb23492d61.jpg)  
+[视频: ](https://www.zhihu.com/video/1111685179147534336)
 
 '''
   assert result == fix_video_link(sample)

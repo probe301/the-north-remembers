@@ -256,11 +256,12 @@ class Collector:
     fg.link(href=site + feed_name + '/feed', rel='self')
     fg.language('zh-cn')
     for page in sorted(pages, key=lambda page: page.watch_time):
+      log(f'prepare feed entry {page}')
       fe = fg.add_entry()
       fe.id(page.metadata['url'])
-      fe.title(tools.cdata(page.metadata['title']))
+      fe.title(tools.cdata(page.metadata['title'], inline=True))
       fe.link(href=page.metadata['url'])
-      fe.description('\n' + tools.cdata(page.to_html(cut=0)) + '\n')
+      fe.description(tools.cdata(page.to_html(cut=0)))
     feed_path = os.path.join(watcher_path, 'feed.xml')
     fg.rss_file(feed_path, pretty=True)
     # log(f'generate_feed `{feed_path}` done')
@@ -348,6 +349,7 @@ from flask import jsonify
 from flask import Flask
 from flask import render_template
 from flask import Response
+from flask import make_response
 from flask import abort
 app = Flask(__name__)
 
@@ -472,7 +474,7 @@ def get_feed(folder_name):
   feed_path = col.generate_feed(folder_name, limit=50, site=request.url_root)
   log(f'generate_feed done {feed_path}')
   if feed_path:
-    return tools.load_txt(feed_path)
+    return Response(open(feed_path, encoding='utf-8').read(), mimetype='application/xml')
   else:
     abort(404)
     # raise RuntimeError(f'cannot generate_feed {folder_name}')
@@ -484,5 +486,6 @@ def get_feed(folder_name):
 
 if __name__ == '__main__':
   project_path = 'D:/DataStore/test' if tools.is_windows() else '/project'
+  project_path = r'D:\DataStore\tnr-project-on-vultr-warmgrid' if tools.is_windows() else '/project'
   col = Collector(project_path=project_path)
   app.run(debug=True, host='0.0.0.0', port=80)

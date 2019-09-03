@@ -8,6 +8,7 @@ test/
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
+todo.py
 
 # C extensions
 *.so

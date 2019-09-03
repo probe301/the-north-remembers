@@ -523,6 +523,12 @@ def run_command(cmd, verbose=False):
     return output
 
 
+def cdata(text, inline=False):
+  if inline:
+    return f'<![CDATA[{text}]]>'
+  else:
+    return f'<![CDATA[\n{text}\n]]>'
+
 # import time
 # # import sys
 # import os

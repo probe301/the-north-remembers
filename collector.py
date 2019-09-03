@@ -185,7 +185,7 @@ class Collector:
     tools.yaml_save(d, watcher_path + '/' + '.task.yaml')
     log(f'Watcher path {watcher_path} created')
     folder_name = os.path.basename(watcher_path)
-    self.remember(f'create Watcher folder `{folder_name}`')
+    self.remember(f'create Watcher folder {folder_name}')
 
 
   def find_watcher_path(self, folder_name):
@@ -195,12 +195,24 @@ class Collector:
     else:
       return None
 
+  def start_watching_once(self, folder_name):
+    watcher_path = self.find_watcher_path(folder_name)
+    watcher = Watcher(watcher_path)
+    for commit_log in watcher.watch():
+      self.remember(commit_log)
+    log(f'collector start_watching_once for {watcher} done')
+
+  def start_watching_loop(self, folder_name):
+    pass
+
 
   def remember(self, commit_log, verbose=False):
     ''' 将 watcher 抓取到的内容存储到 git 仓库
         git 仓库通常位于 watcher folder 的上一层
     '''
     # git_path = os.path.dirname(watcher_path) # watcher folder 上一层
+    if isinstance(commit_log, dict):
+      commit_log = commit_log.get('commit_log', 'missing commit log')
     cmd = f'cd "{self.project_path}" && git add . && git commit -m "{commit_log}"'
     # log(cmd)
     tools.run_command(cmd, verbose=verbose)
@@ -246,9 +258,9 @@ class Collector:
     for page in sorted(pages, key=lambda page: page.watch_time):
       fe = fg.add_entry()
       fe.id(page.metadata['url'])
-      fe.title(page.metadata['title'])
+      fe.title(tools.cdata(page.metadata['title']))
       fe.link(href=page.metadata['url'])
-      fe.description('\n\n' + page.to_html(cut=0) + '\n')
+      fe.description('\n' + tools.cdata(page.to_html(cut=0)) + '\n')
     feed_path = os.path.join(watcher_path, 'feed.xml')
     fg.rss_file(feed_path, pretty=True)
     # log(f'generate_feed `{feed_path}` done')

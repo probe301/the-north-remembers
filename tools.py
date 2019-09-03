@@ -529,6 +529,21 @@ def cdata(text, inline=False):
   else:
     return f'<![CDATA[\n{text}\n]]>'
 
+
+
+def clean_xml(text):
+  ''' 清理用于 xml 的有效字符
+      曾遇到标题里有字符 backspace \x08, 在 CentOS 中无法生成 xml feed'''
+  def valid_xml_char_ordinal(c):
+    # conditions ordered by presumed frequency
+    codepoint = ord(c)
+    return (0x20 <= codepoint <= 0xD7FF or
+            codepoint in (0x9, 0xA, 0xD) or
+            0xE000 <= codepoint <= 0xFFFD or
+            0x10000 <= codepoint <= 0x10FFFF)
+  return ''.join(c for c in text if valid_xml_char_ordinal(c))
+
+
 # import time
 # # import sys
 # import os

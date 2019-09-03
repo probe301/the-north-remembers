@@ -36,15 +36,15 @@ from feedgen.feed import FeedGenerator
 # 创建 Watcher 目录时的默认 lister task 和 page task 设置
 LISTER_DEFAULT_OPTION = odict(
   enabled=True,
-  max_cycle='15days',
+  max_cycle='7days',
   min_cycle='12hours',
   weight=0.5,
   limit=200,
 )
 PAGE_DEFAULT_OPTION = odict(
   enabled=True,
-  max_cycle='90day',
-  min_cycle='18hours',
+  max_cycle='180days',
+  min_cycle='15days',
   weight=0.5,
 )
 
@@ -259,9 +259,9 @@ class Collector:
       log(f'prepare feed entry {page}')
       fe = fg.add_entry()
       fe.id(page.metadata['url'])
-      fe.title(tools.cdata(page.metadata['title'], inline=True))
+      fe.title(tools.clean_xml(page.metadata['title']))
       fe.link(href=page.metadata['url'])
-      fe.description(tools.cdata(page.to_html(cut=0)))
+      fe.description(tools.clean_xml(page.to_html(cut=0)))
     feed_path = os.path.join(watcher_path, 'feed.xml')
     fg.rss_file(feed_path, pretty=True)
     # log(f'generate_feed `{feed_path}` done')

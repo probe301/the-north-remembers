@@ -146,8 +146,11 @@ def fix_video_link(mdtxt):
 
 '''
 
-  pat = r'\[\n\n(\!\[\]\(https://pic.+?\))\n\n(.*?)(https://www.zhihu.com/video/\d+)\]\(\3\)'
+  pat = r'\[\n\n(\!\[\]\(https?://pic.+?\))\n\n(.*?)(https://www.zhihu.com/video/\d+|http://www.iqiyi.com.+?.html|http://v.youku.com.+?.html)\]\(\3\)'
   mdtxt = re.sub(pat, r'\1  \n[视频: \2](\3)', mdtxt)
+
+  pat = r'\[\!\[\]\(\)(.+?)(http://v.youku.com.+?.html)\]\(\2\)'
+  mdtxt = re.sub(pat, r'[视频: \1](\2)', mdtxt)
   return mdtxt
 
 
@@ -182,6 +185,15 @@ https://www.zhihu.com/video/1084268180037431296](https://www.zhihu.com/video/108
 
 https://www.zhihu.com/video/1111685179147534336](https://www.zhihu.com/video/1111685179147534336)
 
+
+[
+
+![](http://pic7.qiyipic.com/image/20161028/75/4e/v_111202885_m_601.jpg)
+
+你所有的热爱，全在这里http://www.iqiyi.com/v_19rr96ulbo.html](http://www.iqiyi.com/v_19rr96ulbo.html)
+
+
+[![]()Get Cheras to IKEA Cheras—在线播放—优酷网，视频高清在线观看http://v.youku.com/v_show/id_XMTM3NjU1MTAzMg==.html](http://v.youku.com/v_show/id_XMTM3NjU1MTAzMg==.html)
 '''
 
   result = ''' 形如
@@ -197,6 +209,12 @@ https://www.zhihu.com/video/1111685179147534336](https://www.zhihu.com/video/111
 ![](https://pic2.zhimg.com/v2-28e3dd4489fd75514aca0bdb23492d61.jpg)  
 [视频: ](https://www.zhihu.com/video/1111685179147534336)
 
+
+![](http://pic7.qiyipic.com/image/20161028/75/4e/v_111202885_m_601.jpg)  
+[视频: 你所有的热爱，全在这里](http://www.iqiyi.com/v_19rr96ulbo.html)
+
+
+[视频: Get Cheras to IKEA Cheras—在线播放—优酷网，视频高清在线观看](http://v.youku.com/v_show/id_XMTM3NjU1MTAzMg==.html)
 '''
   assert result == fix_video_link(sample)
 

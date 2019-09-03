@@ -197,7 +197,7 @@ class Task:
     '''
     result = []
     result.append('  - url: ' + getattr(self, 'url'))
-    result.append('    tip: ' + getattr(self, 'tip'))
+    result.append('    tip: "' + getattr(self, 'tip').replace('"', '') + '"')
     timestamp = '    timestamp: {{ task_add: "{}", last_watch: "{}", last_change: "{}", next_watch: "{}" }}'
     timestamp = timestamp.format(
         time_to_str(self.task_add_time), 

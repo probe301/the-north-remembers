@@ -56,6 +56,10 @@ class Fetcher:
         return '知乎话题 - ' + topic.name
       else:
         raise NotImplementedError()
+    elif parse_type(url) == UrlType.ZhihuColumnLister:
+      column = parse_column(url)
+      log(f'generate_tip get {column.title}')
+      return '知乎专栏 - ' + column.title
     else:
       raise ValueError(f'cannot parse url type except Lister {url}')
 
@@ -65,23 +69,27 @@ class Fetcher:
         现在未检查 '''
     if not urls:
       raise ValueError('urls is not specified')
-    ''' 要求所有 urls 属于同一类
-        现在未检查 '''
 
     if parse_type(urls[0]) == UrlType.ZhihuAnswerLister:
       if '/topic/' in urls[0]:
         topic_names = []
         for url in urls:
           topic = parse_topic(url)
-          log(f'generate_tip get {topic.name}')
+          # log(f'generate_tip get {topic.name}')
           topic_names.append(topic.name)
         
         return '知乎话题 - ' + ', '.join(topic_names)
       else:
         raise NotImplementedError('generate_folder_name')
-      
+    elif parse_type(urls[0]) == UrlType.ZhihuColumnLister:
+      column_names = []
+      for url in urls:
+        column = parse_column(url)
+        # log(f'generate_tip get {column.title}')
+        column_names.append(column.title)
+      return '知乎专栏 - ' + ', '.join(column_names)
     else:
-      raise ValueError(f'cannot parse url type {url}')
+      raise ValueError(f'cannot parse url type {urls}')
 
 
 

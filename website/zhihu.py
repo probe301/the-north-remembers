@@ -258,6 +258,11 @@ def parse_answer(answer):
   return answer
 
 
+def parse_column(column):
+  column = client.from_url(column)
+  return column
+
+
 def parse_article(article):
   if isinstance(article, str):
     if 'api.zhihu.com' in article:
@@ -290,8 +295,6 @@ def parse_topic(topic):
 
 
 def parse_author(url):
-  pass
-def parse_column(url):
   pass
 
 

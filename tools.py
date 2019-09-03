@@ -30,6 +30,12 @@ UrlType = Enum('UrlType',
 
 
 def parse_type(url):
+  ''' TODO 改成同时返回 Type 和提取信息的方式
+      结合 parse_column, xxx 等
+      detail=False  返回基本信息 id, 
+      detail=True   也返回 title, info, followingcount 等
+  '''
+
   if re.search(r'https://zhuanlan.zhihu.com/p/\d+?', url):
     return UrlType.ZhihuColumnPage
   if re.search(r'https://zhuanlan.zhihu.com/\w+?', url):

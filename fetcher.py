@@ -144,6 +144,7 @@ class Fetcher:
     limit = self.option['limit']
     min_voteup = self.option.get('zhihu_min_voteup', 0)
     min_thanks = self.option.get('zhihu_min_thanks', 0)
+    banned_keywords = self.option.get('banned_keywords', '')
     if '/question/' in self.url:
       question_id = int(self.url.split('/')[-1])
       log('request_ZhihuAnswerLister question_id', question_id)
@@ -155,7 +156,8 @@ class Fetcher:
     elif '/topic/' in self.url:
       topic_id = int(self.url.split('/')[-2])
       log('request_ZhihuAnswerLister topic_id', topic_id)
-      iter_answers = yield_topic_best_answers(topic_id, limit=limit, min_voteup=min_voteup, min_thanks=min_thanks)
+      iter_answers = yield_topic_best_answers(topic_id, limit=limit, min_voteup=min_voteup, min_thanks=min_thanks, 
+                                              banned_keywords=banned_keywords)
     elif '/collection/' in self.url:
       collection_id = int(self.url.split('/')[-1])
       log('request_ZhihuAnswerLister collection_id', collection_id)

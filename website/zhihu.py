@@ -1195,14 +1195,27 @@ def test_zhihu_fix_mistake_headerline_splitter():
 ####### ###### ######     ##   ####### ##   ##
 '''
 
-def yield_topic_best_answers(topic_id, limit=100, min_voteup=300, min_thanks=50):
-  # id = 19641972 # '政治'
+def yield_topic_best_answers(topic_id, limit=100, min_voteup=300, min_thanks=50, 
+                             banned_keywords=''):
+  ''' banned_keywords: 忽略问题 topic 中具有该关键词的情况, 如 情感, 调查类问题
+                       忽略问题 title 中具有该关键词的情况, 如 有哪些, 文艺表达, 文艺的表达, 前女友
+  '''
   topic = client.topic(topic_id)
   log(topic.name + str(topic_id))
   count = 0
+  if banned_keywords.strip():
+    banned_keywords = set(key.strip() for key in banned_keywords.split(','))
+  else:
+    banned_keywords = set()
   for answer in topic.best_answers:
     # log('yield_topic_best {} {} {}'.format(answer.question.title, answer.author.name, answer.voteup_count))
     if answer.voteup_count >= min_voteup and answer.thanks_count >= min_thanks:
+      if set(t.name for t in answer.question.topics) & banned_keywords: 
+        log(f'  -- drop {answer.question.title} question.topics in banned_keywords ')
+        continue
+      if any((key in answer.question.title) for key in banned_keywords): 
+        log(f'  -- drop {answer.question.title} question.title in banned_keywords ')
+        continue
       count += 1
       yield answer
     if count >= limit:

@@ -37,7 +37,7 @@ from feedgen.feed import FeedGenerator
 # 创建 Watcher 目录时的默认 lister task 和 page task 设置
 LISTER_DEFAULT_OPTION = odict(
   enabled=True,
-  max_cycle='7days',
+  max_cycle='30days',
   min_cycle='12hours',
   weight=0.5,
   limit=200,
@@ -45,7 +45,7 @@ LISTER_DEFAULT_OPTION = odict(
 PAGE_DEFAULT_OPTION = odict(
   enabled=True,
   max_cycle='180days',
-  min_cycle='15days',
+  min_cycle='45days',
   weight=0.5,
 )
 
@@ -131,7 +131,7 @@ class Collector:
       folder = os.path.basename(directory)
       all_pages = tools.all_files(directory, patterns='*.md', single_level=True)
       count = len(list(all_pages))
-      log(f'    Watcher: `{folder}` ({count} pages)')
+      log(f'    Watcher: "{folder}" ({count} pages)')
     output = tools.run_command(f'cd "{self.project_path}" && git log --oneline -n 5')
     log('git log: ')
     for line in output.splitlines():
@@ -432,10 +432,7 @@ def fetch_zhihu_answer(question_id, answer_id):
 
 
 
-  # def yield_topic_best_answers(topic_id, limit=100, min_voteup=300):
-  # def save_answer(answer, folder='test', overwrite=True):
-  # def save_article(article, folder='test', overwrite=True):
-  # def fetch_images_for_markdown(markdown_file):
+
 
 
 @app.route('/author/<author_id>')

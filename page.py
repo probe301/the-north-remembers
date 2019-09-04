@@ -85,14 +85,7 @@ class Page:
 
   '''
   def __init__(self, data):
-    self.url = data['url']
-    self.folder = data['folder']
-    # 仅把最重要的属性 watch_time, version 等放在 page.watch_time 里, 其他不重要的属性从 metadata 里取
-    self.watch_time = data['watch_time']
-    self.version = data['version']
     self.metadata = data['metadata']
-    self.filename = remove_invalid_char(self.metadata['title']) + '.md'
-
     self.tmpl = ''  # should override
     self.data = {}  # should override
 
@@ -109,11 +102,39 @@ class Page:
         从本地文件 load 回来的 Page 的 data 里面自带 full_text
         新生成的 Page 对象需要 render 得到 full_text'''
     return self.data.get('full_text') or self.render(type='localfile')
+    
+  @property    # 一些常用属性的快捷方式
+  def version(self): return self.metadata['version']
+  @property
+  def create_date(self): return self.metadata.get('create_date') or self.metadata.get('edit_date')  # 字符串格式
+  @property
+  def edit_date(self): return self.metadata.get('edit_date') or self.metadata.get('create_date')
+  @property
+  def fetch_date(self): return self.metadata.get('fetch_date')
+  @property
+  def create_date_stamp(self): return tools.time_from_str(self.create_date)
+  @property
+  def edit_date_stamp(self): return tools.time_from_str(self.edit_date)
+  @property
+  def fetch_date_stamp(self): return tools.time_from_str(self.fetch_date)
+  @property
+  def filename(self): return remove_invalid_char(self.metadata['title']) + '.md'
+  @property
+  def url(self): return self.metadata['url']
+  @property
+  def folder(self): return self.metadata['folder']
+
 
 
   @classmethod
   def create(cls, data):
-    url = data['url']
+    ''' 创建 Page usage:
+          data_json['metadata']['url'] = self.url
+          data_json['folder'] = self.option['folder']
+          data_json['metadata']['version'] = self.version + 1
+          page = Page.create(data_json)
+    '''
+    url = data['metadata']['url']
     page_type = tools.parse_type(url)
     if page_type == tools.UrlType.ZhihuColumnPage:
       return ZhihuColumnPage(data)
@@ -142,17 +163,11 @@ class Page:
       raise ValueError('{} not found'.format(path))
     txt = tools.load_txt(path)
 
-    folder = os.path.dirname(path)
-    filename = os.path.basename(path)
     metadata = Page.convert_dict(txt.split('---')[1].strip())
     sections = tools.sections(txt.splitlines(), is_title=lambda line: line.startswith('#'))
 
-    data = {'folder': folder, 
-            'filename': filename, 
+    data = {'folder': os.path.dirname(path), 
             'metadata': metadata, 
-            'url': metadata['url'], 
-            'watch_time': metadata['fetch_date'],
-            'version': metadata['version'],
             'full_text': txt,
             'sections': sections}  # 从txt加载得到Page必须包含sections
     return cls.create(data)
@@ -167,16 +182,16 @@ class Page:
   def write(self):
     '''存盘'''
     if not os.path.exists(self.folder):
-      raise ValueError('can not open folder {}'.format(self.folder))
-    save_path = self.folder + '/' + self.filename
-    overwrite = 'update file' if os.path.exists(save_path) else 'create file'
+      raise FileNotFoundError('can not open folder {}'.format(self.folder))
+    save_path = os.path.join(self.folder, self.filename)
+    # overwrite = 'update file' if os.path.exists(save_path) else 'create file'
       # log('warning! already exist {}'.format(save_path))
     with open(save_path, 'w', encoding='utf-8') as f:
       f.write(self.render(type='localfile'))
-      log('write {} done ({})'.format(save_path, overwrite))
+      # log('write {} done ({})'.format(save_path, overwrite))
 
     # if fetch_images:
-    #   # 本地存储, 需要抓取所有附图
+    #   # 本地存储, 需要抓取所有附图 TODO
     #   fetch_images_for_markdown(save_path)
     # return save_path
 

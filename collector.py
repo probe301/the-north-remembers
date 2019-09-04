@@ -188,19 +188,26 @@ class Collector:
     self.remember(f'create Watcher folder {folder_name}')
 
 
-  def find_watcher_path(self, folder_name):
+  def find_watcher_path(self, folder_name, strict=True):
+    if strict: 
+      clean = lambda text: text
+    else: 
+      clean = lambda text: tools.remove_invalid_char(text).replace(' ', '')
+
     for directory in self.iter_watcher_paths():
-      if folder_name == os.path.basename(directory):
+      if clean(folder_name) == clean(os.path.basename(directory)):
         return directory
     else:
       return None
 
-  def start_watching_once(self, folder_name):
-    watcher_path = self.find_watcher_path(folder_name)
+
+  def watching(self, folder_name):
+    watcher_path = self.find_watcher_path(folder_name, strict=True)
     watcher = Watcher(watcher_path)
+    log(f'\n  ↓ start_watching_once for\n  {watcher}')
     for commit_log in watcher.watch():
       self.remember(commit_log)
-    log(f'collector start_watching_once for {watcher} done')
+    log(f'  ↑ start_watching_once done\n')
 
   def start_watching_loop(self, folder_name):
     pass
@@ -216,7 +223,7 @@ class Collector:
     cmd = f'cd "{self.project_path}" && git add . && git commit -m "{commit_log}"'
     # log(cmd)
     tools.run_command(cmd, verbose=verbose)
-    log(f'Watcher.remember added + committed {commit_log}')
+    log(f'Watcher.remember committed: "{commit_log}"\n')
 
 
 
@@ -228,8 +235,10 @@ class Collector:
 
         limit=-1 时迭代所有Page
         '''
-    watcher_path = self.find_watcher_path(path)
-    if not watcher_path: return None
+    watcher_path = self.find_watcher_path(path, strict=False)
+    if not watcher_path: 
+      log(f'WARN: generate_feed path {path} not found')
+      return None
     feed_name = os.path.basename(watcher_path)  # TODO 如果是父级文件夹, 合并
     pages = []
     for path in tools.all_files(watcher_path, patterns='*.md'):
@@ -255,12 +264,14 @@ class Collector:
     # <atom:link href="http://rsshub.app/xxx" rel="self" type="application/rss+xml"/>
     fg.link(href=site + feed_name + '/feed', rel='self')
     fg.language('zh-cn')
-    for page in sorted(pages, key=lambda page: page.metadata['edit_date'], reverse=True):
+    for page in sorted(pages, key=lambda page: page.edit_date):  # 这里不需要 reverse=True
       # log(f'prepare feed entry {page}')
       fe = fg.add_entry()
       fe.id(page.metadata['url'])
       fe.title(tools.clean_xml(page.metadata['title']))
       fe.link(href=page.metadata['url'])
+      fe.published(page.edit_date+'+08:00')  
+      # fe.updated(page.edit_date+'+08:00')  # 在这种 RSS 似乎不起作用
       fe.description(tools.clean_xml(page.to_html(cut=0)))
     feed_path = os.path.join(watcher_path, 'feed.xml')
     fg.rss_file(feed_path, pretty=True)
@@ -485,7 +496,6 @@ def get_feed(folder_name):
 
 
 if __name__ == '__main__':
-  project_path = 'D:/DataStore/test' if tools.is_windows() else '/project'
-  project_path = r'D:\DataStore\tnr-project-on-vultr-warmgrid' if tools.is_windows() else '/project'
+  project_path = 'D:/DataStore/Test Collector2' if tools.is_windows() else '/project'
   col = Collector(project_path=project_path)
   app.run(debug=True, host='0.0.0.0', port=80)

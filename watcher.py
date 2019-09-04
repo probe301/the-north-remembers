@@ -122,7 +122,8 @@ class Task:
     self.default_option = default_option
     self.url = desc['url']
     self.url_type = parse_type(self.url)
-    self.tip = str(desc.get('tip') or 'default tip').replace('\n', ' ').replace(':', ' ')
+    tip = str(desc.get('tip') or 'default tip').replace('\n', ' ')
+    self.tip = tools.remove_invalid_char(tip)
  
     # 任务添加时间
     self.task_add_time = self.parse_time(desc, 'task_add')
@@ -148,6 +149,8 @@ class Task:
   def lazy_ratio(self): return int(self.option.get('lazy_ratio') or 1)
   @property
   def weight(self): return float(self.option.get('weight') or 0.5)
+  @property
+  def brief_tip(self): return tools.truncate(self.tip, limit=16, ellipsis='...')
   @property
   def enabled(self): 
     enabled = self.option.get('enabled')
@@ -288,10 +291,8 @@ class Task:
 
   def save(self, data_json=None, diff=None):
     # 存储Page页
-    data_json['url'] = self.url
-    data_json['folder'] = self.option['folder']
-    data_json['watch_time'] = time_now()
-    data_json['version'] = self.version + 1
+    data_json['metadata']['folder'] = self.option['folder'] # folder 仅临时使用, 不存到 markdown 里
+    data_json['metadata']['version'] = self.version + 1
     page = Page.create(data_json)
     page.write()
 
@@ -473,10 +474,10 @@ class Watcher:
 
 
   def __str__(self):
-    s = '''<Watcher #{}> from {}
-    have {} tasks
+    s = '''<Watcher #{}>
+      from "{}", {} tasks
     '''
-    return s.format(id(self), self.tasks_count, self.watcher_path)
+    return s.format(id(self), self.watcher_path, self.tasks_count)
 
 
   def load_config_yaml(self):
@@ -570,7 +571,6 @@ class Watcher:
         首先存公共 config
         其次存 NewPost 类 tasks
         最后存普通 tasks
-
     '''
     config_yaml = self.watcher_path + '/.task.yaml'
     # default_option 不会改变 只有 lister_task 和 page_task 被更新
@@ -586,14 +586,14 @@ class Watcher:
         temp += task.to_yaml_text()
         temp += '\n'
     tools.save_txt(path=config_yaml, data=temp)
-    log('done, save_config_yaml "{config_yaml}" done'.format(**locals()))
+    # log('done, save_config_yaml "{config_yaml}" done'.format(**locals()))
 
 
   def status(self):
     log('Watcher: tasks {}'.format(len(self.tasks)))
 
 
-  def watch(self):
+  def watch(self, commit_every=3):
     ''' 爬取页面, 
         首先列出所有的NewPost任务, 都抓取一遍
         然后列出普通页面任务, 都抓取一遍
@@ -604,7 +604,7 @@ class Watcher:
       if task.should_fetch and task.is_lister_type:
         lister_tasks_queue.append(task)
     lister_tasks_queue.sort(key=lambda x: -x.priority)
-    log(f'start watching listers... \n should fetch {len(lister_tasks_queue)} lister tasks\n')
+    log(f'watching listers... should fetch `{len(lister_tasks_queue)}` lister tasks\n')
     for i, task in enumerate(lister_tasks_queue, 1):
       # log('Watcher.watch lister task.run: {}'.format(task))
       new_tasks_json = task.run()
@@ -613,7 +613,7 @@ class Watcher:
       task.schedule(is_modified=is_modified) # is_modified = add_tasks 时出现了新的 task
       log(f'lister task done ({i}/{len(lister_tasks_queue)}): \n{task}\n\n')
       self.save_config_yaml()
-      yield {'commit_log': f'yield checked lister {i}'}
+      yield {'commit_log': f'check lister {i}/{len(lister_tasks_queue)}, {task.brief_tip}'}
       # remember(commit_log='checked lister {}'.format(i), watcher_path=self.watcher_path)
       tools.time_random_sleep(5, 10)
 
@@ -625,22 +625,30 @@ class Watcher:
       if task.should_fetch and task.is_page_type:
         page_tasks_queue.append(task)
     page_tasks_queue.sort(key=lambda x: -x.priority)
-    log('start watching pages... \n should fetch {} page tasks\n'.format(len(page_tasks_queue)))
+    log(f'watching pages... should fetch `{len(page_tasks_queue)}` page tasks\n')
+    if len(page_tasks_queue) == 0: return
+
+    commit_tasks = []
     for i, task in enumerate(page_tasks_queue, 1):
       # log('Watcher.watch page task: {}'.format(task))
       page_json = task.run()
       is_modified = task.save(page_json)
       task.schedule(is_modified=is_modified)  # is_modified = 跟上次存储的页面有区别
       log(f'page task done ({i}/{len(page_tasks_queue)}): \n{task}\n\n')
-      self.save_config_yaml()
+      commit_tasks.append(task)
       if i % 3 == 0:
-        yield {'commit_log': f'yield save pages {i}'}
+        self.save_config_yaml()
+        commit_tasks_log = ','.join(task.brief_tip for task in commit_tasks)
+        yield {'commit_log': f'save {len(commit_tasks)} pages, {commit_tasks_log}'}
+        commit_tasks = []
         # remember(commit_log='save pages {}'.format(i), watcher_path=self.watcher_path)
         # generate_feed(self.watcher_path, )
       tools.time_random_sleep(5, 10)
     else:
-      self.save_config_yaml()
-      yield {'commit_log': f'yield save pages remain'}
+      if commit_tasks:
+        self.save_config_yaml()
+        commit_tasks_log = ','.join(task.brief_tip for task in commit_tasks)
+        yield {'commit_log': f'save {len(commit_tasks)} pages, {commit_tasks_log}'}
       # remember(commit_log='save pages {}'.format('remain'), watcher_path=self.watcher_path)
       # generate_feed(self.watcher_path, )
     

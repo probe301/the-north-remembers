@@ -255,8 +255,8 @@ class Collector:
     # <atom:link href="http://rsshub.app/xxx" rel="self" type="application/rss+xml"/>
     fg.link(href=site + feed_name + '/feed', rel='self')
     fg.language('zh-cn')
-    for page in sorted(pages, key=lambda page: page.watch_time):
-      log(f'prepare feed entry {page}')
+    for page in sorted(pages, key=lambda page: page.metadata['edit_date'], reverse=True):
+      # log(f'prepare feed entry {page}')
       fe = fg.add_entry()
       fe.id(page.metadata['url'])
       fe.title(tools.clean_xml(page.metadata['title']))

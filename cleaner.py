@@ -10,6 +10,7 @@ log_error = create_logger(__file__ + '.error')
 
 
 def fix_md_title(mdtxt, header_level=3):
+  ''' 将正文出现内的 <h1> <h2> 标题降级 '''
   top_level = 100
   for line in mdtxt.splitlines():
     if line.startswith('#'):
@@ -88,13 +89,7 @@ txt1
 
 
 def fix_svg_image(mdtxt):
-  ''' 删除 svg 图片
-![](https://pic1.zhimg.com/v2-de3db9a301472562573c48f2738e78ac_b.jpg)
-
-![](data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='1280' height='720'></svg>)示意图
-
-'''
-
+  ''' 删除每个图片后面附加的 svg 图片链接 '''
   # 这里通常是图片的label, 需要改成浅灰色
   pat = r'\!\[\]\(data:image\/svg\+xml;utf8,<svg.+?<\/svg>\)(.+?)\n'
   mdtxt = re.sub(pat, r'<center style="color:gray;">\1</center>\n', mdtxt)
@@ -149,8 +144,8 @@ def fix_video_link(mdtxt):
   pat = r'\[\n\n(\!\[\]\(https?://pic.+?\))\n\n(.*?)(https://www.zhihu.com/video/\d+|http://www.iqiyi.com.+?.html|http://v.youku.com.+?.html)\]\(\3\)'
   mdtxt = re.sub(pat, r'\1  \n[视频: \2](\3)', mdtxt)
 
-  pat = r'\[\!\[\]\(\)(.+?)(http://v.youku.com.+?.html)\]\(\2\)'
-  mdtxt = re.sub(pat, r'[视频: \1](\2)', mdtxt)
+  pat2 = r'\[\!\[\]\(\)(.+?)(http://v.youku.com.+?.html)\]\(\2\)'
+  mdtxt = re.sub(pat2, r'[视频: \1](\2)', mdtxt)
   return mdtxt
 
 

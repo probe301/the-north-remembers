@@ -122,8 +122,7 @@ class Task:
     self.default_option = default_option
     self.url = desc['url']
     self.url_type = parse_type(self.url)
-    tip = str(desc.get('tip') or 'default tip').replace('\n', ' ')
-    self.tip = tools.remove_invalid_char(tip)
+    self.tip = tools.remove_invalid_char(str(desc.get('tip') or 'default tip').replace('\n', ' '))
  
     # 任务添加时间
     self.task_add_time = self.parse_time(desc, 'task_add')

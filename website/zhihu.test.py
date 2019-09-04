@@ -10,7 +10,29 @@ log_error = create_logger(__file__ + '.error')
 
 from zhihu import *
 
+def save_answer(answer, folder='test', overwrite=True):
+  answer = parse_answer(answer)
+  author = answer.author
+  if author is None:
+    # 如果匿名, 现在返回 None, 需要 fix 为一个 AuthorObject
+    author = FakeAuthor()
+  title = answer.question.title + ' - ' + author.name + '的回答'
+  save_path = folder + '/' + tools.remove_invalid_char(title) + '.md'
+  if not overwrite:
+    if os.path.exists(save_path):
+      log('already exist {}'.format(save_path))
+      return save_path
 
+  data = fetch_zhihu_answer(answer=answer)
+  rendered = fill_full_content(data)
+
+  with open(save_path, 'w', encoding='utf-8') as f:
+    f.write(rendered)
+    log('write {} done'.format(save_path))
+
+  # 本地存储, 需要抓取所有附图
+  # TODO fetch_images_for_markdown(save_path)
+  return save_path
 '''
 ####### #######  ###### #######
    ##   ##      ##         ##

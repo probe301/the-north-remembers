@@ -405,19 +405,39 @@ class create_logger:
 
 
 
+def clean_xml(text):
+  ''' 清理用于 xml 的有效字符
+      曾遇到标题里有字符 backspace \x08, 在 CentOS 中无法生成 xml feed
+      用于文本内容, 
+      一般不用于路径或 yaml csv 中 '''
+  def valid_xml_char_ordinal(c):
+    # conditions ordered by presumed frequency
+    codepoint = ord(c)
+    return (0x20 <= codepoint <= 0xD7FF or
+            codepoint in (0x9, 0xA, 0xD) or
+            0xE000 <= codepoint <= 0xFFFD or
+            0x10000 <= codepoint <= 0x10FFFF)
+  return ''.join(c for c in text if valid_xml_char_ordinal(c))
+
+
 DEFAULT_INVALID_CHARS = {':', '*', '?', '"', "'", '<', '>', '|', '\r', '\n', '\t'}
 EXTRA_CHAR_FOR_FILENAME = {'/', '\\'}
 
-def remove_invalid_char(dirty, invalid_chars=None, for_path=False):
-    if invalid_chars is None:
-        invalid_chars = set(DEFAULT_INVALID_CHARS)
-    else:
-        invalid_chars = set(invalid_chars)
-        invalid_chars.update(DEFAULT_INVALID_CHARS)
-    if not for_path:
-        invalid_chars.update(EXTRA_CHAR_FOR_FILENAME)
+def remove_invalid_char(dirty, invalid_chars=None, for_path=False, combine_whitespaces=True):
+  ''' 清理无效字符, 用于文件路径, 配置字段, 或 yaml csv 等 '''
+  text = clean_xml(dirty)
+  if invalid_chars is None:
+    invalid_chars = set(DEFAULT_INVALID_CHARS)
+  else:
+    invalid_chars = set(invalid_chars)
+    invalid_chars.update(DEFAULT_INVALID_CHARS)
+  if not for_path:
+    invalid_chars.update(EXTRA_CHAR_FOR_FILENAME)
+  text = ''.join([c for c in text if c not in invalid_chars]).strip()
+  if combine_whitespaces:
+    text = re.sub(r'\s+', ' ', text).strip()
+  return text
 
-    return ''.join([c for c in dirty if c not in invalid_chars]).strip()
 
 
 class Null:
@@ -523,63 +543,13 @@ def run_command(cmd, verbose=False):
     return output
 
 
-def cdata(text, inline=False):
-  if inline:
-    return f'<![CDATA[{text}]]>'
-  else:
-    return f'<![CDATA[\n{text}\n]]>'
+# def cdata(text, inline=False):
+#   if inline:
+#     return f'<![CDATA[{text}]]>'
+#   else:
+#     return f'<![CDATA[\n{text}\n]]>'
 
 
 
-def clean_xml(text):
-  ''' 清理用于 xml 的有效字符
-      曾遇到标题里有字符 backspace \x08, 在 CentOS 中无法生成 xml feed'''
-  def valid_xml_char_ordinal(c):
-    # conditions ordered by presumed frequency
-    codepoint = ord(c)
-    return (0x20 <= codepoint <= 0xD7FF or
-            codepoint in (0x9, 0xA, 0xD) or
-            0xE000 <= codepoint <= 0xFFFD or
-            0x10000 <= codepoint <= 0x10FFFF)
-  return ''.join(c for c in text if valid_xml_char_ordinal(c))
 
 
-# import time
-# # import sys
-# import os
-# # import shutil
-# # import re
-# from pylon import puts
-# from pylon import form
-# from pylon import datalines
-# from pylon import create_logger
-# log = create_logger(__file__)
-# log_error = create_logger(__file__ + '.error')
-
-# # from pylon import enumrange
-
-# from zhihu_answer import yield_topic_best_answers
-# from zhihu_answer import yield_author_answers
-# from zhihu_answer import yield_author_articles
-# from zhihu_answer import yield_column_articles
-# from zhihu_answer import fetch_zhihu_answer
-# from zhihu_answer import fetch_zhihu_article
-# from zhihu_answer import fill_full_content
-# from zhihu_answer import zhihu_answer_url
-# from zhihu_answer import zhihu_article_url
-# from zhihu_answer import fetch_images_for_markdown
-# from zhihu_answer import ZhihuParseError
-# # import requests
-# from zhihu_oauth.zhcls.utils import remove_invalid_char
-
-
-# # from jinja2 import Template
-# db = SqliteDatabase('zhihu.sqlite')
-
-# from tools import *
-
-# # def exec_create_db():
-# #   'regenate sqlite db' | puts()
-# #   db.connect()
-# #   db.create_tables([Task, Page])
-# #   db.close()

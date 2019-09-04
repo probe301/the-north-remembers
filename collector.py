@@ -10,6 +10,7 @@ from watcher import Watcher
 from fetcher import Fetcher
 from collections import OrderedDict as odict
 from collections import Counter
+from pprint import pprint
 import tools
 
 log = tools.create_logger(__file__)
@@ -186,6 +187,12 @@ class Collector:
     log(f'Watcher path {watcher_path} created')
     folder_name = os.path.basename(watcher_path)
     self.remember(f'create Watcher folder {folder_name}')
+
+
+  def create_multiple_watchers(self, config):
+    pprint(config)
+    log(f'create_multiple_watchers... ')
+
 
 
   def find_watcher_path(self, folder_name, strict=True):

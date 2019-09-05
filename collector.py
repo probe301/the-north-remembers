@@ -511,7 +511,8 @@ def list_zhihu_answers_by_topic(topic_id):
 @gzipped
 def get_feed(folder_name):
   log(f'getting feed {folder_name} for {request.url}')
-  feed_path = col.generate_feed(folder_name, limit=50, site=request.url_root)
+  limit = int(request.args.get('limit', 50))
+  feed_path = col.generate_feed(folder_name, limit=limit, site=request.url_root)
   log(f'generate_feed done {feed_path}')
   if feed_path:
     return Response(open(feed_path, encoding='utf-8').read(), mimetype='application/xml')

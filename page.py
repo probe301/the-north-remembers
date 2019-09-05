@@ -118,7 +118,19 @@ class Page:
   @property
   def fetch_date_stamp(self): return tools.time_from_str(self.fetch_date)
   @property
-  def filename(self): return remove_invalid_char(self.metadata['title']) + '.md'
+  def filename(self): 
+    name = remove_invalid_char(self.metadata['title']) + '.md'
+    enlen = lambda t: tools.encode_len(t, encode='utf-8')
+    if tools.is_linux() and enlen(name) > 255:  
+      # Linux 视为 ext4 格式, 需要 filename 不超过 255 字符
+      # 找 name 中最长的一个片段, 缩减至符合字数要求
+      parts = name.split(' ')
+      long_part_index = parts.index(max(parts, key=enlen))
+      limit = enlen(parts[long_part_index]) - (enlen(name) - 255)
+      parts[long_part_index] = tools.truncate(parts[long_part_index], limit=limit, encode='utf-8')
+      return ' '.join(parts)
+    else:
+      return name
   @property
   def url(self): return self.metadata['url']
   @property

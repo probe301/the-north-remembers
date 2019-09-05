@@ -337,6 +337,9 @@ def sections(iterable, is_title=lambda line: line.startswith('#')):
 
 
 
+def encode_len(text, encode=None):
+  return len(text.encode(encode) if encode else text)
+
 def truncate(text, limit=20, with_end=False, ellipsis='... ', encode=None):
   ''' 截断字符串尾部, 保留指定长度
       encode='gbk' 计算长度时, 中文字符视为长度2, 这样方便对齐
@@ -350,9 +353,13 @@ def truncate(text, limit=20, with_end=False, ellipsis='... ', encode=None):
   if len_text <= limit:
     return text
   else:
-    while encode_len(text[:len_text]) > limit - encode_len(ellipsis):
-      len_text -= 1
-    return text[:len_text] + ellipsis
+    dest_length =  limit - encode_len(ellipsis)
+    current_index = len(text)
+    print('dest_length', dest_length)
+    while encode_len(text[:current_index]) > dest_length:
+      current_index -= 1
+      print(current_index, text[:current_index], encode_len(text[:current_index]))
+    return text[:current_index] + ellipsis
 
 
 
@@ -526,6 +533,9 @@ def dict_merge(a, b=None):
 def is_windows():
   import sys
   return sys.platform == 'win32'
+def is_linux():
+  import sys
+  return sys.platform == 'linux'
 
 
 import subprocess

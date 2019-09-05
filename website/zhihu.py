@@ -1211,10 +1211,10 @@ def yield_topic_best_answers(topic_id, limit=100, min_voteup=300, min_thanks=50,
     # log('yield_topic_best {} {} {}'.format(answer.question.title, answer.author.name, answer.voteup_count))
     if answer.voteup_count >= min_voteup and answer.thanks_count >= min_thanks:
       if set(t.name for t in answer.question.topics) & banned_keywords: 
-        log(f'  -- drop {answer.question.title} question.topics in banned_keywords ')
+        log(f'-- drop {answer.question.title} question.topics in banned_keywords ')
         continue
       if any((key in answer.question.title) for key in banned_keywords): 
-        log(f'  -- drop {answer.question.title} question.title in banned_keywords ')
+        log(f'-- drop {answer.question.title} question.title in banned_keywords ')
         continue
       count += 1
       yield answer

@@ -603,7 +603,7 @@ class Watcher:
       if task.should_fetch and task.is_lister_type:
         lister_tasks_queue.append(task)
     lister_tasks_queue.sort(key=lambda x: -x.priority)
-    log(f'watching listers... should fetch `{len(lister_tasks_queue)}` lister tasks\n')
+    log(f'watching listers... should fetch {len(lister_tasks_queue)} lister tasks\n')
     for i, task in enumerate(lister_tasks_queue, 1):
       # log('Watcher.watch lister task.run: {}'.format(task))
       new_tasks_json = task.run()
@@ -624,7 +624,7 @@ class Watcher:
       if task.should_fetch and task.is_page_type:
         page_tasks_queue.append(task)
     page_tasks_queue.sort(key=lambda x: -x.priority)
-    log(f'watching pages... should fetch `{len(page_tasks_queue)}` page tasks\n')
+    log(f'watching pages... should fetch {len(page_tasks_queue)} page tasks\n')
     if len(page_tasks_queue) == 0: return
 
     commit_tasks = []

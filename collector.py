@@ -258,9 +258,6 @@ class Collector:
         log(f'error Page.load({path})')
         raise
 
-    # for page in pages:
-    #   log(page)
-
     fg = FeedGenerator()
     fg.id(site + feed_name)
     fg.title(feed_name)
@@ -369,10 +366,37 @@ from flask import render_template
 from flask import Response
 from flask import make_response
 from flask import abort
+from flask import after_this_request
 app = Flask(__name__)
 
 
+import gzip, functools
+from io import BytesIO
 
+def gzipped(f):
+  @functools.wraps(f)
+  def view_func(*args, **kwargs):
+    @after_this_request
+    def zipper(response):
+      accept_encoding = request.headers.get('Accept-Encoding', '')
+      if 'gzip' not in accept_encoding.lower(): return response
+
+      response.direct_passthrough = False
+      if (response.status_code < 200 or
+          response.status_code >= 300 or
+          'Content-Encoding' in response.headers):
+          return response
+      gzip_buffer = BytesIO()
+      gzip_file = gzip.GzipFile(mode='wb', fileobj=gzip_buffer)
+      gzip_file.write(response.data)
+      gzip_file.close()
+      response.data = gzip_buffer.getvalue()
+      response.headers['Content-Encoding'] = 'gzip'
+      response.headers['Vary'] = 'Accept-Encoding'
+      response.headers['Content-Length'] = len(response.data)
+      return response
+    return f(*args, **kwargs)
+  return view_func
 
 
 
@@ -484,6 +508,7 @@ def list_zhihu_answers_by_topic(topic_id):
 
 
 @app.route('/<folder_name>/feed')
+@gzipped
 def get_feed(folder_name):
   log(f'getting feed {folder_name} for {request.url}')
   feed_path = col.generate_feed(folder_name, limit=50, site=request.url_root)

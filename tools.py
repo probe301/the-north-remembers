@@ -355,10 +355,8 @@ def truncate(text, limit=20, with_end=False, ellipsis='... ', encode=None):
   else:
     dest_length =  limit - encode_len(ellipsis)
     current_index = len(text)
-    print('dest_length', dest_length)
     while encode_len(text[:current_index]) > dest_length:
       current_index -= 1
-      print(current_index, text[:current_index], encode_len(text[:current_index]))
     return text[:current_index] + ellipsis
 
 

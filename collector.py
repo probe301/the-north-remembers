@@ -17,8 +17,9 @@ log = tools.create_logger(__file__)
 log_error = tools.create_logger(__file__ + '.error')
 
 
-from tools import UrlType
-from tools import parse_type
+from fetcher import UrlType
+from fetcher import parse_type
+from fetcher import purge_url
 from tools import create_logger
 from tools import time_to_str
 from tools import duration_from_humanize
@@ -68,9 +69,13 @@ class Collector:
   collector.create_watcher(url)              通过 url 创建 Watcher
   collector.create_watcher(url1, url2 ...)
 
+  collector.explore_urls # 探查 url 的标题, 专栏文章数, 最近更新时间等
+  collector.create_from_config(config)  # 通过 config dict 创建多个 watcher folder, 
+
+
+
   # 向已有的 Watcher 更新条目
   TODO collector.append_to_watcher(use watcher.add_task(task_dict))
-
 
 
 
@@ -154,7 +159,7 @@ class Collector:
     '''
     if isinstance(urls, str): urls = [urls, ]
     if isinstance(tips, str): tips = [tips, ]
-    urls = [tools.purge_url(u) for u in urls]
+    urls = [purge_url(u) for u in urls]
     if tips is None: tips = [Fetcher.generate_tip(u) for u in urls]
     if len(urls) != len(tips):
       raise ValueError(f'count of {urls} should equal to count {tips}')
@@ -511,7 +516,7 @@ def list_zhihu_answers_by_topic(topic_id):
 @gzipped
 def get_feed(folder_name):
   log(f'getting feed {folder_name} for {request.url}')
-  limit = int(request.args.get('limit', 50))
+  limit = int(request.args.get('limit', 120))
   feed_path = col.generate_feed(folder_name, limit=limit, site=request.url_root)
   log(f'generate_feed done {feed_path}')
   if feed_path:

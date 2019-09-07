@@ -11,8 +11,8 @@ from collections import OrderedDict
 from collections import Counter
 
 import tools
-from tools import UrlType
-from tools import parse_type
+from fetcher import UrlType
+from fetcher import parse_type
 from tools import create_logger
 from tools import time_to_str
 from tools import duration_from_humanize
@@ -470,13 +470,24 @@ class Watcher:
     self.url_set = set()
     self.add_tasks(tasks=config_data.get('lister_task') or []) # 从 .task.yaml 里载入 "tasks:" 的所有内容
     self.add_tasks(tasks=config_data.get('page_task') or []) # 从 .task.yaml 里载入 "tasks:" 的所有内容
-
+    self.is_watching = False
 
   def __str__(self):
     s = '''<Watcher #{}>
       from "{}", {} tasks
     '''
     return s.format(id(self), self.watcher_path, self.tasks_count)
+
+
+  def update_config_yaml(self, config):
+    ''' 使用 config 更新 yaml 文件
+        要求此时没有在运行中 '''
+    # if self.is_watching:
+    #   raise RuntimeError(f'cannot update_config_yaml watcher {self.watcher_path}, is watching')
+    # self.save_config_yaml()
+    # config_data = self.load_config_yaml()
+    pass #TODO
+
 
 
   def load_config_yaml(self):
@@ -598,6 +609,7 @@ class Watcher:
         然后列出普通页面任务, 都抓取一遍
         在成功抓取后更新 RSS
     '''
+    self.is_watching = True
     lister_tasks_queue = []
     for task in self.tasks:
       if task.should_fetch and task.is_lister_type:
@@ -650,4 +662,4 @@ class Watcher:
         yield {'commit_log': f'save {len(commit_tasks)} pages, {commit_tasks_log}'}
       # remember(commit_log='save pages {}'.format('remain'), watcher_path=self.watcher_path)
       # generate_feed(self.watcher_path, )
-    
+    self.is_watching = False

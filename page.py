@@ -13,6 +13,8 @@ import re
 from cleaner import fix_md_title
 from cleaner import fix_svg_image
 from cleaner import fix_video_link
+from fetcher import UrlType
+from fetcher import parse_type
 
 import tools
 from tools import create_logger
@@ -147,11 +149,11 @@ class Page:
           page = Page.create(data_json)
     '''
     url = data['metadata']['url']
-    page_type = tools.parse_type(url)
-    if page_type == tools.UrlType.ZhihuColumnPage:
+    page_type = parse_type(url)
+    if page_type == UrlType.ZhihuColumnPage:
       return ZhihuColumnPage(data)
 
-    if page_type == tools.UrlType.ZhihuAnswerPage:
+    if page_type == UrlType.ZhihuAnswerPage:
       return ZhihuAnswerPage(data)
 
     raise NotImplementedError('Page.request: cannot reg type {}'.format(url))

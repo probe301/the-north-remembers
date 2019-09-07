@@ -1,7 +1,7 @@
 import sys
 import tools
-from tools import parse_type
-from tools import UrlType
+from fetcher import parse_type
+from fetcher import UrlType
 from tools import create_logger
 
 log = create_logger(__file__)

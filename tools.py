@@ -3,88 +3,14 @@ import time
 import os
 import shutil
 import re
-from enum import Enum
 from datetime import datetime
 import time
 import arrow
 import json
 import random
-# data = json.loads(open('mockup_topic_answers.json', encoding='utf-8').read())
+
 
 import sys
-
-UrlType = Enum('UrlType', 
-                ('ZhihuAnswerPage', 
-                 'ZhihuAnswerLister',   
-                 'ZhihuColumnPage',     # 用于抓取专栏文章
-                 'ZhihuColumnLister',   # 用于监视专栏新文章
-                 'ZhihuAuthor', 
-                 'ZhihuQuestionPage',   # 用于抓取问题描述
-                 'ZhihuQuestionLister', # 问题页, 用于监视新增回答
-                 'WeixinAricle',
-                 'WeixinAricleLister')
-               )
-
-
-
-
-
-def parse_type(url):
-  ''' TODO 改成同时返回 Type 和提取信息的方式
-      结合 parse_column, xxx 等
-      detail=False  返回基本信息 id, 
-      detail=True   也返回 title, info, followingcount 等
-  '''
-
-  if re.search(r'https://zhuanlan.zhihu.com/p/\d+?', url):
-    return UrlType.ZhihuColumnPage
-  if re.search(r'https://zhuanlan.zhihu.com/\w+?', url):
-    return UrlType.ZhihuColumnLister
-
-  if re.search(r'https://www.zhihu.com/question/\d+?/answer/\d+?', url):
-    return UrlType.ZhihuAnswerPage
-  if re.search(r'https://www.zhihu.com/people/(\w|\-)+?/answers', url):
-    return UrlType.ZhihuAnswerLister  # from author's answers
-  if re.search(r'https://www.zhihu.com/topic/\d+/(top\-answers|hot|intro)?/?', url):
-    return UrlType.ZhihuAnswerLister  # from topic's answers 1
-  if re.search(r'https://www.zhihu.com/collection/\d+', url):
-    return UrlType.ZhihuAnswerLister  # from collection's answers
-  if re.search(r'https://www.zhihu.com/question/\d+', url):
-    return UrlType.ZhihuAnswerLister  # from question's answers
-
-  if 'weixin' in url:
-    return UrlType.WeixinAricle
-
-  raise ValueError('cannot reg tasktype of url {}'.format(url))
-
-
-
-def purge_url(url):
-  url = url.strip()
-  if url.endswith('/'):
-    url = url[:-1]
-  url = url.replace('//zhihu.com/', '//www.zhihu.com/')
-
-  if 'www.zhihu.com' in url:
-    url = url.split('?')[0]  # 不需要 query=? 参数
-    url = url.replace('http://', 'https://')
-
-  return url
-
-
-def generate_zhihu_token():
-  import os
-  from zhihu_oauth import ZhihuClient
-
-  # 'p.....@' '42'
-
-  TOKEN_FILE = 'token.pkl'
-  client = ZhihuClient()
-  if os.path.isfile(TOKEN_FILE):
-      client.load_token(TOKEN_FILE)
-  else:
-      client.login_in_terminal(use_getpass=False)
-      client.save_token(TOKEN_FILE)
 
 
 

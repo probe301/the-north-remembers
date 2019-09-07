@@ -69,7 +69,7 @@ class Collector:
   collector.create_watcher(url)              通过 url 创建 Watcher
   collector.create_watcher(url1, url2 ...)
 
-  collector.explore_urls # 探查 url 的标题, 专栏文章数, 最近更新时间等
+  collector.explore # 探查 url 的标题, 专栏文章数, 最近更新时间等
   collector.create_from_config(config)  # 通过 config dict 创建多个 watcher folder, 
 
 
@@ -91,12 +91,8 @@ class Collector:
                 |
                 |-- watcher_path1
                 |     |-- .task.yaml
-                |     |-- lister_task (xN)
-                |     |-- page_task (xN)
                 |-- watcher_path2
                 |     |-- .task.yaml
-                |     |-- lister_task (xN)
-                |     |-- page_task (xN)
                 |-- watcher_path3
                 | ..........
     '''
@@ -195,8 +191,76 @@ class Collector:
 
 
   def create_multiple_watchers(self, config):
-    pprint(config)
+    ''' 依据 config 创建多个 watcher folder
+    config 样例 (format as yaml): 
+    
+        global_default_option: 
+          lister: 
+            max_cycle: 30days
+            min_cycle: 12hours
+            limit: 200
+          page: 
+            weight: 0.5
+
+        watcher_config:
+          "folder/subfolder":
+            default_option:
+              lister:
+                min_cycle: 18hours
+                limit: 300
+              page:
+                min_cycle: 45days
+                weight: 0.8
+            lister_task:
+                - 'https://zhuanlan.zhihu.com/xxxx #注释'
+                - 'https://zhuanlan.zhihu.com/yyyy #注释'
+                - url: https://zhuanlan.zhihu.com/zzzz
+                  tip: "知乎专栏 - zzzz"
+                  zhihu_min_voteup: 100
+          "folder/subfolder2":
+              lister_task:
+                - 'https://url   #注释'
+                - 'https://url   #注释'
+                - 'https://url   #注释'
+
+    对 config 任务的说明:
+      都要位于 watcher_config 之下的 "folder/subfolder" 中
+      该 "folder/subfolder" 将自动创建, 
+      "folder/subfolder" 内部的配置与 Watcher 的 '.task.yaml' 一致, 
+      特殊的, 如果 lister_task 列表中的条目是字符串 (正常应该是 {'url': xxx, 'tip': yyy})
+      视为 {'url': 从该字符串中提取 url 部分}
+    对 config 参数配置的说明:
+      参数优先级从低到高依次是:
+      1 "global_default_option:" 中的 lister: page:
+      2 "watcher_config:" 中, 对每个 folder 独立配置的 "default_option:"
+      3 每个 lister task 独立配置的选项
+      更具体的选项配置将覆盖全局的选项配置
+    '''
+
     log(f'create_multiple_watchers... ')
+    # pprint(config)
+    global_default_option = config.get('global_default_option', {'lister': {}, 'page': {}})
+    global_default_lister_option = global_default_option.get('lister', {})
+    global_default_page_option = global_default_option.get('page', {})
+
+    for path, task_config in config.get('watcher_config', []).items():
+      # pprint(path)
+      # pprint(task_config)
+      folder = os.path.basename(path)
+      parent_folder = os.path.dirname(path)
+      folder_default_option = task_config.get('default_option', {})
+      lister_option = tools.dict_merge(global_default_lister_option, folder_default_option.get('lister', {}))
+      page_option = tools.dict_merge(global_default_page_option, folder_default_option.get('page', {}))
+      urls = [url.split(' ')[0] for url in task_config.get('lister_task', [])]
+
+      # print('urls', urls, 'folder', folder, 'parent_folder', repr(parent_folder), )
+      # print('lister_option:' ), pprint(lister_option, )
+      # print('page_option:'), pprint(page_option, )
+
+      self.create_watcher(urls, tips=None, 
+                          folder=folder, parent_folder=parent_folder, 
+                          lister_option=lister_option, page_option=page_option)
+    log(f'create_multiple_watchers... done')
 
 
 
@@ -211,6 +275,14 @@ class Collector:
         return directory
     else:
       return None
+
+  @classmethod
+  def explore(cls, urls):
+    '''分析多个页面的摘要特征'''
+    for url in urls:
+      url = purge_url(url.split(' ')[0])
+      desc = Fetcher.create({'url': url}).detect()
+      log(desc)
 
 
   def watching(self, folder_name):

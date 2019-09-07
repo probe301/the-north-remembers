@@ -25,6 +25,8 @@ from website.zhihu import yield_question_answers
 from website.zhihu import parse_topic
 from website.zhihu import parse_author
 from website.zhihu import parse_column
+from website.zhihu import parse_answer
+from website.zhihu import parse_article
 
 
 from website.zhihu import ZhihuFetchError
@@ -189,10 +191,16 @@ class Fetcher:
     self.option = option
 
   def request(self):
+    ''' 抓取页面的详细内容 '''
     url_type = parse_type(self.url)
     method = getattr(self, 'request_' + str(url_type).split('.')[-1])
     return method()
 
+  def detect(self):
+    ''' 获取主要参数, 如页面标题, 点赞数等, 尽量不抓取详细页面 '''
+    url_type = parse_type(self.url)
+    method = getattr(self, 'detect_' + str(url_type).split('.')[-1])
+    return method()
 
   def request_ZhihuColumnLister(self):
     ''' 以Zhihu专栏ID获取所有文章
@@ -214,12 +222,41 @@ class Fetcher:
       tasks_desc.append(desc)
     return tasks_desc
 
+  def detect_ZhihuColumnLister(self):
+    c = parse_column(self.url)
+    description = c.description.replace('\n', ' ').strip()
+    # 这个不准确 updated_time = tools.time_to_humanize(tools.time_from_stamp(c.updated_time))
+
+    # 近一年内更新文章数量
+    column_id = self.url.split('/')[-1]
+    a_month_ago = tools.time_now().shift(days=-30)
+    a_year_ago = tools.time_now().shift(days=-365)
+    articles = []
+    for article in yield_column_articles(column_id, limit=999, min_voteup=0):
+      updated_time = tools.time_from_stamp(article.updated_time)
+      articles.append({'title': article.title, 'date': updated_time, 'voteup_count': article.voteup_count})
+      if updated_time < a_year_ago and len(articles) > 3: break
+
+    last_update = tools.time_to_humanize(articles[0]['date'])
+    count_in_month = len([a for a in articles if a['date'] > a_month_ago])
+    count_in_year = len([a for a in articles if a['date'] > a_year_ago])
+    average_voteup_count = tools.easy_average(articles, key=lambda a: a['voteup_count'])
+    return f'''
+    {self.url} 知乎专栏 {c.title} - {description}
+    文章数 {c.articles_count}, 关注数 {c.follower_count}, 平均赞数 {average_voteup_count}
+    最近更新时间 {last_update}, 近一月内更新 {count_in_month}, 近一年内更新 {count_in_year}
+    最新文章 {[a['title'] for a in articles[:3]]}'''
+
+
 
   def request_ZhihuColumnPage(self):
     data = fetch_zhihu_article(self.url)
     return data
 
 
+  def detect_ZhihuColumnPage(self):
+    article = parse_article(self.url)
+    return f'''知乎专栏文章 {article.title} {article.author.name} {article.column.title} {article.voteup_count}'''
 
 
 
@@ -263,7 +300,15 @@ class Fetcher:
     return tasks_desc
 
 
-
+  def detect_ZhihuAnswerLister(self):
+    # for i, answer in tools.enumer(topic.best_answers, first=30):
+    # topics = ' '.join(t.name for t in answer.question.topics)
+    # ratio = answer.voteup_count / answer.thanks_count
+    # result = f'''
+    # {answer.question.title} 赞{answer.voteup_count} 谢{answer.thanks_count} ({ratio:.2f})
+    # {topics}'''
+    # print(result)
+    pass
 
 
   def request_ZhihuAnswerPage(self):
@@ -273,6 +318,13 @@ class Fetcher:
       data = e.fake_data
     return data
 
+
+  def detect_ZhihuAnswerPage(self):
+    answer = parse_answer(self.url)
+    topics = ', '.join(t.name for t in answer.question.topics)
+    return f'''知乎回答 {answer.question.title} {topics}
+    by {answer.author.name} {answer.voteup_count}赞 {answer.thanks_count}谢
+    '''
 
 
 

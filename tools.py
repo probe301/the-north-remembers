@@ -477,6 +477,12 @@ def run_command(cmd, verbose=False):
     return output
 
 
+def easy_average(lister, key=lambda x: x):
+  l = len(lister)
+  if l == 0: return 0
+  return int(sum(key(item) for item in lister) / len(lister) * 100) / 100
+
+
 # def cdata(text, inline=False):
 #   if inline:
 #     return f'<![CDATA[{text}]]>'

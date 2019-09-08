@@ -130,7 +130,7 @@ class Collector:
     log(f'report {self} \n---------------------')
     for directory in self.iter_watcher_paths():
       folder = os.path.basename(directory)
-      folder_md5 = tools.md5(folder)
+      folder_md5 = tools.md5(folder, 10)
       all_pages = tools.all_files(directory, patterns='*.md', single_level=True)
       count = len(list(all_pages))
       log(f'    Watcher: "{folder}" (or "{folder_md5}") ({count} pages)')
@@ -277,7 +277,7 @@ class Collector:
       for directory in self.iter_watcher_paths():
         if clean(folder_name) == clean(os.path.basename(directory)):
           return directory
-        if folder_name == tools.md5(os.path.basename(directory)):
+        if folder_name == tools.md5(os.path.basename(directory), 10):
           return directory
       return None
 

@@ -449,6 +449,8 @@ from flask import Response
 from flask import make_response
 from flask import abort
 from flask import after_this_request
+from flask import send_from_directory     
+
 app = Flask(__name__)
 
 
@@ -587,6 +589,10 @@ def list_zhihu_answers_by_topic(topic_id):
   return render_template("topics.html",
                          title='Topics', topic_answers=ret)
 
+
+@app.route('/favicon.ico') 
+def favicon(): 
+    return send_from_directory(os.path.join(app.root_path, 'static'), 'favicon.ico', mimetype='image/vnd.microsoft.icon')
 
 
 @app.route('/<folder_name>/feed')

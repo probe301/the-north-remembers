@@ -608,6 +608,14 @@ def get_feed(folder_name):
 
 
 if __name__ == '__main__':
-  project_path = 'D:/DataStore/Test Collector2' if tools.is_windows() else '/project'
-  col = Collector(project_path=project_path)
-  app.run(debug=True, host='0.0.0.0', port=80)
+  if tools.is_windows():
+    project_path = 'D:/DataStore/Test Collector2' 
+    col = Collector(project_path=project_path)
+    app.run(debug=True, host='0.0.0.0', port=80)
+  elif tools.is_linux():
+    project_path = '/project'
+    col = Collector(project_path=project_path)
+    app.run(debug=True, host='0.0.0.0', port=443,
+            ssl_context=('cert.pem', 'key.pem'))
+  else:
+    raise 

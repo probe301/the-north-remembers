@@ -483,6 +483,14 @@ def easy_average(lister, key=lambda x: x):
   return int(sum(key(item) for item in lister) / len(lister) * 100) / 100
 
 
+import hashlib
+def md5(text, limit=32):
+  return hashlib.md5(text.encode('utf-8')).hexdigest()[:limit]
+
+
+
+
+
 # def cdata(text, inline=False):
 #   if inline:
 #     return f'<![CDATA[{text}]]>'

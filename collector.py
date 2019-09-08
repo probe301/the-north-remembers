@@ -130,9 +130,10 @@ class Collector:
     log(f'report {self} \n---------------------')
     for directory in self.iter_watcher_paths():
       folder = os.path.basename(directory)
+      folder_md5 = tools.md5(folder)
       all_pages = tools.all_files(directory, patterns='*.md', single_level=True)
       count = len(list(all_pages))
-      log(f'    Watcher: "{folder}" ({count} pages)')
+      log(f'    Watcher: "{folder}" (or "{folder_md5}") ({count} pages)')
     output = tools.run_command(f'cd "{self.project_path}" && git log --oneline -n 5')
     log('git log: ')
     for line in output.splitlines():
@@ -265,15 +266,19 @@ class Collector:
 
 
   def find_watcher_path(self, folder_name, strict=True):
-    if strict: 
-      clean = lambda text: text
-    else: 
+    ''' strict=False 时, 查找 folder_name 近似, 或者 md5 吻合的 watcher_path'''
+    if strict:
+      for directory in self.iter_watcher_paths():
+        if folder_name == os.path.basename(directory):
+          return directory
+      return None
+    else:  # strict False 时
       clean = lambda text: tools.remove_invalid_char(text).replace(' ', '')
-
-    for directory in self.iter_watcher_paths():
-      if clean(folder_name) == clean(os.path.basename(directory)):
-        return directory
-    else:
+      for directory in self.iter_watcher_paths():
+        if clean(folder_name) == clean(os.path.basename(directory)):
+          return directory
+        if folder_name == tools.md5(os.path.basename(directory)):
+          return directory
       return None
 
   @classmethod

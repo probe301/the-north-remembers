@@ -499,13 +499,6 @@ def hello():
 
 
 
-@app.route('/question/<int:question_id>/answer/<int:answer_id>')
-def fetch_zhihu_answer(question_id, answer_id):
-  log(f'get /question/{question_id}/answer/{answer_id}')
-  text = col.fetch_zhihu_answer(question_id, answer_id)
-  return text # return jsonify(ret)
-
-
 # @app.route('/topic/<int:topic_id>')
 # def list_zhihu_answers_by_topic(topic_id):
 #   from zhihu_answer import yield_topic_best_answers
@@ -592,7 +585,7 @@ def list_zhihu_answers_by_topic(topic_id):
 
 @app.route('/favicon.ico') 
 def favicon(): 
-    return send_from_directory(os.path.join(app.root_path, 'static'), 'favicon.ico', mimetype='image/vnd.microsoft.icon')
+  return send_from_directory(os.path.join(app.root_path, 'static'), 'favicon.ico', mimetype='image/vnd.microsoft.icon')
 
 
 @app.route('/<folder_name>/feed')
@@ -608,8 +601,22 @@ def get_feed(folder_name):
     abort(404)
     # raise RuntimeError(f'cannot generate_feed {folder_name}')
 
+from website import zhihu
+@app.route('/https://zhuanlan.zhihu.com/p/<int:article_id>')
+def fetch_zhihu_single_article(article_id):
+  log(f'get zhuanlan article_id {article_id}')
+  url = f'https://zhuanlan.zhihu.com/p/{article_id}'
+  data = zhihu.fetch_zhihu_article(url)
+  page = Page.create(data)
+  return page.to_html()
 
-
+@app.route('/https://www.zhihu.com/question/<int:q_id>/answer/<int:a_id>')
+def fetch_zhihu_single_answer(q_id, a_id):
+  log(f'get question {q_id} answer {a_id}')
+  url = f'https://www.zhihu.com/question/{q_id}/answer/{a_id}'
+  data = zhihu.fetch_zhihu_answer(url)
+  page = Page.create(data)
+  return page.to_html()
 
 
 
@@ -624,4 +631,4 @@ if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=443,
             ssl_context=('cert.pem', 'key.pem'))
   else:
-    raise 
+    raise RuntimeError('Platform unsupported')

@@ -240,9 +240,12 @@ def fix_code_lang(mdtxt):
     if in_code:
       if line.startswith('    '): 
         continue
+      elif line == '':
+        continue
       else: 
-        code_ends.append(i)
         in_code = False
+        code_ends.append(i)  
+        # code_ends 记录了不再是代码的行
     else:
       in_code = line.startswith('    ')
       if in_code:
@@ -251,8 +254,14 @@ def fix_code_lang(mdtxt):
   for start, end in zip(code_starts, code_ends):
     code_body = '\n'.join(result[start:end])
     lang = guess_lang(code_body)
+    # end 表示不再是代码的行, end 之前可能有空行
+    # 需要从 end 向前找到第一个有内容的行, 此为代码真正结束位置
+    # end 有可能等于 start (对于单行代码时)
+    while end:
+      end -= 1
+      if result[end].startswith('    '): break
     result[start] = f'```{lang}\n' + result[start]
-    result[end-1] = result[end-1] + '\n```'
+    result[end] = result[end] + '\n```'
 
   return '\n'.join(result)
 

@@ -218,6 +218,44 @@ https://www.zhihu.com/video/1111685179147534336](https://www.zhihu.com/video/111
 
 
 
+# 非常不准
+# from pygments.lexers import guess_lexer
+# def guess_lang(code):
+  # lang = guess_lexer(code).name.lower()  
+  # if lang == 'text only': lang = 'text'
+  # return lang
+
+from guesslang import Guess
+def guess_lang(code):
+  name = Guess().language_name(code)
+  return name.lower()
+
+def fix_code_lang(mdtxt):
+  ''' 检测代码语言, 标记在 markdown 代码语法 ```<lang> 位置中 '''
+  code_starts = []
+  code_ends = []
+  in_code = False
+  result = mdtxt.splitlines()
+  for i, line in enumerate(mdtxt.splitlines()):
+    if in_code:
+      if line.startswith('    '): 
+        continue
+      else: 
+        code_ends.append(i)
+        in_code = False
+    else:
+      in_code = line.startswith('    ')
+      if in_code:
+        code_starts.append(i)
+
+  for start, end in zip(code_starts, code_ends):
+    code_body = '\n'.join(result[start:end])
+    lang = guess_lang(code_body)
+    result[start] = f'```{lang}\n' + result[start]
+    result[end-1] = result[end-1] + '\n```'
+
+  return '\n'.join(result)
+
 
 
 

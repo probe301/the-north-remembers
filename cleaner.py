@@ -91,11 +91,12 @@ txt1
 def fix_svg_image(mdtxt):
   ''' 删除每个图片后面附加的 svg 图片链接 '''
   # 这里通常是图片的label, 需要改成浅灰色
+  mdtxt += '\n'
   pat = r'\!\[\]\(data:image\/svg\+xml;utf8,<svg.+?<\/svg>\)(.+?)\n'
   mdtxt = re.sub(pat, r'<center style="color:gray;">\1</center>\n', mdtxt)
   pat2 = r'\!\[\]\(data:image\/svg\+xml;utf8,<svg.+?<\/svg>\)\n'  # 没有 label
   mdtxt = re.sub(pat2, r'\n', mdtxt)
-  return mdtxt
+  return mdtxt.strip()
 
 
 def test_fix_svg_image():
@@ -244,13 +245,15 @@ def fix_code_lang(mdtxt):
         continue
       else: 
         in_code = False
-        code_ends.append(i)  
+        code_ends.append(i)
         # code_ends 记录了不再是代码的行
     else:
       in_code = line.startswith('    ')
       if in_code:
         code_starts.append(i)
 
+  if len(code_ends) < len(code_starts):  # 到结束时仍为代码
+    code_ends.append(len(result))
   for start, end in zip(code_starts, code_ends):
     code_body = '\n'.join(result[start:end])
     lang = guess_lang(code_body)

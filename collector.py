@@ -601,7 +601,11 @@ def get_feed(folder_name):
     abort(404)
     # raise RuntimeError(f'cannot generate_feed {folder_name}')
 
-from website import zhihu
+
+
+# Fetch Single Page 
+
+from crawler import zhihu
 @app.route('/https://zhuanlan.zhihu.com/p/<int:article_id>')
 def fetch_zhihu_single_article(article_id):
   log(f'get zhuanlan article_id {article_id}')
@@ -617,6 +621,61 @@ def fetch_zhihu_single_answer(q_id, a_id):
   data = zhihu.fetch_zhihu_answer(url)
   page = Page.create(data)
   return page.to_html()
+
+
+
+
+
+
+
+
+
+
+
+### JSON API
+
+def allow_origin(data):
+  """ 封装 json 响应 'Access-Control-Allow-Origin'"""
+  resp = jsonify({'data': data, 'error_code': -1, 'message': 'success'})
+  resp.headers['Access-Control-Allow-Origin'] = '*'  # 跨域设置
+  return resp
+
+
+@app.route('/api/zhihu/zhuanlan/<zhuanlan_id>')
+def api_fetch_zhihu_zhuanlan_articles(zhuanlan_id):
+  '''专栏文章列表'''
+  log(f'api get zhuanlan articles {zhuanlan_id}')
+  url = f'https://zhuanlan.zhihu.com/{zhuanlan_id}'
+  data = Fetcher.create({'url': url, 'limit': 20}).request()
+  return allow_origin(data)
+
+@app.route('/api/zhihu/p/<int:article_id>')
+def api_fetch_zhihu_single_article(article_id):
+  '''专栏文章页'''
+  log(f'api get zhuanlan article_id {article_id}')
+  url = f'https://zhuanlan.zhihu.com/p/{article_id}'
+  data = zhihu.fetch_zhihu_article(url)
+  return allow_origin(data)
+
+@app.route('/api/zhihu/question/<int:q_id>/answer/<int:a_id>')
+def api_fetch_zhihu_single_answer(q_id, a_id):
+  log(f'api get question {q_id} answer {a_id}')
+  url = f'https://www.zhihu.com/question/{q_id}/answer/{a_id}'
+  data = zhihu.fetch_zhihu_answer(url)
+  return allow_origin(data)
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

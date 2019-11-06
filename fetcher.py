@@ -4,32 +4,32 @@ import re
 from enum import Enum
 
 
-from website.zhihu import fetch_zhihu_article
-from website.zhihu import zhihu_article_url
-from website.zhihu import yield_column_articles
+from crawler.zhihu import fetch_zhihu_article
+from crawler.zhihu import zhihu_article_url
+from crawler.zhihu import yield_column_articles
 
 
 
-from website.zhihu import fetch_zhihu_answer
-from website.zhihu import zhihu_answer_url
-from website.zhihu import yield_author_answers
-from website.zhihu import zhihu_answer_title
+from crawler.zhihu import fetch_zhihu_answer
+from crawler.zhihu import zhihu_answer_url
+from crawler.zhihu import yield_author_answers
+from crawler.zhihu import zhihu_answer_title
 
 
-from website.zhihu import yield_topic_best_answers
-from website.zhihu import yield_author_articles
-from website.zhihu import yield_collection_answers
-from website.zhihu import yield_question_answers
+from crawler.zhihu import yield_topic_best_answers
+from crawler.zhihu import yield_author_articles
+from crawler.zhihu import yield_collection_answers
+from crawler.zhihu import yield_question_answers
 
 
-from website.zhihu import parse_topic
-from website.zhihu import parse_author
-from website.zhihu import parse_column
-from website.zhihu import parse_answer
-from website.zhihu import parse_article
+from crawler.zhihu import parse_topic
+from crawler.zhihu import parse_author
+from crawler.zhihu import parse_column
+from crawler.zhihu import parse_answer
+from crawler.zhihu import parse_article
 
 
-from website.zhihu import ZhihuFetchError
+from crawler.zhihu import ZhihuFetchError
 
 
 
@@ -221,6 +221,8 @@ class Fetcher:
       log('detect {} {}'.format(desc['url'], desc['tip']))
       tasks_desc.append(desc)
     return tasks_desc
+
+
 
   def detect_ZhihuColumnLister(self):
     c = parse_column(self.url)

@@ -7,7 +7,11 @@ from tools import create_logger
 import re
 log = create_logger(__file__)
 log_error = create_logger(__file__ + '.error')
-
+# from pygments.formatters import HtmlFormatter
+# from pygments.formatters import SvgFormatter
+# from pygments.lexers import get_lexer_by_name
+# from pygments import highlight
+# import base64
 
 def fix_md_title(mdtxt, header_level=3):
   ''' 将正文出现内的 <h1> <h2> 标题降级 '''
@@ -269,7 +273,21 @@ def fix_code_lang(mdtxt):
   return '\n'.join(result)
 
 
+# def svg_replacer(match):
+#   lexer_name = match.group(1)
+#   if lexer_name == 'markdown': lexer_name = 'md'
+#   code_block = match.group(2)
+#   lines = len(code_block.splitlines())
+#   formatter = SvgFormatter(linenos=lines>10)
+#   svg = highlight(code_block, get_lexer_by_name(lexer_name), formatter)
+#   svg_encode = base64.b64encode(svg.encode()).decode()
+#   return f"\n\n<img width='80%' src='data:image/svg+xml;base64,{svg_encode}' />\n\n" 
 
+# def generate_code_svg(mdtxt):
+#   ''' 为标记 ```<lang> 的代码块生成一个 svg 图片 '''
+#   pat = re.compile(r'\`\`\`(\w+?)\n(.+?)\`\`\`', re.DOTALL)
+#   mdtxt = re.sub(pat, svg_replacer, mdtxt)
+#   return mdtxt
 
 
 if __name__ == "__main__":

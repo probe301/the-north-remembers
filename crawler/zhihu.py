@@ -801,10 +801,11 @@ def fetch_zhihu_answer(url):
   except (requests.exceptions.RetryError):
     resp_json = zhihu_detect(answer.comments._url).json()
     if 'error' in resp_json:
-      conversations = [ [
-        '错误: {name} - {code} - {message}'.format(**resp_json['error'])
-      ], ]
-    raise 
+      conversations = [{
+        'author_info': '错误', 
+        'content': '错误: {name} - {code} - {message}'.format(**resp_json['error'])
+      }]
+    log_error(f'fetch {url} comments error {resp_json}') 
 
 
   metadata = {

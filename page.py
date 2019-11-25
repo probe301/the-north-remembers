@@ -14,6 +14,7 @@ from cleaner import fix_md_title
 from cleaner import fix_svg_image
 from cleaner import fix_video_link
 from cleaner import fix_code_lang
+from cleaner import fix_image_alt
 from fetcher import UrlType
 from fetcher import parse_type
 
@@ -24,7 +25,7 @@ log_error = create_logger(__file__ + '.error')
 
 from markdown import markdown
 from mdx_gfm import GithubFlavoredMarkdownExtension
-
+import pygments
 
 
 class Page:
@@ -225,6 +226,28 @@ class Page:
     if cut and len(full_text) > cut:
       full_text = full_text[:cut] + f' ... (共 {len(full_text)} 字)'
 
+    # TODO: 图片需要 alt
+    
+    # 将代码段 ```js\n......``` 的内容事先转成带 style="xxx" 样式的 html
+    # 此时文档仍为 markdown, 内嵌部分 html 代码
+    def replacer(match):
+      lexer_name = match.group(1) or 'js'  # 未在 md 里指明时, 默认用 js 语法高亮
+      code_block = match.group(2)
+      with_style = convert_code_highlighting_style(code_block, lexer_name)
+      return f"\n\n{with_style}\n\n"
+
+    def convert_code_highlighting_style(code_block, lexer_name):
+      try:
+        lexer = pygments.lexers.get_lexer_by_name(lexer_name)
+      except pygments.util.ClassNotFound:
+        lexer = pygments.lexers.get_lexer_by_name('js')
+      formatter = pygments.formatters.HtmlFormatter(linenos=False, noclasses=True)  # noclasses: use style instead of class, linenos 没用, 添加了行号会渲染成 table, 碍事
+      return pygments.highlight(code_block, lexer, formatter)
+
+    pat = re.compile(r'\`\`\`(.*?)\n(.+?)\`\`\`', re.DOTALL)  
+    full_text = re.sub(pat, replacer, full_text)
+    # end of 将代码段...
+
     html = markdown(full_text, output_format='html5', extensions=[GithubFlavoredMarkdownExtension()])
     return html
 
@@ -308,6 +331,7 @@ class ZhihuColumnPage(Page):
     content = fix_md_title(data['content'])
     content = fix_video_link(content)
     content = fix_svg_image(content)
+    content = fix_image_alt(content)
     content = fix_code_lang(content)
     data['content'] = content
     return data
@@ -349,6 +373,7 @@ class ZhihuAnswerPage(Page):
     answer = fix_md_title(data['answer'])
     answer = fix_video_link(answer)
     answer = fix_svg_image(answer)
+    answer = fix_image_alt(answer)
     answer = fix_code_lang(answer)
     data['answer'] = answer
     return data

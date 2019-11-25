@@ -124,7 +124,7 @@ def test_fix_svg_image():
 <center style="color:gray;">示意图2</center>
 
 '''
-  assert result == fix_svg_image(mdtxt)
+  assert result.strip() == fix_svg_image(mdtxt).strip()
 
 
 
@@ -223,13 +223,14 @@ https://www.zhihu.com/video/1111685179147534336](https://www.zhihu.com/video/111
 
 
 
-# 非常不准
+# pygments lexers 非常不准
 # from pygments.lexers import guess_lexer
 # def guess_lang(code):
   # lang = guess_lexer(code).name.lower()  
   # if lang == 'text only': lang = 'text'
   # return lang
 
+# guesslang 好一些
 from guesslang import Guess
 def guess_lang(code):
   name = Guess().language_name(code)
@@ -261,6 +262,8 @@ def fix_code_lang(mdtxt):
   for start, end in zip(code_starts, code_ends):
     code_body = '\n'.join(result[start:end])
     lang = guess_lang(code_body)
+    trans_dict = {'javascript': 'js', 'markdown': 'md'}
+    if lang in trans_dict: lang = trans_dict[lang]
     # end 表示不再是代码的行, end 之前可能有空行
     # 需要从 end 向前找到第一个有内容的行, 此为代码真正结束位置
     # end 有可能等于 start (对于单行代码时)
@@ -290,7 +293,50 @@ def fix_code_lang(mdtxt):
 #   return mdtxt
 
 
+
+
+def fix_image_alt(mdtxt):
+  '''为 image 增加 alt 属性'''
+  mdtxt += '\n'
+  pat = r'\n\!\[\]\((http.+?\.(png|gif|jpg|jpeg))\)\n'
+  mdtxt = re.sub(pat, r'\n![image](\1)\n', mdtxt)
+  return mdtxt.strip()
+
+
+
+def test_fix_image_alt():
+  mdtxt = '''
+还是用图片来说明更加清楚
+下图说明了Redux和React的状态流分别是怎么样的；
+
+![](https://pic3.zhimg.com/v2-46d1f94bb780f90a11ad97454d0add3a_b.jpg)
+
+下图说明了使用Redux管理状态为什么是可预测的
+
+![](https://pic3.zhimg.com/v2-62027cb65fb533ad42d401bdbbf6155e_b.png)
+Redux的数据是如何流动的其实也是理解Redux的好处的关键部分之一，
+[A Cartoon intro to redux]([https://code-cartoons.com/a-cartoon-intro-to-redux-3afb775501a6#.alj778pma](https://code-cartoons.com/a-cartoon-intro-to-redux-3afb775501a6#.alj778pma))
+
+'''
+
+  result = '''
+还是用图片来说明更加清楚
+下图说明了Redux和React的状态流分别是怎么样的；
+
+![image](https://pic3.zhimg.com/v2-46d1f94bb780f90a11ad97454d0add3a_b.jpg)
+
+下图说明了使用Redux管理状态为什么是可预测的
+
+![image](https://pic3.zhimg.com/v2-62027cb65fb533ad42d401bdbbf6155e_b.png)
+Redux的数据是如何流动的其实也是理解Redux的好处的关键部分之一，
+[A Cartoon intro to redux]([https://code-cartoons.com/a-cartoon-intro-to-redux-3afb775501a6#.alj778pma](https://code-cartoons.com/a-cartoon-intro-to-redux-3afb775501a6#.alj778pma))
+
+'''
+  assert fix_image_alt(mdtxt).strip() == result.strip()
+
+
 if __name__ == "__main__":
   test_fix_md_title()
   test_fix_svg_image()
   test_fix_video_link()
+  test_fix_image_alt()

@@ -9,7 +9,8 @@ test/
 __pycache__/
 *.py[cod]
 todo.py
-
+templates/node_modules/
+templates/package-lock.json
 # C extensions
 *.so
 

@@ -211,8 +211,8 @@ class Fetcher:
     tasks_desc = []
     column_id = self.url.split('/')[-1]
     limit = self.option['limit']
-    min_voteup = self.option.get('zhihu_min_voteup', 0)
-    # 专栏没有感谢 min_thanks = self.option.get('zhihu_min_thanks', 0)
+    min_voteup = self.option.get('min_voteup', 0)
+    # 专栏没有感谢 min_thanks = self.option.get('min_thanks', 0)
     log('request_ZhihuColumnLister column_id', column_id)
     for article in yield_column_articles(column_id, limit=limit, min_voteup=min_voteup):
       desc = {'url': zhihu_article_url(article),
@@ -270,8 +270,8 @@ class Fetcher:
     '''
     tasks_desc = []
     limit = self.option['limit']
-    min_voteup = self.option.get('zhihu_min_voteup', 0)
-    min_thanks = self.option.get('zhihu_min_thanks', 0)
+    min_voteup = self.option.get('min_voteup', 0)
+    min_thanks = self.option.get('min_thanks', 0)
     banned_keywords = self.option.get('banned_keywords', '')
     if '/question/' in self.url:
       question_id = int(self.url.split('/')[-1])

@@ -65,7 +65,7 @@ class Task:
 
   Lister Task 特别的属性
     limit: 15              从列表中最多获取多少条目
-    zhihu_min_voteup: 1000
+    min_voteup: 1000
 
   例:
   lister_task:
@@ -85,8 +85,8 @@ class Task:
 
   Lister任务 可以自定义的属性
     title_contains: filter_keyword
-    zhihu_min_voteup: 500
-    zhihu_min_thanks: 100
+    min_voteup: 500
+    min_thanks: 100
     limit: 10, 从列表页最多返回10个页面就结束
 
   可能会有多个Lister任务发现同一个页面
@@ -329,11 +329,6 @@ class Task:
 
 
 
-  @property
-  def content_is_changed(self):
-    # TODO IMPL
-    return random.random() > 0.8
-    # return True
 
 
 

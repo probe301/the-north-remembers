@@ -260,20 +260,22 @@ def save_txt(path, data, encoding='utf-8'):
   return True
 
 
-def sections(iterable, is_title=lambda line: line.startswith('#')):
+def sections(text, is_title=lambda line: line.startswith('#')):
   ''' 通过小节的标题和之后文字生成 {标题: 内容} 的 order dict
   '''
   result = OrderedDict()
   title_index = 0
   title = (title_index, 'DEFAULT HEADER')
   result.setdefault(title, [])
-  for line in iterable:
+  for line in text.splitlines():
     if is_title(line):
       title_index += 1
       title = (title_index, line)
       result.setdefault(title, [])
     else:
       result[title].append(line)
+  for key in result:
+    result[key] = '\n'.join(result[key])
   return result
 
 

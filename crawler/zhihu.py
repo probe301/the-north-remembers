@@ -16,7 +16,7 @@ from zhihu_oauth import ZhihuClient
 
 from zhihu_oauth.exception import GetDataErrorException
 from urllib.parse import unquote
-
+from urllib3.exceptions import MaxRetryError
 from jinja2 import Template
 import re
 import requests
@@ -942,10 +942,11 @@ def fetch_zhihu_article(url):
   except (requests.exceptions.RetryError):
     resp_json = zhihu_detect(article.comments._url).json()
     if 'error' in resp_json:
-      conversations = [ [
-        '错误: {name} - {code} - {message}'.format(**resp_json['error'])
-      ], ]
-    raise
+      conversations = [{
+        'author_info': '错误', 
+        'content': '错误: {name} - {code} - {message}'.format(**resp_json['error'])
+      }]
+    log_error(f'fetch {url} comments error {resp_json}') 
 
   topics = article._data['topics']   # zhihu_oauth API 没有这个属性, 通过 _data 取出
 

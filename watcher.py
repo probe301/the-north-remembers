@@ -73,7 +73,7 @@ class Watcher:
     # 1 从 task.json 中载入已有 task
     # 2 对于 page task, 加入该 watcher 的 env_option
     # 3 对于 lister task, 加入该 watcher 的 env_option, 以及 listers 里特定的属性
-    local_tasks = tools.yaml_load(os.path.join(self.watcher_path, '.tasks.yaml'))
+    local_tasks = tools.yaml_load(os.path.join(self.watcher_path, '.tasks.yaml')) or []
     env_task_option = self.watcher_option.get('task_option')
     for task in local_tasks:
       self.task_dict[task['url']] = Task.create(task, env_task_option)
@@ -96,11 +96,10 @@ class Watcher:
 
 
 
-  # @classmethod TODO
-  # def create(cls, path):
-  #   if os.path.exists(path):
-  #     raise FileExistsError(f'create_watcher `{path}` exists')
-        # # 项目默认设置
+  @classmethod
+  def create(cls, path, config):
+    '''创建新的 Wacther 项目'''
+        # 项目默认设置
         # WATCHER_DEFAULT_OPTION = odict(
         #   git_commit_path='none',   # 使用 git 提交记录, 可选上一层目录 '..', 当前目录 '.', 或默认 none
         #   git_commit_batch=10,      # 每 10 个页面执行一个提交
@@ -113,8 +112,12 @@ class Watcher:
         #   page_max_cycle='180days', # 对 Watcher 目录里的所有 page 起效
         #   page_min_cycle='45days',
         # )
-
-  #   return 
+    if os.path.exists(path):
+      raise FileExistsError(f'create_watcher `{path}` exists')
+    os.makedirs(path, exist_ok=True)
+    tools.yaml_save(config, path + '/.config.yaml')
+    tools.json_save([], path + '/.tasks.yaml')
+    return cls(path)
 
   @classmethod
   def open(cls, path):
@@ -126,11 +129,14 @@ class Watcher:
       tools.json_save([], path + '/.tasks.yaml')
     return cls(path)
 
+  @classmethod
+  def is_watcher(cls, path):
+    return os.path.exists(path) and os.path.exists(path + '/.config.yaml') and os.path.exists(path + '/.tasks.yaml')
+
   def __str__(self):
     s = '''<Watcher #{}>
       from `{}`, {} tasks'''
     return s.format(id(self), self.watcher_path, self.tasks_count)
-
 
   @property
   def git_project_path(self):
@@ -152,6 +158,13 @@ class Watcher:
   def listers(self):
     section = self.watcher_option.get('lister_option', [])
     return [l['url'] for l in section]
+
+  @property
+  def pages(self):
+    all_pages = tools.all_files(self.watcher_path, patterns='*.md', single_level=True)
+    return list(all_pages)
+
+    
 
   def add_task(self, task_desc):
     ''' 添加一个 Task, 以 url 判断是否为已存在的 Task
@@ -245,13 +258,11 @@ class Watcher:
         page_json['metadata']['folder'] = self.watcher_path
         page_json['metadata']['version'] = task.version + 1
         page = Page.create(page_json)
+        is_modified = page.is_changed(page.last_page_version)
         page.write()
-        # if task.last_page:
-        #   is_modified = page.is_changed(self.last_page)
-        # else:
-        #   is_modified = True
-        # self.last_page = page
         task.schedule(is_modified=is_modified)  # is_modified = 跟上次存储的页面有区别
+        next_watch_time = tools.time_to_humanize(task.next_watch_time)
+        log(f'  -> {page.filename} is_modified={is_modified}, next_watch_time={next_watch_time}')
         log(f'page task done ({i}/{len(page_tasks_queue)}): \n{task}\n\n')
 
       self.save_tasks_yaml()
@@ -287,10 +298,8 @@ class Watcher:
     log(f'report {self} \n---------------------')
     folder = self.folder
     folder_md5 = tools.md5(self.folder, 10)
-    all_pages = tools.all_files(self.watcher_path, patterns='*.md', single_level=True)
-    count = len(list(all_pages))
+    count = len(self.pages)
     log(f'    Watcher: "{folder}" ({folder_md5}) {count} pages)')
-    
     if self.git_project_path:
       output = tools.run_command(f'cd "{self.git_project_path}" && git log --oneline -n 5')
       log('git log: ')

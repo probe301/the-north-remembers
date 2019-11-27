@@ -95,7 +95,7 @@ class Page:
 
   def __str__(self):
     title = self.metadata['title']
-    return '<Page #{1}> {2} (ver. {0.version}, {0.watch_time}) '.format(self, id(self), title)
+    return '<Page #{1}> {2} (ver. {0.version}, {0.fetch_date}) '.format(self, id(self), title)
 
   def to_id(self):
     return '<Page #{}>'.format(id(self))
@@ -106,7 +106,12 @@ class Page:
         从本地文件 load 回来的 Page 的 data 里面自带 full_text
         新生成的 Page 对象需要 render 得到 full_text'''
     return self.data.get('full_text') or self.render(type='localfile')
-    
+  
+  @property
+  def sections(self):
+    ''' 截取页面中如 ## 评论: ## 正文: 的内容 '''
+    return tools.sections(self.full_text, is_title=lambda line: line.startswith('##'))
+
   @property    # 一些常用属性的快捷方式
   def version(self): return self.metadata['version']
   @property
@@ -180,20 +185,26 @@ class Page:
     txt = tools.load_txt(path)
 
     metadata = Page.convert_dict(txt.split('---')[1].strip())
-    sections = tools.sections(txt.splitlines(), is_title=lambda line: line.startswith('#'))
-
     data = {'folder': os.path.dirname(path), 
             'metadata': metadata, 
             'full_text': txt,
-            'sections': sections}  # 从txt加载得到Page必须包含sections
+            'from_disk': True,  # 从磁盘加载 Page 增加这个 key
+            } 
     return cls.create(data)
 
 
   def is_changed(self, other):
     ''' 比对一个page对象是否有变化 '''
-    raise NotImplementedError
-    # return self.metadata['title'] == other.metadata['title'] and self.data['content'] == other.data['content']
+    raise NotImplementedError # return self.metadata['title'] == other.metadata['title'] and self.data['content'] == other.data['content']
 
+  @property
+  def last_page_version(self):
+    ''' 寻找上一次的页面存档 '''
+    guess_path = os.path.join(self.folder, self.filename)
+    if os.path.exists(guess_path):
+      return Page.load(guess_path)
+    else:
+      return None
 
   def write(self):
     '''存盘'''
@@ -312,20 +323,32 @@ class ZhihuColumnPage(Page):
     comment:
   '''
 
-  def __init__(self, data, from_local_file=False):
+  def __init__(self, data):
 
     super().__init__(data)
     self.tmpl = 'crawler/zhihu_column_page.tmpl'
-    if 'sections' in data:
-      data = data # TODO
+    if data.get('from_disk'):
       self.data = data
     else:
       data = self.postprocess(data)
       self.data = data
 
+  @property
+  def content(self):
+    for (_, title), value in self.sections.items():
+      if '## 正文:' == title: return value
+    raise ValueError('section `正文` not found')
+
   def is_changed(self, other):
     ''' 比对一个ZhihuColumnPage对象是否有变化 '''
-    return self.metadata['title'] == other.metadata['title'] and self.data['content'] == other.data['content']
+    if not other: return True
+    content1 = self.content
+    content2 = other.content
+    # if content1 != content2:
+    #   log(tools.compare_text(content1.strip(), content2.strip()))
+    title1 = self.metadata['title']
+    title2 = other.metadata['title']
+    return (title1 != title2) or (content1 != content2)
 
   def postprocess(self, data):
     content = fix_md_title(data['content'])
@@ -354,20 +377,37 @@ class ZhihuAnswerPage(Page):
 
   '''
 
-  def __init__(self, data, from_local_file=False):
+  def __init__(self, data):
     super().__init__(data)
     self.tmpl = 'crawler/zhihu_answer_page.tmpl'
 
-    if 'sections' in data:  # from local load text
-      data = data # TODO
+    if data.get('from_disk'):  # from local load text
       self.data = data
     else:
       data = self.postprocess(data)
       self.data = data
 
+  @property
+  def answer(self):
+    for (_, title), value in self.sections.items():
+      if '## 回答:' == title: return value
+    raise ValueError('section `回答` not found')
+  @property
+  def question_description(self):
+    for (_, title), value in self.sections.items():
+      if '## 问题描述:' == title: return value
+    raise ValueError('section `问题描述` not found')
+
   def is_changed(self, other):
     ''' 比对一个ZhihuAnswerPage对象是否有变化 '''
-    return self.metadata['title'] == other.metadata['title'] and self.data['answer'] == other.data['answer']
+    if not other: return True
+    title1 = self.metadata['title']
+    title2 = other.metadata['title']
+    answer1 = self.answer
+    answer2 = other.answer
+    qdesc1 = self.question_description
+    qdesc2 = other.question_description
+    return (title1 != title2) or (qdesc1 != qdesc2) or (answer1 != answer2)
 
   def postprocess(self, data):
     answer = fix_md_title(data['answer'])
@@ -377,27 +417,3 @@ class ZhihuAnswerPage(Page):
     answer = fix_code_lang(answer)
     data['answer'] = answer
     return data
-
-    # if self.page_type == 'zhihu_answer':
-    #   try:
-    #     zhihu_answer = fetch_zhihu_answer(self.url)
-    #     page = self.remember(zhihu_answer)
-    #     return page
-    #   except ZhihuParseError as e:
-    #     blank_answer = e.value
-    #     log_error('!! 问题已删除 {} {}'.format(self.url, blank_answer['title']))
-    #     page = self.remember(blank_answer)
-    #     return page
-    #   except RuntimeError as e:
-    #     log_error(e)
-    #     raise
-
-    # try:
-    #   zhihu_article = fetch_zhihu_article(self.url)
-    #   page = self.remember(zhihu_article)
-    #   return page
-    # except ZhihuParseError as e:
-    #   blank_article = e.value
-    #   log_error('!! 文章已删除 {} {}'.format(self.url, blank_article['title']))
-    #   page = self.remember(blank_article)
-    #   return page

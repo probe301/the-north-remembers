@@ -10,11 +10,11 @@ from urllib.parse import unquote
 from jinja2 import Template
 import re
 
-from cleaner import fix_md_title
-from cleaner import fix_svg_image
-from cleaner import fix_video_link
-from cleaner import fix_code_lang
-from cleaner import fix_image_alt
+from tools import fix_md_title
+from tools import fix_svg_image
+from tools import fix_video_link
+from tools import fix_code_lang
+from tools import fix_image_alt
 from fetcher import UrlType
 from fetcher import parse_type
 

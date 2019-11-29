@@ -78,8 +78,8 @@ class Watcher:
     for task in local_tasks:
       self.task_dict[task['url']] = Task.create(task, env_task_option)
 
-    # 更新 lister_option 中的 task, 用户可能修改了单独某个 lister 的 option
-    for task in self.watcher_option.get('lister_option', []):
+    # 更新 listers 中的 task, 用户可能修改了单独某个 lister 的 option
+    for task in self.watcher_option.get('listers', []):
       url = task['url']
       tip = task['tip']
       # custom_option = config.yaml 的全局 task 设置 + lister 自定义设置
@@ -156,7 +156,7 @@ class Watcher:
 
   @property
   def listers(self):
-    section = self.watcher_option.get('lister_option', [])
+    section = self.watcher_option.get('listers', [])
     return [l['url'] for l in section]
 
   @property

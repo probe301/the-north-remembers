@@ -2,7 +2,8 @@
 
 import re
 from enum import Enum
-
+from pyquery import PyQuery
+import requests
 
 from crawler.zhihu import fetch_zhihu_article
 from crawler.zhihu import zhihu_article_url
@@ -28,6 +29,9 @@ from crawler.zhihu import parse_column
 from crawler.zhihu import parse_answer
 from crawler.zhihu import parse_article
 
+# from crawler.weixin import fetch_weixin_article_lister
+from crawler.weixin import fetch_weixin_article_page
+
 
 from crawler.zhihu import ZhihuFetchError
 
@@ -38,6 +42,40 @@ from tools import create_logger
 
 log = create_logger(__file__)
 log_error = create_logger(__file__ + '.error')
+
+
+
+
+
+session = requests.Session()
+def request_with_ua(url):
+  # requests with UA
+  UA = "Mozilla/5.0 (Windows NT 6.3; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/49.0.2623.13 Safari/537.36"
+  headers = { "User-Agent" : UA}
+  resp = session.get(url, headers=headers)
+  return resp.text                   # for text
+
+
+
+def extract_items_from_feed(content):
+  ''' 从 RSS Feed 中取出条目 '''
+  # <title>xxx</title>
+  # <link>xxx</link>
+  # <description>...</description>
+  # <pubDate>xxx</pubDate>
+  if 'xml version' in content.splitlines()[0]: 
+    # 去掉第一行 xml 声明 <?xml version="1.0" encoding="UTF-8"?>
+    content = '\n'.join(content.splitlines()[1:])
+  for item in PyQuery(content).find('item'):
+    article = PyQuery(item)
+    yield {'title': article.find('title').text().strip(),
+           'tip': article.find('title').text().strip(),
+           'url': article.find('link').text().strip(),
+           'description': article.find('description').text().strip(),
+           # TODO pq cannot parse camelCase tag pubDate
+           'pubDate': article.find('pubDate').text().strip()  
+           }
+
 
 
 
@@ -65,8 +103,10 @@ UrlType = Enum('UrlType',
                  'ZhihuAuthor', 
                  'ZhihuQuestionPage',   # 用于抓取问题描述
                  'ZhihuQuestionLister', # 问题页, 用于监视新增回答
-                 'WeixinAricle',
-                 'WeixinAricleLister')
+                 'WeixinArticleLister',
+                 'WeixinArticlePage',
+                 'WempPage',
+                 )
                )
 
 
@@ -95,9 +135,16 @@ def parse_type(url):
     return UrlType.ZhihuAnswerLister  # from collection's answers
   if re.search(r'https://www.zhihu.com/question/\d+', url):
     return UrlType.ZhihuAnswerLister  # from question's answers
+  if re.search(r'https://wemp.app/accounts/.+?', url):
+    return UrlType.WeixinArticleLister 
+  if re.search(r'https://rsshub.app/wechat/ershicimi/\d+', url):
+    return UrlType.WeixinArticleLister 
+  if re.search(r'https://wemp.app/posts/.+?', url):
+    return UrlType.WempPage
+  if re.search(r'http://mp.weixin.qq.com/s\?__biz=.+?', url):
+    return UrlType.WeixinArticlePage
 
-  if 'weixin' in url:
-    return UrlType.WeixinAricle
+
 
   raise ValueError('cannot reg tasktype of url {}'.format(url))
 
@@ -115,6 +162,17 @@ def purge_url(url):
 
   return url
 
+
+def format_weixin_url(url):
+  '''需要url中的4个参数 __biz mid idx sn
+  '''
+  if 'mp.weixin.qq.com' not in url:
+    raise ValueError('cannot parse WeiXin url {}'.format(url))
+
+  url, params = url.split('#')[0].split('/s?')
+  keys = ('__biz=', 'mid=', 'idx=', 'sn=')
+  params = '&'.join(part for part in params.split('&') if part.startswith(keys))
+  return f'{url}/s?{params}'
 
 
 
@@ -329,4 +387,15 @@ class Fetcher:
     '''
 
 
+  def request_WeixinArticleLister(self):
+    # self.url 为任何 RSSHub 微信公众号 feed 来源
+    # feed 中 每个 item 的 link 为微信公众号页面永久链接
+
+    content = request_with_ua(self.url)
+    return list(extract_items_from_feed(content))
+
+  def request_WeixinArticlePage(self):
+    url = format_weixin_url(self.url)
+    data = fetch_weixin_article_page(url)
+    return data
 

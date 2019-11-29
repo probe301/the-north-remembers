@@ -163,6 +163,9 @@ class Page:
     if page_type == UrlType.ZhihuAnswerPage:
       return ZhihuAnswerPage(data)
 
+    if page_type == UrlType.WeixinArticlePage:
+      return WeixinArticlePage(data)
+
     raise NotImplementedError('Page.request: cannot reg type {}'.format(url))
 
 
@@ -417,3 +420,47 @@ class ZhihuAnswerPage(Page):
     answer = fix_code_lang(answer)
     data['answer'] = answer
     return data
+
+
+
+
+
+
+
+class WeixinArticlePage(Page):
+  '''抓取微信公众号页面'''
+  def __init__(self, data):
+    super().__init__(data)
+    self.tmpl = 'crawler/weixin_article_page.tmpl'
+    if data.get('from_disk'):
+      self.data = data
+    else:
+      data = self.postprocess(data)
+      self.data = data
+
+  @property
+  def content(self):
+    for (_, title), value in self.sections.items():
+      if '## 正文:' == title: return value
+    raise ValueError('section `正文` not found')
+
+  def is_changed(self, other):
+    ''' 比对一个ZhihuColumnPage对象是否有变化 '''
+    if not other: return True
+    content1 = self.content
+    content2 = other.content
+    # if content1 != content2:
+    #   log(tools.compare_text(content1.strip(), content2.strip()))
+    title1 = self.metadata['title']
+    title2 = other.metadata['title']
+    return (title1 != title2) or (content1 != content2)
+
+  def postprocess(self, data):
+    # content = fix_md_title(data['content'])
+    # content = fix_video_link(content)
+    # content = fix_svg_image(content)
+    # content = fix_image_alt(content)
+    # content = fix_code_lang(content)
+    # data['content'] = content
+    return data
+

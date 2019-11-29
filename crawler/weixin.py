@@ -3,12 +3,12 @@
 import re
 
 import time
-from pyquery import PyQuery
 
 import html2text
 from jinja2 import Template
 
 import time
+import tools
 from tools import datalines
 
 import shutil
@@ -16,36 +16,17 @@ import shutil
 from urllib.parse import unquote
 from jinja2 import Template
 import re
-from pyquery import PyQuery
+
 import requests
+from pyquery import PyQuery as pq
 from tools import create_logger
 log = create_logger(__file__)
 log_error = create_logger(__file__ + '.error')
 
 
 
-def format_weixin_url(url):
-  '''需要url中的4个参数
-     __biz=MzI3MDE0NzI0MA==
-   & mid=2650991378
-   & idx=1
-   & sn=7fb39f8f5b8d2b98751fd5515a7a4623
-  '''
-  # 'http://mp.weixin.qq.com/s?__biz=MzA4MzA3MzExNg==&mid=2652690955&idx=2&sn=9f8a8c23ca60ac68d1b8647f8d80dd8f&scene=0#rd'
-
-  if 'mp.weixin.qq.com' not in url:
-    raise ValueError('cannot parse WeiXin url {}'.format(url))
-
-  url = url.split('#')[0]
-  if 'scene=' in url:
-    url = re.sub(r'\&scene=\d+', '', url)
-  return url
-
 
 def weixin_blog_html2md(html):
-
-  if html is None:
-    raise ValueError('html is none')
   def replace_section_to_p(html):
     p = r'(</?)section'
     html = re.sub(p, r'\1p', html)
@@ -94,111 +75,47 @@ def weixin_fix_markdown(text):
 
 
 
+def fetch_weixin_article_page(url):
+  content = requests.get(url).content
+  doc = pq(content)
+  msg = doc('.page_msg').text()
+  if msg:
+    return { 'metadata': {
+                          'title': '-1', 
+                          'author_name': '-1',
+                          'author_id': '-1',
+                          'publish_date': '',
+                          'fetch_date': tools.time_now_str(),
+                          'count': 0,
+                          'url': url,
+                        },
+            'content': msg,
+          }
 
-def fill_template(url=None, title=None, post_date=None, fetch_date=None,
-                  content=None, author=None):
-
-  # 需要 header image
-  tmpl_string = '''
-### {{title}}
-
-    author: {{author}}
-    post_date: {{post_date}}
-    fetch: {{fetch_date}}
-    url: {{url}}
-
-
-{{content}}
-
-
-
-
-
-
-'''
-  template = Template(tmpl_string)
-  return template.render(**locals())
-
-
-
-
-def fetch_weixin_blog(url):
-  # t = d('div#js_article')
-  # md = html2md(t.text())
-  # print(md)
-  url = format_weixin_url(url)
-  doc = PyQuery(url=url)('div#js_article')
-
-  content = doc('#js_content')
-  # print(content.html(), file=open('test_wx.html', 'w', encoding='utf-8'))
   title = doc('#activity-name').text().strip()
-  author = doc('#post-user').text().strip()
-  post_date = doc('#post-date').text().strip()
+  author_name, author_id, _ = doc.find('#js_profile_qrcode').text().strip().split('\n')
+  author_id = author_id.split(' ')[-1]
+  publish_date = doc('#publish_time').text().strip()
+  body = doc('#js_content').html()
+  body = weixin_fix_markdown(weixin_blog_html2md(body))
 
+  # publish_date = parse_json_date(article.updated_time)
+  fetch_date = tools.time_now_str()
 
   # TODO: 加上 header bg 图
 
-  # print(content.html(), file=open(title + '.debug.html', 'w', encoding='utf-8'))
-  page = fill_template(title=title,
-                       post_date=post_date,
-                       fetch_date=time.strftime('%Y-%m-%d'),
-                       content=weixin_fix_markdown(weixin_blog_html2md(content.html())),
-                       author=author,
-                       url=url)
-
-  return {'title': title + ' - ' + author, 'content': page}
-
-
-def format_weixin_filename(title):
-  invalid_chars = list('|?"\':<>/\\*')
-  invalid_chars.append('\xa0')
-  return ''.join(' ' if c in invalid_chars else c for c in title)
-
-
-
-
-
-
-
-
-
-
-def extract_weixin_articles_from_feed(feed):
-  # <title>做商业地产，也许可以听听这段异类的观点</title>
-  # <link>http://www.iwgc.cn/link/2646045</link>
-  # <description>...</description>
-  # <pubDate>Sun, 11 Sep 2016 09:31:10 +0800</pubDate>
-  # log(feed)
-  if feed.startswith('http'):
-    r = requests.get(feed)
-    # log(r.content)
-    doc = PyQuery(r.content)
-  else:
-    doc = PyQuery(open(feed, 'rb').read())
-  for item in doc.find('item'):
-    article = PyQuery(item)
-    yield {'title': article.find('title').text(),
-           'link': article.find('link').text(),
-           'description': article.find('description').text(),
-           'pubDate': article.find('pubDate').text()}
-
-
-
-def follow_redirect(url):
-  response = requests.get(url)
-  text = response.content
-  # log(type(text))
-  if 'iwgc.cn' in url:
-    text = str(text).split('window.location.href = \\\'')[1]
-    return text.split('\\\'')[0]
-  elif 'www.vccoo.com' in url:
-    # 境外server
-    # http://www.vccoo.com/v/899e61?source=rss
-    text = str(text).split('var s = "')[1]
-    return text.split('";')[0]
-  else:
-    raise ValueError()
-
+  metadata = {
+    'title': title, 
+    'author_name': author_name,
+    'author_id': author_id,
+    'publish_date': publish_date,
+    'fetch_date': fetch_date,
+    'count': len(body),
+    'url': url,
+  }
+  return { 'metadata': metadata,
+           'content': body.strip(),
+         }
 
 
 
@@ -221,18 +138,6 @@ def test_rss():
   # log(r)
 
 
-def test_extract_from_feed():
-  from pylon import enumrange
-  feed = 'http://rss.iwgc.cn/rss/3615-43519defd654b27f8f3b5205e678b9bb1799'
-  feed = 'http://www.vccoo.com/a/vzr62/rss.xml'  # knowledgewealth
-  feed = 'http://www.vccoo.com/a/zy62j/rss.xml'  # zhenjiaolujun
-  # feed = 'zhenjiao.xml'  # zhenjiaolujun
-  data = extract_weixin_articles_from_feed(feed)
-  for i, a in enumrange(data, 3000):
-    # log(a)
-    log('# ' + a['title'])
-    log(follow_redirect(a['link']))
-
 
 
 
@@ -244,36 +149,6 @@ def test_extract_from_feed():
 
 
 def test_knowledgewealth():
-  s = '''
-    http://www.vccoo.com/v/b9c80e
-    http://www.vccoo.com/v/281ebb
-    http://www.vccoo.com/v/cc1c1c
-    http://www.vccoo.com/v/b2ed93
-    http://www.vccoo.com/v/899e61
-    http://www.vccoo.com/v/b62073
-    http://www.vccoo.com/v/4a8b83
-    http://www.vccoo.com/v/67dfde
-    http://www.vccoo.com/v/2d11aa
-    http://www.vccoo.com/v/dfbbd4
-    http://www.vccoo.com/v/f5b94c
-    http://www.vccoo.com/v/456a41
-    http://www.vccoo.com/v/f68c61
-    http://www.vccoo.com/v/36ead5
-    http://www.vccoo.com/v/10fead
-    http://www.vccoo.com/v/6cf373
-    http://www.vccoo.com/v/2c7531
-    http://www.vccoo.com/v/471418
-    http://www.vccoo.com/v/bc650c
-    http://www.vccoo.com/v/6c9518
-    http://www.vccoo.com/v/5a3234
-    http://www.vccoo.com/v/356f01
-    http://www.vccoo.com/v/35b3b7
-    http://www.vccoo.com/v/61b98a
-    http://www.vccoo.com/v/7ee861
-  '''
-  for line in datalines(s):
-    log(line)
-    # log(follow_redirect(line))
 
   s_finish = '''
     # zhaohaoyang

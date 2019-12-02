@@ -392,7 +392,10 @@ class Fetcher:
     # feed 中 每个 item 的 link 为微信公众号页面永久链接
 
     content = request_with_ua(self.url)
-    return list(extract_items_from_feed(content))
+    result = list(extract_items_from_feed(content))
+    for item in result:
+      item['url'] = format_weixin_url(item['url'])
+    return result
 
   def request_WeixinArticlePage(self):
     url = format_weixin_url(self.url)

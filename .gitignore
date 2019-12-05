@@ -4,7 +4,8 @@ zhihu-mytest.py
 zhihu.sqlite
 token.pkl
 .ipynb_checkpoints
-test/
+test/__pycache__/
+.pytest_cache/
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

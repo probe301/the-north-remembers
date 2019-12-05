@@ -7,6 +7,7 @@
 import os
 import random
 import re
+import arrow
 
 from collections import OrderedDict
 from collections import Counter
@@ -29,6 +30,7 @@ log_error = create_logger(__file__ + '.error')
 
 
 from fetcher import Fetcher
+from fetcher import FetcherOption
 from datetime import date, datetime
 from pydantic import (BaseModel, ValidationError, validator, root_validator, 
                       HttpUrl, DirectoryPath, FilePath,)
@@ -36,16 +38,24 @@ from pydantic import (BaseModel, ValidationError, validator, root_validator,
 
 
 
-class FetcherOption(BaseModel):
-  save_attachments = True
-  limit = 300
-  min_voteup = 0
-  min_thanks = 0
-  text_include: str = None
-  text_exclude: str = None
 
-
-
+class ArrowDate(str):
+  '''基于 arrow 的 datetime 字段验证器'''
+  @classmethod
+  def __get_validators__(cls):
+    yield cls.validate
+  @classmethod
+  def validate(cls, v):
+    if isinstance(v, arrow.Arrow):
+      return v
+    if isinstance(v, (int, float)):
+      return tools.time_from_stamp(v)
+    if isinstance(v, str):
+      try:
+        return tools.time_from_str(v)
+      except arrow.parser.ParserError:
+        raise ValueError(f'cannot parse date {v}')
+    raise ValueError(f'invalid date {v}')    
 
 class Task(BaseModel):
   '''
@@ -65,13 +75,13 @@ class Task(BaseModel):
     如 save_attachments limit min_voteup title_contains
   '''
   # 来自task自身参数
-  url : HttpUrl             # url 唯一标识
+  url : str                 # url 唯一标识
   tip = 'Default Tip'       # 该页面的描述, 用于辨识 url
 
-  task_add_time : datetime = None    # 任务添加时间
-  last_watch_time : datetime = None  # 上次抓取的时间
-  last_change_time : datetime = None # 上次内容变动的时间, 不同的页面有不同的判定标准
-  next_watch_time : datetime = None  # 安排的下次采集时间, 手动修改就立即触发一次采集
+  task_add_time : ArrowDate = None    # 任务添加时间
+  last_watch_time : ArrowDate = None  # 上次抓取的时间
+  last_change_time : ArrowDate = None # 上次内容变动的时间, 不同的页面有不同的判定标准
+  next_watch_time : ArrowDate = None  # 安排的下次采集时间, 手动修改就立即触发一次采集
   # 创建后会设置 task_add 和 next_watch 为当前时间,
   # 但可以没有设置 last_watch last_change
 
@@ -81,8 +91,8 @@ class Task(BaseModel):
   lazy_ratio = 1
 
 
-  # min_cycle : str = None       # 由继承类处理
-  # max_cycle : str = None       # 由继承类处理
+  min_cycle : str = None       # 由继承类处理
+  max_cycle : str = None       # 由继承类处理
   # page_min_cycle = '5days'   # 最大最小的抓取间隔时间,
   # page_max_cycle = '15days'  # 每当抓取结果跟上次一样时, 就翻倍等待时间,
   # lister_min_cycle = '1days' # 但最多不超过 max_cycle
@@ -90,6 +100,11 @@ class Task(BaseModel):
 
   # 来自Fetcher参数
   fetcher_option : FetcherOption
+  @validator('url')
+  def url_should_valid(cls, v):
+    v = v.strip()
+    if v.strip().startswith(('http://', 'https://')): return v
+    else: raise ValueError(f'invalid url {v}')
 
   @validator('tip')
   def tip_should_remove_invalid_char(cls, v):
@@ -98,20 +113,22 @@ class Task(BaseModel):
   # task 内部使用 arrow.time 类型,
   # task 序列化时, 使用 2019-12-03 18:35:35 风格
   # TODO 应该改为 2019-12-03T18:35:35.590582+08:00 风格
-  @validator('task_add_time', always=True)
+  @validator('task_add_time', always=True, pre=True)
   def task_add_time_set_now(cls, v):   # 这两个如果缺省, 设为当前时间
-    return (v and time_from_str(v)) or time_now()
-  @validator('next_watch_time', always=True)
+    # log(f'task_add_time_set_now v={v}')
+    return v or time_now()
+  @validator('next_watch_time', always=True, pre=True)
   def next_watch_time_set_now(cls, v): # 这两个如果缺省, 设为当前时间
-    return (v and time_from_str(v)) or time_now()
-  @validator('last_watch_time')
+    return v or time_now()
+  @validator('last_watch_time', pre=True)
   def last_watch_time_setting(cls, v): # 如果缺省, 不做设置
+    log(f'last_watch_time_setting v={v}')
     if v in ('null', 'none', 'None', None): return None
-    else: return time_from_str(v)
-  @validator('last_change_time')
+    else: return v
+  @validator('last_change_time', pre=True)
   def last_change_time_setting(cls, v): # 如果缺省, 不做设置
     if v in ('null', 'none', 'None', None): return None
-    else: return time_from_str(v)
+    else: return v
   
 
 
@@ -140,8 +157,14 @@ class Task(BaseModel):
   @property
   def brief_tip(self): return tools.truncate(self.tip, limit=16, ellipsis='...')
 
-  # def update_option(self, new_option):
-  #   self.option.update(new_option)
+  def patch(self, data):
+    new_fetcher_option = FetcherOption(**data)
+    self.fetcher_option.patch(new_fetcher_option.dict())
+
+    for k, v in data.items():
+      if (k in self.__fields__) and (k not in ('fetcher_option', 'url')):
+        setattr(self, k, v)
+
 
   def to_yaml_text(self):
     ''' 将 task 存为 yaml 文本片段

@@ -12,6 +12,9 @@ import random
 
 import sys
 
+# 2019-12-03T18:35:35.590582+08:00
+# 1575369335
+# 2019-12-03 18:35:35
 
 
 def time_from_stamp(s):
@@ -480,11 +483,11 @@ def is_linux():
 
 
 import subprocess
-def run_command(cmd, verbose=False):
+def run_command(cmd, verbose=False, timeout=3):
   if verbose: print('> running: ', cmd)
   try:
     output = subprocess.check_output(
-        cmd, stderr=subprocess.STDOUT, shell=True, timeout=3,
+        cmd, stderr=subprocess.STDOUT, shell=True, timeout=timeout,
         universal_newlines=True)
   except subprocess.CalledProcessError as exc:
     if verbose: print("status: FAIL", exc.returncode, exc.output)

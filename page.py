@@ -185,7 +185,7 @@ class Page:
         比对页面是否有变化时, 只需要加载 title content 等少数内容, 评论等可以不加载 '''
     if not os.path.exists(path):
       raise ValueError('{} not found'.format(path))
-    txt = tools.load_txt(path)
+    txt = tools.text_load(path)
 
     metadata = Page.convert_dict(txt.split('---')[1].strip())
     data = {'folder': os.path.dirname(path), 
@@ -227,7 +227,7 @@ class Page:
 
   def render(self, type='localfile'):
     if type == 'localfile':
-      tmpl = tools.load_txt(self.tmpl)
+      tmpl = tools.text_load(self.tmpl)
       rendered = Template(tmpl).render(data=self.data)
       return rendered
     else:

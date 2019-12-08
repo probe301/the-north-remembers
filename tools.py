@@ -202,10 +202,10 @@ class IncludeOrderedLoader(yaml.Loader):
 
 
 def yaml_load(path, loader=IncludeOrderedLoader):
-  ''' 按照有序字典载入yaml 支持 !include
-  '''
-  return yaml.load(open(path, encoding='utf-8'), loader)
-
+  ''' 按照有序字典载入yaml 支持 !include'''
+  with open(path, encoding='utf-8') as f:
+    result = yaml.load(f, loader)
+  return result
 
 
 def yaml_save(data, path):
@@ -251,13 +251,20 @@ def json_saves(data):
   return json.dumps(data)
 
 
-def load_txt(path, encoding='utf-8'):
+def text_load(path, encoding=None):
+  ''' 读取文本, 尝试不同的解码 '''
+  if not os.path.exists(path):
+    raise ValueError("path `{}` not exist".format(path))
+  if encoding is None:  # 猜测 encoding
+    try:
+      open(path, 'r', encoding='utf-8').read()
+      encoding = 'utf-8'
+    except UnicodeDecodeError:
+      encoding = 'gbk'
   with open(path, 'r', encoding=encoding) as f:
     ret = f.read()
   return ret
-
-
-def save_txt(path, data, encoding='utf-8'):
+def text_save(path, data, encoding='utf-8'):
   with open(path, 'w', encoding=encoding) as f:
     f.write(data)
   return True
@@ -683,7 +690,7 @@ def fix_video_link(mdtxt):
 def test_fix_video_link():
   # import tools
   # for p in tools.all_files(r'D:\DataStore\test', '*.md'):
-  #   t = tools.load_txt(p)
+  #   t = tools.text_load(p)
   #   for i, line in tools.enumer(t.splitlines()):
   #     if line == '[':  # if 'https://www.zhihu.com/video/' in line:
   #       print(f'found in {p}')

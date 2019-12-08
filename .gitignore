@@ -10,6 +10,7 @@ test/__pycache__/
 __pycache__/
 *.py[cod]
 todo.py
+temp/
 templates/node_modules/
 templates/package-lock.json
 # C extensions

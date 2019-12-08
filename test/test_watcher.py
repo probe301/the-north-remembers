@@ -1,6 +1,6 @@
 
-import os, sys 
-parentdir = os.path.dirname(os.path.dirname(os.path.abspath(__file__))) 
+import os, sys
+parentdir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, parentdir)
 import shutil
 import tools
@@ -8,12 +8,24 @@ from watcher import Watcher
 from pyshould import should
 import arrow
 from datetime import datetime
+from time import sleep
 import dictdiffer
 import pytest
 from task import Task
 
+'''
+#### Watcher
+任务调度, 监视文件夹, 
+.config.yaml 抓取页面
+.tasks.yaml 记录历史
 
+task_type: page, lister, 
 
+通过扫描已有的待抓取任务, 在手动触发或者达到特定时间后, 分派抓取任务
+
+'''
+
+ROOTPATH = r'D:/DataStore'
 PROJECTPATH = r'D:/DataStore/Test Watcher'
 PROJECTPATHOPEN = r'D:/DataStore/Test Watcher Open'
 PROJECTPATHNEW = r'D:/DataStore/Test Watcher New'
@@ -41,7 +53,7 @@ rss_output_path: 'feed.xml'
 epub_output_path: none
 # Lister Task and Page Task
 urls:
-  - url: https://zhuanlan.zhihu.com/frontEndInDepth       
+  - url: https://zhuanlan.zhihu.com/frontEndInDepth
     tip: "专栏 TryFEInDepth"
     option: {limit: 4}
   - url: https://zhuanlan.zhihu.com/learn-vue-source-code
@@ -52,34 +64,37 @@ urls:
       text_exclude: '有哪些,如何看待'  # 标题/话题中有这些关键词, 就不抓取limit: 10
 '''
 
+PROJECTPATHWITHGIT = PROJECTPATH + ' withgit'
+CONFIGDATAWITHGIT = CONFIGDATA.replace("git_commit_path: ''", "git_commit_path: '.'")
 
 
 @pytest.fixture()  # default scope='function'
 def setup_git_project(request):
   def teardown_function():
     print("teardown_git_project...")
-    shutil.rmtree(PROJECTPATH, ignore_errors=True)
-  request.addfinalizer(teardown_function)  
+    # tools.run_command(f'cd "{ROOTPATH}"')
+    # sleep(3)
+    # shutil.rmtree(PROJECTPATHWITHGIT, ignore_errors=False)
+  request.addfinalizer(teardown_function)
 
   print('setup_git_project...')
-  shutil.rmtree(PROJECTPATH, ignore_errors=True)
-  os.makedirs(PROJECTPATH, exist_ok=True)
-  configdata = CONFIGDATA.replace("git_commit_path: ''", "git_commit_path: '.'")
-  tools.save_txt(PROJECTPATH + '/.config.yaml', configdata)
-  cmd = f'cd "{PROJECTPATH}" && git init'
+  shutil.rmtree(PROJECTPATHWITHGIT, ignore_errors=True)
+  os.makedirs(PROJECTPATHWITHGIT, exist_ok=True)
+  tools.text_save(PROJECTPATHWITHGIT + '/.config.yaml', CONFIGDATAWITHGIT)
+  cmd = f'cd "{PROJECTPATHWITHGIT}" && git init'
   tools.run_command(cmd)
-  cmd = f'cd "{PROJECTPATH}" && git config user.name TNR && git config user.email tnr@email.com'
+  cmd = f'cd "{PROJECTPATHWITHGIT}" && git config user.name TNR && git config user.email tnr@email.com'
   tools.run_command(cmd)
-  cmd = f'cd "{PROJECTPATH}" && git add . && git commit -m "init TNR project"'
+  cmd = f'cd "{PROJECTPATHWITHGIT}" && git add . && git commit -m "init TNR project"'
   tools.run_command(cmd)
 
 
 def test_1_watcher_open():
   os.makedirs(PROJECTPATHOPEN, exist_ok=True)
-  tools.save_txt(PROJECTPATHOPEN + '/.config.yaml', CONFIGDATA)
+  tools.text_save(PROJECTPATHOPEN + '/.config.yaml', CONFIGDATA)
   w = Watcher.open(PROJECTPATHOPEN)
   w.report()
-  shutil.rmtree(PROJECTPATHOPEN, ignore_errors=True)
+  shutil.rmtree(PROJECTPATHOPEN, ignore_errors=False)
 
 
 def test_2_watcher_create():
@@ -87,16 +102,17 @@ def test_2_watcher_create():
   Watcher.create(PROJECTPATHNEW)
   w = Watcher.open(PROJECTPATHNEW)
   w.report()
-  shutil.rmtree(PROJECTPATHNEW, ignore_errors=True)
+  shutil.rmtree(PROJECTPATHNEW, ignore_errors=False)
 
 def test_3_git_report(setup_git_project):
-  w = Watcher.open(PROJECTPATH)
-  w.folder  | should.equal('Test Watcher')
-  w.listers | should.equal(['https://zhuanlan.zhihu.com/frontEndInDepth', 'https://zhuanlan.zhihu.com/learn-vue-source-code'])
+  w = Watcher.open(PROJECTPATHWITHGIT)
+  w.folder | should.equal('Test Watcher withgit')
+  lister_urls = [t.url for t in w.get_lister_tasks()]
+  lister_urls | should.equal(['https://zhuanlan.zhihu.com/frontEndInDepth', 'https://zhuanlan.zhihu.com/learn-vue-source-code'])
   w.report()
 
 def test_4_watch_once(setup_git_project):
-  w = Watcher.open(PROJECTPATH)
+  w = Watcher.open(PROJECTPATHWITHGIT)
   w.report()
   w.watch_once()
   for path in tools.all_files(w.watcher_path, '*.md', ):

@@ -36,6 +36,8 @@ from typing import List
 from pydantic import (BaseModel, ValidationError, validator, root_validator,
                       HttpUrl, DirectoryPath, FilePath,)
 
+
+
 class TaskEnvOption(BaseModel):
   '''收集 .config.yaml 里和 task 环境有关的配置'''
   lister_max_cycle = '30days'
@@ -113,8 +115,8 @@ class Watcher:
     # 更新 listers 中的 task, 用户可能修改了某些 lister 的 option
     for item in self.lister_urls:
       url = item['url']
-      custom_option = item.get('option')
-      if custom_option: # custom_option = config.yaml 的全局 task 设置 + lister 自定义设置
+      custom_option = item.get('option')  # lister 自定义设置
+      if custom_option: 
         self.tasks[url].patch(custom_option)
 
     # TODO 更新 page_option 中的 task, 用户可能修改了单独某个 page 的 option
@@ -156,7 +158,7 @@ urls:
     option: {limit: 3}
 
     '''
-    tools.save_txt(path, config)
+    tools.text_save(path, config)
 
 
   @classmethod
@@ -181,27 +183,26 @@ urls:
     return os.path.exists(path) and os.path.exists(path + '/.config.yaml') and os.path.exists(path + '/.tasks.yaml')
 
   def __str__(self):
-    s = '''<Watcher #{}> from `{}`, {} tasks'''
-    return s.format(id(self), self.watcher_path, self.tasks_count)
+    s = '''<Watcher #{}> from `{}`, {} tasks {} pages'''
+    return s.format(id(self), self.watcher_path, self.tasks_count, self.pages_count)
 
   @property
   def git_project_path(self):
     path = self.config.git_commit_path
-    if path:
-      return os.path.join(self.watcher_path, path)
-    else:
-      return None
-  @property
-  def git_commit_batch(self):
-    return self.config.git_commit_path
-
-
+    if path: return os.path.join(self.watcher_path, path)
+    else: return None
 
   @property
   def pages(self):
     all_pages = tools.all_files(self.watcher_path, patterns='*.md', single_level=True)
     return list(all_pages)
 
+  @property
+  def pages_count(self):
+    return len(self.pages)
+
+  @property
+  def tasks_count(self): return len(self.tasks.keys())
 
   def add_task(self, task_desc):
     ''' 添加一个 Task, 以 url 判断是否为已存在的 Task
@@ -211,17 +212,15 @@ urls:
           prepare    任务已到抓取时间, 等待抓取
           wait       任务不到抓取时间
     '''
-    env_task_option = self.config.get('task_option')
     url = task_desc['url']
     seen_task = self.tasks.get(url)
     if seen_task:
-      if seen_task.next_watch_time <= time_now(): return "seen+prepare"
-      else: return "seen+wait"
+      if seen_task.next_watch_time <= time_now(): return "seen tasks, prepare fetch"
+      else: return "seen tasks, not on fetch time"
     else:
-      new_task = Task.create(task_desc, env_task_option)
+      new_task = Task.create(task_desc, self.task_env_option)
       self.tasks[url] = new_task
-      return "new+prepare"
-
+      return "new tasks"
 
   def add_tasks(self, tasks_desc):
     ''' 添加任务列表, 并输出报告
@@ -233,14 +232,12 @@ urls:
           wait       任务不到抓取时间
     '''
     results = []
-    for task_desc in tasks_desc:
-      result = self.add_task(task_desc)
-      results.append(result)
+    for item in tasks_desc:
+      add_task_result = self.add_task(item)
+      results.append(add_task_result)
     log(f'watcher add {len(tasks_desc)} tasks: {dict(Counter(results))}')
     return Counter(results)
 
-  @property
-  def tasks_count(self): return len(self.tasks.keys())
 
   def save_tasks_yaml(self):
     ''' 存盘 .tasks.yaml
@@ -251,43 +248,58 @@ urls:
     for task in tasks:
       temp += task.to_yaml_text()
       temp += '\n'
-    tools.save_txt(path=self.watcher_path + '/.tasks.yaml', data=temp)
+    tools.text_save(path=self.watcher_path + '/.tasks.yaml', data=temp)
+
+
+  def get_lister_tasks(self):
+    lister_tasks_queue = []
+    for task in self.tasks.values():
+      if task.is_lister_type:
+        lister_tasks_queue.append(task)
+    return lister_tasks_queue
+
+
+  def get_lister_tasks_should_fetch(self):
+    lister_tasks_queue = []
+    for task in self.tasks.values():
+      if task.should_fetch and task.is_lister_type:
+        lister_tasks_queue.append(task)
+    lister_tasks_queue.sort(key=lambda x: -x.priority)
+    return lister_tasks_queue
+
+  def get_page_tasks_should_fetch(self):
+    page_tasks_queue = []
+    for task in self.tasks.values():
+      if task.should_fetch and task.is_page_type:
+        page_tasks_queue.append(task)
+    page_tasks_queue.sort(key=lambda x: -x.priority)
+    return page_tasks_queue
+
+
 
   def run(self):
     ''' 爬取页面,
         首先列出所有的NewPost任务, 都抓取一遍
         然后列出普通页面任务, 都抓取一遍
     '''
-    lister_tasks_queue = []
-    for task in self.tasks.values():
-      if task.should_fetch and task.is_lister_type:
-        lister_tasks_queue.append(task)
-    lister_tasks_queue.sort(key=lambda x: -x.priority)
+    lister_tasks_queue = self.get_lister_tasks_should_fetch()
     log(f'watching listers... should fetch {len(lister_tasks_queue)} lister tasks\n')
     for i, task in enumerate(lister_tasks_queue, 1):
       # log('Watcher.watch lister task.run: {}'.format(task))
       new_tasks_json = task.run()
       counter = self.add_tasks(new_tasks_json)
-      is_modified = counter["new+prepare"] > 0
-      task.schedule(is_modified=is_modified) # is_modified = add_tasks 时出现了新的 task
-      log(f'lister task done ({i}/{len(lister_tasks_queue)}): \n{task}\n\n')
+      is_modified = counter["new tasks"] > 0   # is_modified = add_tasks 时出现了新的 task
+      task.schedule(is_modified=is_modified) 
+      log(f'detect lister done ({i}/{len(lister_tasks_queue)}): \n{task}\n\n')
       self.save_tasks_yaml()
       yield {'commit_log': f'check lister {i}/{len(lister_tasks_queue)}, {task.brief_tip}'}
       # self.remember(commit_log='checked lister {}'.format(i), watcher_path=self.watcher_path)
       tools.time_random_sleep(5, 10)
 
-
-    page_tasks_queue = []
-    for task in self.tasks.values():
-      if task.should_fetch and task.is_page_type:
-        page_tasks_queue.append(task)
-    page_tasks_queue.sort(key=lambda x: -x.priority)
+    page_tasks_queue = self.get_page_tasks_should_fetch()
     log(f'watching pages... should fetch {len(page_tasks_queue)} page tasks\n')
-
-
-    for tasks_batch in tools.windows(enumerate(page_tasks_queue, 1), self.git_commit_batch, yield_tail=True):
+    for tasks_batch in tools.windows(enumerate(page_tasks_queue, 1), self.config.git_commit_batch, yield_tail=True):
       # log('Watcher.watch page task: {}'.format(task))
-
       for i, task in tasks_batch:
         page_json = task.run()
         page_json['metadata']['folder'] = self.watcher_path
@@ -305,7 +317,7 @@ urls:
       yield {'commit_log': f'save {len(tasks_batch)} pages, {commit_tasks_log}'}
       # self.remember(commit_log='save pages {}'.format(i))
 
-      tools.time_random_sleep(5, 10)
+      tools.time_random_sleep(3, 6)
 
 
   def watch_once(self):
@@ -330,16 +342,18 @@ urls:
 
   def report(self):
     ''' 输出 Watcher folder 的摘要 '''
-    log(f'report {self} \n---------------------')
+    log(f'---------------------')
     folder = self.folder
+    count = self.pages_count
     folder_md5 = tools.md5(self.folder, 10)
-    count = len(self.pages)
-    log(f'    Watcher: "{folder}" ({folder_md5}) {count} pages)')
+    log(f'  ├─── Watcher: "{folder}" ({folder_md5}) {count} pages)')
+    log(f'  ├─── should fetch {len(self.get_lister_tasks_should_fetch())} lister tasks')
+    log(f'  ├─── should fetch {len(self.get_page_tasks_should_fetch())} page tasks')
     if self.git_project_path:
       output = tools.run_command(f'cd "{self.git_project_path}" && git log --oneline -n 5')
-      log('git log: ')
+      log('  ├─── git log: ')
       for line in output.splitlines():
-        log(f'    {line.strip()}')
+        log(f'  ├─── {line.strip()}')
     log(f'---------------------')
 
 

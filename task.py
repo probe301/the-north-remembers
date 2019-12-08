@@ -129,11 +129,11 @@ class Task(BaseModel):
   def last_change_time_setting(cls, v): # 如果缺省, 不做设置
     if v in ('null', 'none', 'None', None): return None
     else: return v
-  
-
 
   def __str__(self):
-    s = '''<Task url={0.url} ver={0.version}> "{0.tip}" add:{1}, watch:{2}, change:{3}, next:{4}'''
+    s = '''<Task url="{0.url}">
+    ├─── "{0.tip}" ver.{0.version}
+    └─── add: {1}, watch: {2}, change: {3}, next: {4}'''
     return s.format(self,
                     time_to_humanize(self.task_add_time),
                     self.last_watch_time and time_to_humanize(self.last_watch_time),
@@ -145,6 +145,11 @@ class Task(BaseModel):
   def create(cls, desc, env_option={}, fetcher_option={}):
     '''从 json description 创建 Task'''
     option = tools.dict_merge(env_option, desc)
+    if 'timestamp' in option:
+      option['task_add_time'] = option['timestamp'].get('task_add')
+      option['next_watch_time'] = option['timestamp'].get('next_watch')
+      option['last_watch_time'] = option['timestamp'].get('last_watch')
+      option['last_change_time'] = option['timestamp'].get('last_change')
     t = parse_type(option['url'])
     if str(t).endswith('Lister'):
       return ListerTask(**option, fetcher_option=fetcher_option)
@@ -301,7 +306,7 @@ class ListerTask(Task):
     '''执行一次抓取'''
     # 探测新的页面
     # log('Task.run lister request: {}'.format(str(self)))
-    fetcher = Fetcher.create(fetcher_option=self.fetcher_option)
+    fetcher = Fetcher.create(url=self.url, fetcher_option=self.fetcher_option.dict())
     tasks_json = fetcher.request()
     log('Task.run detect new tasks done: {} tasks'.format(len(tasks_json)))
     return tasks_json
@@ -342,7 +347,7 @@ class PageTask(Task):
   def run(self):
     '''执行一次抓取'''
     # log('Task.run page request: {}'.format(str(self)))
-    fetcher = Fetcher.create(fetcher_option=self.fetcher_option)
+    fetcher = Fetcher.create(url=self.url, fetcher_option=self.fetcher_option)
     data_json = fetcher.request()
     # log('Task.run fetch page done')
     return data_json

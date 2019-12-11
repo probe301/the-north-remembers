@@ -1,5 +1,6 @@
 
 
+import os
 import re
 from enum import Enum
 from pyquery import PyQuery
@@ -31,9 +32,17 @@ from crawler.zhihu import parse_article
 
 # from crawler.weixin import fetch_weixin_article_lister
 from crawler.weixin import fetch_weixin_article_page
+from crawler.wemp import fetch_wemp_page
+from crawler.wemp import fetch_wemp_lister
 
 
 from crawler.zhihu import ZhihuFetchError
+
+from pydantic import (BaseModel, ValidationError, validator, root_validator, 
+                      HttpUrl, DirectoryPath, FilePath,)
+
+
+
 
 
 
@@ -45,15 +54,52 @@ log_error = create_logger(__file__ + '.error')
 
 
 
+class FetcherError(Exception):
+  pass
+
+class FetcherOption(BaseModel):
+  save_attachments = True
+  limit = 300
+  min_voteup = 0
+  min_thanks = 0
+  text_include: str = None
+  text_exclude: str = None
+
+  def patch(self, data):
+    for k, v in data.items():
+      if k in self.__fields__:
+        setattr(self, k, v)
 
 
+
+
+UA = "Mozilla/5.0 (Windows NT 6.3; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/49.0.2623.13 Safari/537.36"
 session = requests.Session()
-def request_with_ua(url):
-  # requests with UA
-  UA = "Mozilla/5.0 (Windows NT 6.3; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/49.0.2623.13 Safari/537.36"
-  headers = { "User-Agent" : UA}
+
+def common_get(url, cache=True, referer=None):
+  '''# requests with UA, referer, cache'''
+  md5 = tools.md5(url, 6)
+  file_url = tools.remove_invalid_char(','.join(url.split('/')[2:]))
+  cache_file = f'temp/{file_url}-{md5}'
+  
+  if cache and os.path.exists(cache_file):
+    modify_time = tools.time_now_stamp() - os.path.getmtime(cache_file)
+    if modify_time < 3600: # 在60分钟以内修改
+      log(f'using cached `{url}`\n    `{cache_file}`')
+      return tools.text_load(cache_file)
+
+  # 没有 cache, 需要抓取
+  if referer is None: referer = '/'.join(url.split('/')[:3])
+  log(f'referer {referer}')
+  headers = { "User-Agent" : UA, "Referer": referer}
   resp = session.get(url, headers=headers)
-  return resp.text                   # for text
+  log(f'resp.status_code { resp.status_code }')
+  if resp.status_code != 200:
+    raise FetcherError(f'can not get url {url}, resp.status_code={resp.status_code}')
+
+  data = bytes.decode(resp.content, encoding='utf-8')
+  if cache: tools.text_save(data=data, path=cache_file)
+  return data
 
 
 
@@ -103,9 +149,8 @@ UrlType = Enum('UrlType',
                  'ZhihuAuthor', 
                  'ZhihuQuestionPage',   # 用于抓取问题描述
                  'ZhihuQuestionLister', # 问题页, 用于监视新增回答
-                 'WeixinArticleLister',
-                 'WeixinArticlePage',
-                 'WempPage',
+                 'WeixinArticlePage', 'WeixinArticleLister',
+                 'WempPage', 'WempLister',
                  )
                )
 
@@ -135,12 +180,12 @@ def parse_type(url):
     return UrlType.ZhihuAnswerLister  # from collection's answers
   if re.search(r'https://www.zhihu.com/question/\d+', url):
     return UrlType.ZhihuAnswerLister  # from question's answers
-  if re.search(r'https://wemp.app/accounts/.+?', url):
-    return UrlType.WeixinArticleLister 
   if re.search(r'https://rsshub.app/wechat/ershicimi/\d+', url):
     return UrlType.WeixinArticleLister 
   if re.search(r'https://wemp.app/posts/.+?', url):
     return UrlType.WempPage
+  if re.search(r'https://wemp.app/accounts/.+?', url):
+    return UrlType.WempLister
   if re.search(r'http://mp.weixin.qq.com/s\?__biz=.+?', url):
     return UrlType.WeixinArticlePage
 
@@ -190,10 +235,16 @@ def format_weixin_url(url):
 
 
 
-class Fetcher:
+class Fetcher(BaseModel):
+
+  url : str
+  option : FetcherOption
+
   @classmethod
-  def create(cls, fetcher_option={}):
-    return cls(fetcher_option)
+  def create(cls, url, fetcher_option):
+    if isinstance(fetcher_option, dict):
+      fetcher_option = FetcherOption(**fetcher_option)
+    return cls(url=url, option=fetcher_option)
 
   @classmethod
   def generate_tip(cls, url):
@@ -244,15 +295,13 @@ class Fetcher:
 
 
 
-  def __init__(self, option):
-    self.url = option['url']
-    self.option = option
 
   def request(self):
     ''' 抓取页面的详细内容 '''
     url_type = parse_type(self.url)
     method = getattr(self, 'request_' + str(url_type).split('.')[-1])
-    return method()
+    result = method()
+    return result
 
   def detect(self):
     ''' 获取主要参数, 如页面标题, 点赞数等, 尽量不抓取详细页面 '''
@@ -400,5 +449,29 @@ class Fetcher:
   def request_WeixinArticlePage(self):
     url = format_weixin_url(self.url)
     data = fetch_weixin_article_page(url)
+    return data
+
+
+  def request_WempPage(self):
+    html = common_get(self.url)
+    data = fetch_wemp_page(html)
+    return data
+
+  def request_WempLister(self):
+    def gen_wemp_item(url):
+      cur_page = 1
+      while True:
+        html = common_get(url + f'?page={cur_page}')
+        items = fetch_wemp_lister(html)
+        for item in items:
+          yield item
+        if len(items) < 10:
+          return
+        cur_page += 1
+
+    data = []
+    url = self.url
+    for item, _ in zip(gen_wemp_item(url), range(self.option.limit)):
+      data.append(item)
     return data
 

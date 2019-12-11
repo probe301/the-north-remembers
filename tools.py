@@ -8,7 +8,7 @@ import time
 import arrow
 import json
 import random
-
+import html2text
 
 import sys
 
@@ -719,12 +719,10 @@ def trim_leading_spaces(text):
   return '\n'.join(line[min_leading_space_count:] for line in array)
 
 
+def html2md(html_str):
+  h2t = html2text.HTML2Text()
+  h2t.body_width = 0
+  r = h2t.handle(html_str).strip()
+  r = '\n'.join(p.rstrip() for p in r.split('\n'))
+  return re.sub('\n{4,}', '\n\n\n', r)
 
-if __name__ == "__main__":
-  # test_fix_md_title()
-  # test_fix_svg_image()
-  # test_fix_video_link()
-  # test_fix_image_alt()
-  for key in locals().copy():
-    if key.startswith('test_'):
-      print(key, type(key))

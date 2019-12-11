@@ -121,12 +121,6 @@ class Page:
   @property
   def fetch_date(self): return self.metadata.get('fetch_date')
   @property
-  def create_date_stamp(self): return tools.time_from_str(self.create_date)
-  @property
-  def edit_date_stamp(self): return tools.time_from_str(self.edit_date)
-  @property
-  def fetch_date_stamp(self): return tools.time_from_str(self.fetch_date)
-  @property
   def filename(self): 
     name = remove_invalid_char(self.metadata['title']) + '.md'
     enlen = lambda t: tools.encode_len(t, encode='utf-8')

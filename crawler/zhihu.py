@@ -1270,7 +1270,8 @@ def yield_question_answers(question_id, limit=100, min_voteup=300, min_thanks=50
       break
 
 
-def yield_column_articles(column_id, limit=100, min_voteup=20):
+def yield_column_articles(column_id, limit=100, min_voteup=20, text_contains=()):
+  # TODO: 参数需要改成 pipeline
   column = client.column(column_id)
   count = 0
   for article in column.articles:

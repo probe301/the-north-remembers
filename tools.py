@@ -429,7 +429,7 @@ def compare_text(t1, t2, prefix=''):
 
 def split_text(text):
   col = []
-  for sent in re.findall('.*?[！|，|。|？|\n|；|~|～|：|\)|\]]', text):
+  for sent in re.findall(r'.*?[！|，|。|？|\n|；|~|～|：|\)|\]]', text):
     col.append(sent)
   return col
 
@@ -630,8 +630,8 @@ def guess_lang_pygments(code):
   return lang
 
 # guesslang 好一些
-from guesslang import Guess
 def guess_lang(code):
+  from guesslang import Guess
   name = Guess().language_name(code)
   return name.lower()
 

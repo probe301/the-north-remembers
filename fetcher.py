@@ -317,8 +317,9 @@ class Fetcher(BaseModel):
         min_voteup: 赞同数超过 n'''
     tasks_desc = []
     column_id = self.url.split('/')[-1]
-    limit = self.option['limit']
-    min_voteup = self.option.get('min_voteup', 0)
+    log(f'self.option {self.option}')
+    limit = self.option.limit
+    min_voteup = self.option.min_voteup
     # 专栏没有感谢 min_thanks = self.option.get('min_thanks', 0)
     log('request_ZhihuColumnLister column_id', column_id)
     for article in yield_column_articles(column_id, limit=limit, min_voteup=min_voteup):

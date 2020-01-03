@@ -122,7 +122,7 @@ class Task(BaseModel):
     return v or time_now()
   @validator('last_watch_time', pre=True)
   def last_watch_time_setting(cls, v): # 如果缺省, 不做设置
-    log(f'last_watch_time_setting v={v}')
+    # log(f'last_watch_time_setting v={v}')
     if v in ('null', 'none', 'None', None): return None
     else: return v
   @validator('last_change_time', pre=True)

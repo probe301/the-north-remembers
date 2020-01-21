@@ -176,3 +176,35 @@ Redux的数据是如何流动的其实也是理解Redux的好处的关键部分�
 '''
   assert tools.fix_image_alt(mdtxt).strip() == result.strip()
 
+
+
+
+
+def test_format_convert_md():
+  sample = '''
+<strong>魂灵篇-壹</strong>
+
+<p style="text-align: left;"> 3.开荒</p>
+<p style="text-align: left;"> 魂灵开荒时，最重要的地形应该算是叶族地了，来自屎大棒，这种地形呈现出不健康的惨绿色，并且有特殊的背景，应该很容易认出来。</p>
+<figure class="img-box" contenteditable="false"><img data-src="//i0.hdslb.com/bfs/article/d1ac1c8df27d877ff83e41ef10a9d8f7d81067cb.png" width="1920" height="1080" data-size="259737" />
+    <figcaption class="caption" contenteditable="">叶族地形</figcaption>
+</figure>
+<p style="text-align: left;"> 这种地形有特殊的敌人以及尖刺陷阱，因此比较危险，最好小心探索。</p>
+<p style="text-align: center;"> 收益：<span class="color-green-02">创造之祭坛</span></p>
+<figure class="img-box" contenteditable="false"><img data-src="//i0.hdslb.com/bfs/article/ec93e495aaae10e5e39b7e8f4f71c177b9e184a0.png" width="467" height="338" data-size="44775" />
+    <figcaption class="caption" contenteditable="">上图左下角位置</figcaption>
+</figure>
+<p style="text-align: left;"> 这玩意其实做起来也不算很贵，但是如果找到叶族地挖到的话，可以省下很大一番功夫，也是比较给力的。</p>
+<p style="text-align: center;"><span class="color-green-02">叶族地箱子</span></p>
+<figure class="img-box" contenteditable="false"><img src="//i0.hdslb.com/bfs/article/5242b6f4ed0061585aab640756a5486170037e38.png" width="96" height="60" data-size="1670" />
+    <figcaption class="caption" contenteditable="">这种东西</figcaption>
+</figure>
+<p style="text-align: left;"> 里面包含有各种前期武器饰品及材料（比如玻璃瓶，银币，远古树皮等），对前期增强实力有着极大的裨益。<span class="font-size-20">特别是其中的猎人回旋镖</span></p>
+
+  '''
+
+  result = tools.html2md(sample)
+  # print(result)
+  # html2text 不能识别 `<img data-src=xxx />` 需要事先修正为 `<img src=xxx />`
+  assert 'i0.hdslb.com' in result, result
+

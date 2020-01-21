@@ -12,8 +12,6 @@ from collections import Counter
 from pprint import pprint
 import tools
 
-log = tools.create_logger(__file__)
-log_error = tools.create_logger(__file__ + '.error')
 
 from task import Task
 from fetcher import UrlType
@@ -33,7 +31,26 @@ from page import Page
 # from werkzeug.contrib.atom import AtomFeed
 from feedgen.feed import FeedGenerator
 
+from colorlog import ColoredFormatter
+import logging
 
+
+logging.root.setLevel(logging.DEBUG)
+
+stream = logging.StreamHandler()
+stream.setLevel(logging.DEBUG)
+LOGFORMAT = "  %(log_color)s%(asctime)s  %(levelname)-8s%(reset)s | %(log_color)s%(message)s%(reset)s"
+stream.setFormatter(ColoredFormatter(LOGFORMAT))
+
+log = logging.getLogger('example')
+log.setLevel(logging.DEBUG)
+log.addHandler(stream)
+
+# log.debug("This is debug.")
+# log.info("This is info.")
+# log.warning("This is warning.")
+# log.error("This is error.")
+# log.critical("This is critical.")
 
 class Collector:
   '''
@@ -593,6 +610,26 @@ def api_fetch_zhihu_single_answer(q_id, a_id):
 
 
 
+@app.route('/url/<path:url>')
+def fetch_common_url(url):
+
+  log.info(f'GET common_url `{url}`')
+  data = {'key': 123}
+  url_type = parse_type(url)
+  if url_type == UrlType.ZhihuColumnPage:
+    data = zhihu.fetch_zhihu_article(url)
+  elif url_type == UrlType.ZhihuAnswerPage:
+    data = zhihu.fetch_zhihu_answer(url)
+  else:
+    log.error('GET common_url cannot parse')
+    return 404
+
+  data['metadata']['folder'] = './'
+  page = Page.create(data)
+  mdtxt = page.render()
+  return allow_origin({'mdtxt': mdtxt})
+
+
 
 
 
@@ -609,11 +646,11 @@ def api_fetch_zhihu_single_answer(q_id, a_id):
 if __name__ == '__main__':
   if tools.is_windows():
     project_path = 'D:/DataStore/Test Collector2' 
-    col = Collector(project_path=project_path)
+    # col = Collector(project_path=project_path)
     app.run(debug=True, host='0.0.0.0', port=80)
   elif tools.is_linux():
     project_path = '/project'
-    col = Collector(project_path=project_path)
+    # col = Collector(project_path=project_path)
     app.run(debug=True, host='0.0.0.0', port=443,
             ssl_context=('cert.pem', 'key.pem'))
   else:

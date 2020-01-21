@@ -75,6 +75,33 @@ def test_4_fetch_wemp_lister_all_fetch():
 
 
 
+def test_5_fetch_bilibili_article_lister():
+  desc = { 'url': 'https://space.bilibili.com/23096000/article',  
+           'tip': '专栏列表 泰拉瑞亚多模组：模组流程解析', }
+  task = Task.create(desc, env_option=ENV_OPTION, fetcher_option={'limit': 500})
+  data = task.run()
+  print(data)
+  len(data) | should.equal(13)
+  data[0]['title']  | should.equal('泰拉瑞亚多模组：模组流程解析')
+  data[-1]['title'] | should.equal('泰拉瑞亚多模组：那些有趣有用的饰品')
+
+
+def test_6_fetch_bilibili_article_page():
+  desc = { 'url': 'https://www.bilibili.com/read/cv2004646',  
+           'tip': 'Page 泰拉瑞亚多模组：模组流程解析', }
+  task = Task.create(desc, env_option=ENV_OPTION, fetcher_option={'limit': 500})
+  data = task.run()
+  print(data)
+
+  data['metadata']['title'] | should.equal('泰拉瑞亚多模组：模组流程解析')
+  data['metadata']['author_url'] | should.equal('https://space.bilibili.com/23096000')
+  data['metadata']['publish_date'] | should.equal('2019-2-5 17:40:58')
+
+  data['metadata']['view_count']       | should.eq(482), 
+  data['metadata']['like_count']       | should.eq(32), 
+  data['metadata']['comment_count']    | should.eq(12), 
+  data['metadata']['coin_count']       | should.eq(17), 
+  data['metadata']['favorite_count']   | should.eq(19), 
 
 
 

@@ -117,3 +117,15 @@ def test_4_watch_once(setup_git_project):
   w.watch_once()
   for path in tools.all_files(w.watcher_path, '*.md', ):
     print(path)
+
+
+def test_5_watcher_add_lister():
+  url = 'https://zhuanlan.zhihu.com/prodesire'
+  w = Watcher.create(r'D:\DataStore\prodesire')
+  w.listers 
+  w.add_lister(url)
+  w.report()
+
+def test_6_watcher_generate_feed():
+  col.generate_feed('旗舰评论——战略航空军元帅的旗舰', 
+                    limit=150, site='http://tnr-feed.netlify.com/')

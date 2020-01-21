@@ -34,14 +34,16 @@ from crawler.zhihu import parse_article
 from crawler.weixin import fetch_weixin_article_page
 from crawler.wemp import fetch_wemp_page
 from crawler.wemp import fetch_wemp_lister
+from crawler.bilibili_read import fetch_bilibili_read_page
+from crawler.v2ex import fetch_v2ex_page
 
 
 from crawler.zhihu import ZhihuFetchError
 
-from pydantic import (BaseModel, ValidationError, validator, root_validator, 
-                      HttpUrl, DirectoryPath, FilePath,)
+import pydantic 
 
 
+from crawler.common import common_get
 
 
 
@@ -54,16 +56,16 @@ log_error = create_logger(__file__ + '.error')
 
 
 
-class FetcherError(Exception):
-  pass
 
-class FetcherOption(BaseModel):
+class FetcherOption(pydantic.BaseModel):
   save_attachments = True
   limit = 300
   min_voteup = 0
   min_thanks = 0
-  text_include: str = None
-  text_exclude: str = None
+  title_contain: str = None
+  title_not_contain: str = None
+  body_contain: str = None
+  body_not_contain: str = None
 
   def patch(self, data):
     for k, v in data.items():
@@ -72,34 +74,6 @@ class FetcherOption(BaseModel):
 
 
 
-
-UA = "Mozilla/5.0 (Windows NT 6.3; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/49.0.2623.13 Safari/537.36"
-session = requests.Session()
-
-def common_get(url, cache=True, referer=None):
-  '''# requests with UA, referer, cache'''
-  md5 = tools.md5(url, 6)
-  file_url = tools.remove_invalid_char(','.join(url.split('/')[2:]))
-  cache_file = f'temp/{file_url}-{md5}'
-  
-  if cache and os.path.exists(cache_file):
-    modify_time = tools.time_now_stamp() - os.path.getmtime(cache_file)
-    if modify_time < 3600: # 在60分钟以内修改
-      log(f'using cached `{url}`\n    `{cache_file}`')
-      return tools.text_load(cache_file)
-
-  # 没有 cache, 需要抓取
-  if referer is None: referer = '/'.join(url.split('/')[:3])
-  log(f'referer {referer}')
-  headers = { "User-Agent" : UA, "Referer": referer}
-  resp = session.get(url, headers=headers)
-  log(f'resp.status_code { resp.status_code }')
-  if resp.status_code != 200:
-    raise FetcherError(f'can not get url {url}, resp.status_code={resp.status_code}')
-
-  data = bytes.decode(resp.content, encoding='utf-8')
-  if cache: tools.text_save(data=data, path=cache_file)
-  return data
 
 
 
@@ -151,6 +125,8 @@ UrlType = Enum('UrlType',
                  'ZhihuQuestionLister', # 问题页, 用于监视新增回答
                  'WeixinArticlePage', 'WeixinArticleLister',
                  'WempPage', 'WempLister',
+                 'BilibiliArticlePage', 'BilibiliArticleLister',
+                 'V2exPage',
                  )
                )
 
@@ -188,8 +164,12 @@ def parse_type(url):
     return UrlType.WempLister
   if re.search(r'http://mp.weixin.qq.com/s\?__biz=.+?', url):
     return UrlType.WeixinArticlePage
-
-
+  if re.search(r'https://space.bilibili.com/\d+/article', url):
+    return UrlType.BilibiliArticleLister
+  if re.search(r'https://www.bilibili.com/read/cv\d+', url):
+    return UrlType.BilibiliArticlePage
+  if re.search(r'https://www.v2ex.com/t/\d+(#\d+)?', url):
+    return UrlType.V2exPage
 
   raise ValueError('cannot reg tasktype of url {}'.format(url))
 
@@ -227,24 +207,77 @@ def format_weixin_url(url):
 
 
 
+class FetcherFilter:
+  '''
+  usage:
+    f = FetcherFilter(iter(feed), option)
+    result = f.title_contain('keyword').min_voteup(3000).limit(100)
+  '''
+  def __init__(self, iterable, option):
+    self.source = iterable
+    self.option = option
+
+  @classmethod
+  def create(cls, iterable, fetcher_option):
+    if isinstance(fetcher_option, dict):
+      fetcher_option = FetcherOption(**fetcher_option)
+    return cls(iterable, fetcher_option)
+
+  def title_contain(self, key):
+    self.source = filter(lambda item: key in item['title'], self.source)
+    return self
+
+  def min_voteup(self, n):
+    self.source = filter(lambda item: item['voteup'] >= n, self.source)
+    return self
+
+  def min_thanks(self, n):
+    def gen_thanks(itarable):
+      for item in itarable:
+        if item['thanks'] >= n: 
+          yield item
+    self.source = gen_thanks(self.source)
+    return self
+
+  def limit(self, n):
+    for item in self.source:
+      if n > 0:
+        yield item
+        n -= 1
+      else:
+        return
+
+  def title_before(self, key, include=False):
+    def gen_title_before(itarable):
+      for item in itarable:
+        if key == item['title']: 
+          if include: 
+            yield item
+          break
+        else:
+          yield item
+    self.source = gen_title_before(self.source)
+    return self
+
+  def __iter__(self):
+    return iter(self.source)
 
 
 
 
 
+class Fetcher:
 
-
-
-class Fetcher(BaseModel):
-
-  url : str
-  option : FetcherOption
+  def __init__(self, url, option):
+    self.url = url
+    self.option = option
 
   @classmethod
   def create(cls, url, fetcher_option):
     if isinstance(fetcher_option, dict):
       fetcher_option = FetcherOption(**fetcher_option)
     return cls(url=url, option=fetcher_option)
+
 
   @classmethod
   def generate_tip(cls, url):
@@ -441,7 +474,7 @@ class Fetcher(BaseModel):
     # self.url 为任何 RSSHub 微信公众号 feed 来源
     # feed 中 每个 item 的 link 为微信公众号页面永久链接
 
-    content = request_with_ua(self.url)
+    content = common_get(self.url)
     result = list(extract_items_from_feed(content))
     for item in result:
       item['url'] = format_weixin_url(item['url'])
@@ -476,3 +509,26 @@ class Fetcher(BaseModel):
       data.append(item)
     return data
 
+
+
+  def request_BilibiliArticleLister(self):
+    user_id = self.url.split('/')[3]
+    api_url = f'https://api.bilibili.com/x/space/article?mid={user_id}&jsonp=jsonp&callback=__jp13'
+    result = common_get(api_url)
+    result = tools.json_loads(result[7:-1])
+    return result['data']['articles']
+
+
+  def request_BilibiliArticlePage(self):
+    page_id = self.url.split('read/cv')[1]
+    stats_url = f'https://api.bilibili.com/x/article/viewinfo?id={page_id}&mobi_app=pc&jsonp=jsonp'
+    html = common_get(self.url)
+    stats = tools.json_loads(common_get(stats_url))
+    data = fetch_bilibili_read_page(html, stats)
+
+    return data
+
+
+  def request_V2exPage(self):
+    data = fetch_v2ex_page(self.url)
+    return data

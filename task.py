@@ -32,8 +32,7 @@ log_error = create_logger(__file__ + '.error')
 from fetcher import Fetcher
 from fetcher import FetcherOption
 from datetime import date, datetime
-from pydantic import (BaseModel, ValidationError, validator, root_validator, 
-                      HttpUrl, DirectoryPath, FilePath,)
+import pydantic 
 
 
 
@@ -57,7 +56,7 @@ class ArrowDate(str):
         raise ValueError(f'cannot parse date {v}')
     raise ValueError(f'invalid date {v}')    
 
-class Task(BaseModel):
+class Task(pydantic.BaseModel):
   '''
   抓取任务, 分为两类继承
     class ListerTask(Task) 任务 (检测列表页, 发现新页面)
@@ -100,32 +99,32 @@ class Task(BaseModel):
 
   # 来自Fetcher参数
   fetcher_option : FetcherOption
-  @validator('url')
+  @pydantic.validator('url')
   def url_should_valid(cls, v):
     v = v.strip()
     if v.strip().startswith(('http://', 'https://')): return v
     else: raise ValueError(f'invalid url {v}')
 
-  @validator('tip')
+  @pydantic.validator('tip')
   def tip_should_remove_invalid_char(cls, v):
     return tools.remove_invalid_char(str(v).replace('\n', ' '))
 
   # task 内部使用 arrow.time 类型,
   # task 序列化时, 使用 2019-12-03 18:35:35 风格
   # TODO 应该改为 2019-12-03T18:35:35.590582+08:00 风格
-  @validator('task_add_time', always=True, pre=True)
+  @pydantic.validator('task_add_time', always=True, pre=True)
   def task_add_time_set_now(cls, v):   # 这两个如果缺省, 设为当前时间
     # log(f'task_add_time_set_now v={v}')
     return v or time_now()
-  @validator('next_watch_time', always=True, pre=True)
+  @pydantic.validator('next_watch_time', always=True, pre=True)
   def next_watch_time_set_now(cls, v): # 这两个如果缺省, 设为当前时间
     return v or time_now()
-  @validator('last_watch_time', pre=True)
+  @pydantic.validator('last_watch_time', pre=True)
   def last_watch_time_setting(cls, v): # 如果缺省, 不做设置
     # log(f'last_watch_time_setting v={v}')
     if v in ('null', 'none', 'None', None): return None
     else: return v
-  @validator('last_change_time', pre=True)
+  @pydantic.validator('last_change_time', pre=True)
   def last_change_time_setting(cls, v): # 如果缺省, 不做设置
     if v in ('null', 'none', 'None', None): return None
     else: return v
@@ -285,7 +284,7 @@ class ListerTask(Task):
   min_cycle : str      # 1day
   max_cycle : str      # 3days
 
-  @root_validator(pre=True)
+  @pydantic.root_validator(pre=True)
   def check_root(cls, values):
     # print(f'check_root {values}')
     min_cycle = values.get('lister_min_cycle') or values.get('min_cycle') or '1day'
@@ -325,7 +324,7 @@ class PageTask(Task):
   min_cycle : str # = '5days'
   max_cycle : str # = '15days'
 
-  @root_validator(pre=True)
+  @pydantic.root_validator(pre=True)
   def check_root(cls, values):
     # print(f'check_root {values}')
     min_cycle = values.get('page_min_cycle') or values.get('min_cycle') or '5days'

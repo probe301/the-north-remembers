@@ -1,0 +1,41 @@
+
+---
+
+title:       {{data.metadata.title}}
+url:         {{data.metadata.url}}
+author:      {{data.metadata.author_name}}
+tags:        [{{data.metadata.tags | join(', ')}}]
+
+
+publish_date: {{data.metadata.publish_date}}
+fetch_date:  {{data.metadata.fetch_date}}
+
+view_count:  {{data.metadata.view_count}}
+
+version:     {{data.metadata.version}}
+
+---
+
+# {{data.metadata.title}}
+
+话题: {{data.metadata.tags}}
+
+作者: [{{data.metadata.author_name}}]({{data.metadata.author_url}})
+
+
+{{data.content}}
+
+
+
+　　
+
+## 评论:
+
+{% for cmt in data.comments %}
+**{{cmt.author}}**: (#{{cmt.no}}, {{cmt.date}}{{', 🧡 %s' % cmt.likes if cmt.likes}})
+{{cmt.text}}
+{% endfor %}
+
+------------------
+
+from: [{{data.metadata.url}}]()

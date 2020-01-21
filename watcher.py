@@ -32,13 +32,12 @@ from fetcher import FetcherOption
 from page import Page
 # from werkzeug.contrib.atom import AtomFeed
 from feedgen.feed import FeedGenerator
-from typing import List
-from pydantic import (BaseModel, ValidationError, validator, root_validator,
-                      HttpUrl, DirectoryPath, FilePath,)
+
+import pydantic
 
 
 
-class TaskEnvOption(BaseModel):
+class TaskEnvOption(pydantic.BaseModel):
   '''收集 .config.yaml 里和 task 环境有关的配置'''
   lister_max_cycle = '30days'
   lister_min_cycle = '12hours'
@@ -47,7 +46,7 @@ class TaskEnvOption(BaseModel):
   page_min_cycle = '45days'
 
 
-class WatcherOption(BaseModel):
+class WatcherOption(pydantic.BaseModel):
   '''收集 .config.yaml 里和 watcher 自身有关的配置'''
   git_commit_path = ''
   git_commit_batch = 3

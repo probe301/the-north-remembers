@@ -160,6 +160,8 @@ class Page:
     if page_type == UrlType.WeixinArticlePage:
       return WeixinArticlePage(data)
 
+    if page_type == UrlType.V2exPage:
+      return V2exPage(data)
     raise NotImplementedError('Page.request: cannot reg type {}'.format(url))
 
 
@@ -323,7 +325,7 @@ class ZhihuColumnPage(Page):
   def __init__(self, data):
 
     super().__init__(data)
-    self.tmpl = 'crawler/zhihu_column_page.tmpl'
+    self.tmpl = 'crawler/zhihu_column_page.jinja2'
     if data.get('from_disk'):
       self.data = data
     else:
@@ -376,7 +378,7 @@ class ZhihuAnswerPage(Page):
 
   def __init__(self, data):
     super().__init__(data)
-    self.tmpl = 'crawler/zhihu_answer_page.tmpl'
+    self.tmpl = 'crawler/zhihu_answer_page.jinja2'
 
     if data.get('from_disk'):  # from local load text
       self.data = data
@@ -425,7 +427,7 @@ class WeixinArticlePage(Page):
   '''抓取微信公众号页面'''
   def __init__(self, data):
     super().__init__(data)
-    self.tmpl = 'crawler/weixin_article_page.tmpl'
+    self.tmpl = 'crawler/weixin_article_page.jinja2'
     if data.get('from_disk'):
       self.data = data
     else:
@@ -458,3 +460,21 @@ class WeixinArticlePage(Page):
     # data['content'] = content
     return data
 
+class V2exPage(Page):
+  def __init__(self, data):
+    super().__init__(data)
+    self.tmpl = 'crawler/v2ex_page.jinja2'
+    if data.get('from_disk'):
+      self.data = data
+    else:
+      data = self.postprocess(data)
+      self.data = data
+      
+  def postprocess(self, data):
+    # content = fix_md_title(data['content'])
+    # content = fix_video_link(content)
+    # content = fix_svg_image(content)
+    # content = fix_image_alt(content)
+    # content = fix_code_lang(content)
+    # data['content'] = content
+    return data
